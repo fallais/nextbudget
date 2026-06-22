@@ -13,6 +13,7 @@ import {
   Target,
   CalendarClock,
   Users2,
+  Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ const NAV: NavItem[] = [
   { label: "Transactions", href: "/transactions", icon: Receipt },
   { label: "Budgets", href: "/budgets", icon: Target },
   { label: "Frais fixes", href: "/frais-fixes", icon: CalendarClock },
+  { label: "Patrimoine", href: "/patrimoine", icon: Landmark },
   { label: "Apports", href: "/apports", icon: Users2 },
   { label: "Catégories", href: "/categories", icon: FolderTree },
   { label: "Importer", href: "/import", icon: Upload },

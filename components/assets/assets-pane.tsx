@@ -1,0 +1,128 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Plus, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
+import { formatCents } from "@/lib/format";
+import { AssetForm, ASSET_TYPE_LABELS } from "./asset-form";
+import { AmortizationDetail } from "./amortization-detail";
+import type { Asset } from "@/lib/db/entities";
+
+export function AssetsPane({
+  assets,
+  accounts,
+}: {
+  assets: Asset[];
+  accounts: { id: number; name: string }[];
+}) {
+  const router = useRouter();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<Asset | null>(null);
+  const [expanded, setExpanded] = useState<number | null>(null);
+
+  function openForm(a: Asset | null) {
+    setEditing(a);
+    setFormOpen(true);
+  }
+
+  async function remove(a: Asset) {
+    if (!window.confirm(`Supprimer « ${a.name} » ?`)) return;
+    const res = await fetch(`/api/assets/${a.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      toast.error("Échec de la suppression");
+      return;
+    }
+    toast.success("Supprimé");
+    router.refresh();
+  }
+
+  function renderSection(title: string, list: Asset[]) {
+    return (
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>
+        {list.length === 0 ? (
+          <p className="text-sm text-muted-foreground/70">Aucun élément.</p>
+        ) : (
+          <div className="space-y-2">
+            {list.map((a) => {
+              const isLoan = a.type === "loan" || a.type === "mortgage";
+              const isOpen = expanded === a.id;
+              return (
+                <Card key={a.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="truncate font-medium">{a.name}</span>
+                          <Badge variant="secondary">{ASSET_TYPE_LABELS[a.type]}</Badge>
+                          {a.visibility === "private" && <Badge variant="outline">Privé</Badge>}
+                        </div>
+                      </div>
+                      <span
+                        className={cn(
+                          "tabular-nums font-semibold",
+                          a.kind === "liability" && "text-rose-600 dark:text-rose-400",
+                        )}
+                      >
+                        {a.kind === "liability" ? "−" : ""}
+                        {formatCents(a.valueCents)}
+                      </span>
+                      {isLoan && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          onClick={() => setExpanded(isOpen ? null : a.id)}
+                          aria-label="Échéancier"
+                        >
+                          <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => openForm(a)} aria-label="Modifier">
+                        <Pencil className="size-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="size-8" onClick={() => void remove(a)} aria-label="Supprimer">
+                        <Trash2 className="size-4" />
+                      </Button>
+                    </div>
+                    {isLoan && isOpen && (
+                      <div className="mt-3 border-t pt-3">
+                        <AmortizationDetail asset={a} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Actifs &amp; passifs</h3>
+        <Button size="sm" onClick={() => openForm(null)}>
+          <Plus className="size-4" />
+          Ajouter
+        </Button>
+      </div>
+      {renderSection("Actifs", assets.filter((a) => a.kind === "asset"))}
+      {renderSection("Passifs", assets.filter((a) => a.kind === "liability"))}
+      <AssetForm
+        key={editing?.id ?? "new"}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        asset={editing}
+        accounts={accounts}
+      />
+    </div>
+  );
+}
