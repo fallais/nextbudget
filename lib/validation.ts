@@ -122,3 +122,39 @@ export const userUpdateSchema = z.object({
   password: z.string().min(8, "8 caractères minimum").nullish(),
   isActive: z.boolean().optional(),
 });
+
+// ── Assets & liabilities (Phase 8) ───────────────────────────────────────────
+export const assetKindSchema = z.enum(["asset", "liability"]);
+export const assetTypeSchema = z.enum([
+  "real_estate",
+  "vehicle",
+  "savings",
+  "investment",
+  "loan",
+  "mortgage",
+  "other",
+]);
+
+export const assetInputSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  kind: assetKindSchema,
+  type: assetTypeSchema.default("other"),
+  valueCents: z.number().int().default(0),
+  currency: z.string().trim().min(1).max(8).default("EUR"),
+  principalCents: z.number().int().nullish(),
+  interestRateBps: z.number().int().min(0).max(100000).nullish(),
+  termMonths: z.number().int().min(1).max(1200).nullish(),
+  monthlyPaymentCents: z.number().int().min(0).nullish(),
+  startDate: z.string().date().nullish(),
+  endDate: z.string().date().nullish(),
+  accountId: z.number().int().positive().nullish(),
+  isActive: z.boolean().default(true),
+  notes: z.string().max(1000).nullish(),
+});
+
+export const assetUpdateSchema = assetInputSchema.partial();
+
+export const assetValuationSchema = z.object({
+  date: z.string().date(),
+  valueCents: z.number().int(),
+});
