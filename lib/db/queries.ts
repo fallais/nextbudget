@@ -9,6 +9,12 @@ import {
   type Category,
   type Account,
 } from "./entities";
+import {
+  getScope,
+  visibleAccountIds,
+  applyAccountScope,
+  applyOwnedScope,
+} from "./scope";
 
 export type TransactionFilters = {
   from?: string | null;
@@ -81,6 +87,7 @@ export async function listTransactions(
   const ds = await getDataSource();
   const qb = ds.getRepository(TransactionEntity).createQueryBuilder("t");
   applyFilters(qb, filters);
+  applyAccountScope(qb, "t", await visibleAccountIds(await getScope()));
   const total = await qb.getCount();
   const txs = await qb
     .orderBy("t.date", "DESC")
@@ -98,14 +105,16 @@ export async function listAllCategories(): Promise<Category[]> {
 
 export async function listAllAccounts(): Promise<Account[]> {
   const ds = await getDataSource();
-  return ds.getRepository(AccountEntity).find({ order: { name: "ASC" } });
+  const qb = ds.getRepository(AccountEntity).createQueryBuilder("a").orderBy("a.name", "ASC");
+  applyOwnedScope(qb, "a", await getScope());
+  return qb.getMany();
 }
 
 export async function listRecentTransactions(limit = 10): Promise<ListedTransaction[]> {
   const ds = await getDataSource();
-  const txs = await ds
-    .getRepository(TransactionEntity)
-    .createQueryBuilder("t")
+  const qb = ds.getRepository(TransactionEntity).createQueryBuilder("t");
+  applyAccountScope(qb, "t", await visibleAccountIds(await getScope()));
+  const txs = await qb
     .orderBy("t.date", "DESC")
     .addOrderBy("t.id", "DESC")
     .take(limit)

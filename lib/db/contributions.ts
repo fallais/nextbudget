@@ -10,6 +10,7 @@ import {
   type Transaction,
 } from "./entities";
 import { compileRule } from "@/lib/categorize/core";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
 export type ContributionStatus = {
   contribution: Contribution;
@@ -48,9 +49,13 @@ export async function listPersons(): Promise<Person[]> {
 
 export async function listContributions(): Promise<Contribution[]> {
   const ds = await getDataSource();
-  return ds.getRepository(ContributionEntity).find({
-    order: { personId: "ASC", name: "ASC" },
-  });
+  const qb = ds
+    .getRepository(ContributionEntity)
+    .createQueryBuilder("c")
+    .orderBy("c.person_id", "ASC")
+    .addOrderBy("c.name", "ASC");
+  applyOwnedScope(qb, "c", await getScope());
+  return qb.getMany();
 }
 
 export async function getContributionsByPersonWithStatus(
@@ -64,12 +69,13 @@ export async function getContributionsByPersonWithStatus(
 
   const allContribs = await listContributions();
   const ds = await getDataSource();
-  const monthlyRows = await ds
+  const monthlyQb = ds
     .getRepository(TransactionEntity)
     .createQueryBuilder("t")
     .where("t.date >= :start", { start })
-    .andWhere("t.date <= :end", { end })
-    .getMany();
+    .andWhere("t.date <= :end", { end });
+  applyAccountScope(monthlyQb, "t", await visibleAccountIds(await getScope()));
+  const monthlyRows = await monthlyQb.getMany();
   const monthlyTxs: MonthlyTx[] = monthlyRows.map((t) => ({
     id: t.id,
     date: t.date,

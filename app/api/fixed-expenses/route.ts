@@ -2,16 +2,21 @@ import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { FixedExpenseEntity } from "@/lib/db/entities";
 import { fixedExpenseInputSchema } from "@/lib/validation";
+import { getCurrentUser } from "@/lib/auth";
+import { getScope, applyOwnedScope } from "@/lib/db/scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const ds = await getDataSource();
-  const rows = await ds
+  const qb = ds
     .getRepository(FixedExpenseEntity)
-    .find({ order: { dueDay: "ASC", name: "ASC" } });
-  return NextResponse.json(rows);
+    .createQueryBuilder("f")
+    .orderBy("f.due_day", "ASC")
+    .addOrderBy("f.name", "ASC");
+  applyOwnedScope(qb, "f", await getScope());
+  return NextResponse.json(await qb.getMany());
 }
 
 export async function POST(request: Request) {
@@ -24,6 +29,7 @@ export async function POST(request: Request) {
   const repo = ds.getRepository(FixedExpenseEntity);
   const created = await repo.save(
     repo.create({
+      ownerId: (await getCurrentUser())?.id ?? null,
       name: parsed.data.name,
       categoryId: parsed.data.categoryId,
       expectedAmountCents: parsed.data.expectedAmountCents,

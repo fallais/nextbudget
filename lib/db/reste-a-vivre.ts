@@ -7,6 +7,7 @@ import {
   FixedExpenseEntity,
   ContributionEntity,
 } from "./entities";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
 export type ResteAVivreMode = "contributions" | "history";
 
@@ -26,16 +27,19 @@ function isoDate(d: Date): string {
 
 export async function computeResteAVivre(now: Date = new Date()): Promise<ResteAVivre> {
   const ds = await getDataSource();
+  const scope = await getScope();
+  const accIds = await visibleAccountIds(scope);
 
   // 1) Contributions mode
-  const contribRow = await ds
+  const contribQb = ds
     .getRepository(ContributionEntity)
     .createQueryBuilder("c")
     .innerJoin("persons", "p", "p.id = c.person_id")
     .select("COALESCE(SUM(c.expected_amount_cents), 0)", "sum")
     .where("c.is_active = true")
-    .andWhere("p.is_active = true")
-    .getRawOne<{ sum: string }>();
+    .andWhere("p.is_active = true");
+  applyOwnedScope(contribQb, "c", scope);
+  const contribRow = await contribQb.getRawOne<{ sum: string }>();
   const expectedContribTotal = Number(contribRow?.sum ?? 0);
 
   let monthlyIncome: number;
@@ -53,29 +57,32 @@ export async function computeResteAVivre(now: Date = new Date()): Promise<ResteA
     if (revenusCat) {
       const start = isoDate(startOfMonth(subMonths(now, 3)));
       const end = isoDate(endOfMonth(subMonths(now, 1)));
-      const row = await ds
+      const incomeQb = ds
         .getRepository(TransactionEntity)
         .createQueryBuilder("t")
         .select("COALESCE(SUM(t.amount_cents), 0)", "sum")
         .where("t.category_id = :cid", { cid: revenusCat.id })
         .andWhere("t.date >= :start", { start })
         .andWhere("t.date <= :end", { end })
-        .andWhere("t.amount_cents > 0")
-        .getRawOne<{ sum: string }>();
+        .andWhere("t.amount_cents > 0");
+      applyAccountScope(incomeQb, "t", accIds);
+      const row = await incomeQb.getRawOne<{ sum: string }>();
       avgIncome = Math.round(Number(row?.sum ?? 0) / monthsAveraged);
     }
     monthlyIncome = avgIncome;
     mode = "history";
   }
 
-  const fxRow = await ds
+  const fxQb = ds
     .getRepository(FixedExpenseEntity)
     .createQueryBuilder("f")
     .select("COALESCE(SUM(f.expected_amount_cents), 0)", "sum")
-    .where("f.is_active = true")
-    .getRawOne<{ sum: string }>();
+    .where("f.is_active = true");
+  applyOwnedScope(fxQb, "f", scope);
+  const fxRow = await fxQb.getRawOne<{ sum: string }>();
   const fixedTotal = Number(fxRow?.sum ?? 0);
 
+  // Budgets are still on the (shared) categories table → not visibility-scoped.
   const budgetRow = await ds
     .getRepository(CategoryEntity)
     .createQueryBuilder("c")
@@ -116,9 +123,10 @@ export async function computeActualNetCashflow(
   now: Date = new Date(),
 ): Promise<ActualNetCashflow> {
   const ds = await getDataSource();
+  const accIds = await visibleAccountIds(await getScope());
   const start = isoDate(startOfMonth(now));
   const end = isoDate(endOfMonth(now));
-  const row = await ds
+  const qb = ds
     .getRepository(TransactionEntity)
     .createQueryBuilder("t")
     .select(
@@ -131,8 +139,9 @@ export async function computeActualNetCashflow(
     )
     .addSelect("COUNT(*)", "count")
     .where("t.date >= :start", { start })
-    .andWhere("t.date <= :end", { end })
-    .getRawOne<{ entries: string; exits: string; count: string }>();
+    .andWhere("t.date <= :end", { end });
+  applyAccountScope(qb, "t", accIds);
+  const row = await qb.getRawOne<{ entries: string; exits: string; count: string }>();
   const entries = Number(row?.entries ?? 0);
   const exits = Number(row?.exits ?? 0);
   return {

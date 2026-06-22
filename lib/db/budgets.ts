@@ -3,6 +3,7 @@ import { IsNull, Not } from "typeorm";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, formatISO } from "date-fns";
 import { getDataSource } from "./client";
 import { CategoryEntity, TransactionEntity, FixedExpenseEntity, type Category } from "./entities";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
 export type CategoryBudgetStatus = {
   category: Category;
@@ -30,6 +31,7 @@ export async function getBudgetStatuses(now: Date = new Date()): Promise<Categor
   if (cats.length === 0) return [];
 
   const txRepo = ds.getRepository(TransactionEntity);
+  const accIds = await visibleAccountIds(await getScope());
   const out: CategoryBudgetStatus[] = [];
   for (const cat of cats) {
     if (cat.budgetAmountCents === null || cat.budgetPeriod === null) continue;
@@ -39,14 +41,15 @@ export async function getBudgetStatuses(now: Date = new Date()): Promise<Categor
     const start = isoDate(startD);
     const end = isoDate(endD);
 
-    const row = await txRepo
+    const qb = txRepo
       .createQueryBuilder("t")
       .select("COALESCE(SUM(t.amount_cents), 0)", "sum")
       .where("t.category_id = :cid", { cid: cat.id })
       .andWhere("t.date >= :start", { start })
       .andWhere("t.date <= :end", { end })
-      .andWhere("t.amount_cents < 0")
-      .getRawOne<{ sum: string }>();
+      .andWhere("t.amount_cents < 0");
+    applyAccountScope(qb, "t", accIds);
+    const row = await qb.getRawOne<{ sum: string }>();
     const spent = Math.abs(Number(row?.sum ?? 0));
 
     const daysTotal = Math.round((endD.getTime() - startD.getTime()) / 86_400_000) + 1;
@@ -79,13 +82,15 @@ export async function getCategoriesWithFixedExpenseCount(): Promise<
   Map<number, { count: number; expectedTotalCents: number }>
 > {
   const ds = await getDataSource();
-  const rows = await ds
+  const qb = ds
     .getRepository(FixedExpenseEntity)
     .createQueryBuilder("f")
     .select("f.category_id", "categoryId")
     .addSelect("COUNT(*)", "count")
     .addSelect("COALESCE(SUM(f.expected_amount_cents), 0)", "total")
-    .where("f.is_active = true")
+    .where("f.is_active = true");
+  applyOwnedScope(qb, "f", await getScope());
+  const rows = await qb
     .groupBy("f.category_id")
     .getRawMany<{ categoryId: number | null; count: string; total: string }>();
 

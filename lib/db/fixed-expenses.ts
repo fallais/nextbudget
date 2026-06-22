@@ -10,6 +10,7 @@ import {
   type Transaction,
 } from "./entities";
 import { compileRule } from "@/lib/categorize/core";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
 export type FixedExpenseStatus = {
   fixedExpense: FixedExpense;
@@ -31,22 +32,26 @@ export async function getFixedExpensesWithStatus(
   const end = isoDate(endOfMonth(now));
 
   const ds = await getDataSource();
-  const fxList = await ds.getRepository(FixedExpenseEntity).find({
-    order: { dueDay: "ASC", name: "ASC" },
-  });
+  const scope = await getScope();
+  const fxQb = ds
+    .getRepository(FixedExpenseEntity)
+    .createQueryBuilder("f")
+    .orderBy("f.due_day", "ASC")
+    .addOrderBy("f.name", "ASC");
+  applyOwnedScope(fxQb, "f", scope);
+  const fxList = await fxQb.getMany();
   if (fxList.length === 0) return [];
 
   const cats = await ds.getRepository(CategoryEntity).find();
   const catMap = new Map(cats.map((c) => [c.id, c]));
 
-  const monthly = (
-    await ds
-      .getRepository(TransactionEntity)
-      .createQueryBuilder("t")
-      .where("t.date >= :start", { start })
-      .andWhere("t.date <= :end", { end })
-      .getMany()
-  ).map((t) => ({
+  const monthlyQb = ds
+    .getRepository(TransactionEntity)
+    .createQueryBuilder("t")
+    .where("t.date >= :start", { start })
+    .andWhere("t.date <= :end", { end });
+  applyAccountScope(monthlyQb, "t", await visibleAccountIds(scope));
+  const monthly = (await monthlyQb.getMany()).map((t) => ({
     id: t.id,
     date: t.date,
     description: t.description,

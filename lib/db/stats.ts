@@ -2,6 +2,7 @@ import "server-only";
 import type { SelectQueryBuilder } from "typeorm";
 import { getDataSource } from "./client";
 import { TransactionEntity, type Transaction } from "./entities";
+import { getScope, visibleAccountIds, applyAccountScope } from "./scope";
 import { periodToRange, previousPeriodRange, type PeriodKey } from "@/lib/period";
 
 // Month bucket from an ISO 'yyyy-MM-dd' text date → 'yyyy-MM' (Postgres-portable).
@@ -29,36 +30,45 @@ function withDates(
 export async function getPeriodSummary(period: PeriodKey): Promise<PeriodSummary> {
   const ds = await getDataSource();
   const txRepo = ds.getRepository(TransactionEntity);
+  const accIds = await visibleAccountIds(await getScope());
   const { from, to } = periodToRange(period);
 
-  const totals = await withDates(
-    txRepo
-      .createQueryBuilder("t")
-      .select(
-        "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
-        "expenses",
-      )
-      .addSelect(
-        "COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0)",
-        "income",
-      ),
-    from,
-    to,
+  const totals = await applyAccountScope(
+    withDates(
+      txRepo
+        .createQueryBuilder("t")
+        .select(
+          "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
+          "expenses",
+        )
+        .addSelect(
+          "COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0)",
+          "income",
+        ),
+      from,
+      to,
+    ),
+    "t",
+    accIds,
   ).getRawOne<{ expenses: string; income: string }>();
 
   const totalExpensesCents = Math.abs(Number(totals?.expenses ?? 0));
   const totalIncomeCents = Number(totals?.income ?? 0);
 
   const prev = previousPeriodRange(period);
-  const prevRow = await withDates(
-    txRepo
-      .createQueryBuilder("t")
-      .select(
-        "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
-        "expenses",
-      ),
-    prev.from,
-    prev.to,
+  const prevRow = await applyAccountScope(
+    withDates(
+      txRepo
+        .createQueryBuilder("t")
+        .select(
+          "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
+          "expenses",
+        ),
+      prev.from,
+      prev.to,
+    ),
+    "t",
+    accIds,
   ).getRawOne<{ expenses: string }>();
   const previousExpensesCents = Math.abs(Number(prevRow?.expenses ?? 0));
   const variationPercent =
@@ -66,18 +76,22 @@ export async function getPeriodSummary(period: PeriodKey): Promise<PeriodSummary
       ? null
       : ((totalExpensesCents - previousExpensesCents) / previousExpensesCents) * 100;
 
-  const topRow = await withDates(
-    txRepo
-      .createQueryBuilder("t")
-      .innerJoin("categories", "c", "c.id = t.category_id")
-      .select("c.id", "id")
-      .addSelect("c.name", "name")
-      .addSelect("c.color", "color")
-      .addSelect("c.icon", "icon")
-      .addSelect("COALESCE(SUM(t.amount_cents), 0)", "total")
-      .andWhere("t.amount_cents < 0"),
-    from,
-    to,
+  const topRow = await applyAccountScope(
+    withDates(
+      txRepo
+        .createQueryBuilder("t")
+        .innerJoin("categories", "c", "c.id = t.category_id")
+        .select("c.id", "id")
+        .addSelect("c.name", "name")
+        .addSelect("c.color", "color")
+        .addSelect("c.icon", "icon")
+        .addSelect("COALESCE(SUM(t.amount_cents), 0)", "total")
+        .andWhere("t.amount_cents < 0"),
+      from,
+      to,
+    ),
+    "t",
+    accIds,
   )
     .groupBy("c.id")
     .orderBy("SUM(t.amount_cents)", "ASC")
@@ -94,10 +108,11 @@ export async function getPeriodSummary(period: PeriodKey): Promise<PeriodSummary
       }
     : null;
 
-  const uncategorizedCount = await txRepo
-    .createQueryBuilder("t")
-    .where("t.category_id IS NULL")
-    .getCount();
+  const uncategorizedCount = await applyAccountScope(
+    txRepo.createQueryBuilder("t").where("t.category_id IS NULL"),
+    "t",
+    accIds,
+  ).getCount();
 
   return {
     totalExpensesCents,
@@ -113,18 +128,23 @@ export type MonthlyPoint = { month: string; income: number; expenses: number; ne
 
 export async function getMonthlyTotals(months = 12): Promise<MonthlyPoint[]> {
   const ds = await getDataSource();
-  const rows = await ds
-    .getRepository(TransactionEntity)
-    .createQueryBuilder("t")
-    .select(MONTH, "month")
-    .addSelect(
-      "COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0)",
-      "income",
-    )
-    .addSelect(
-      "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
-      "expenses",
-    )
+  const accIds = await visibleAccountIds(await getScope());
+  const rows = await applyAccountScope(
+    ds
+      .getRepository(TransactionEntity)
+      .createQueryBuilder("t")
+      .select(MONTH, "month")
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0)",
+        "income",
+      )
+      .addSelect(
+        "COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)",
+        "expenses",
+      ),
+    "t",
+    accIds,
+  )
     .groupBy(MONTH)
     .orderBy(MONTH, "DESC")
     .limit(months)
@@ -144,11 +164,16 @@ export type BalancePoint = { month: string; balanceCents: number };
 
 export async function getBalanceEvolution(months = 12): Promise<BalancePoint[]> {
   const ds = await getDataSource();
-  const rows = await ds
-    .getRepository(TransactionEntity)
-    .createQueryBuilder("t")
-    .select(MONTH, "month")
-    .addSelect("COALESCE(SUM(t.amount_cents), 0)", "sum")
+  const accIds = await visibleAccountIds(await getScope());
+  const rows = await applyAccountScope(
+    ds
+      .getRepository(TransactionEntity)
+      .createQueryBuilder("t")
+      .select(MONTH, "month")
+      .addSelect("COALESCE(SUM(t.amount_cents), 0)", "sum"),
+    "t",
+    accIds,
+  )
     .groupBy(MONTH)
     .orderBy(MONTH, "ASC")
     .getRawMany<{ month: string; sum: string }>();
@@ -174,15 +199,20 @@ export async function getStackedMonthlyExpenses(
 ): Promise<{ data: StackedMonthlyPoint[]; series: CategorySeries[] }> {
   const ds = await getDataSource();
   const txRepo = ds.getRepository(TransactionEntity);
+  const accIds = await visibleAccountIds(await getScope());
 
-  const topCats = await txRepo
-    .createQueryBuilder("t")
-    .innerJoin("categories", "c", "c.id = t.category_id")
-    .select("c.id", "id")
-    .addSelect("c.name", "name")
-    .addSelect("c.color", "color")
-    .addSelect("SUM(t.amount_cents)", "total")
-    .where("t.amount_cents < 0")
+  const topCats = await applyAccountScope(
+    txRepo
+      .createQueryBuilder("t")
+      .innerJoin("categories", "c", "c.id = t.category_id")
+      .select("c.id", "id")
+      .addSelect("c.name", "name")
+      .addSelect("c.color", "color")
+      .addSelect("SUM(t.amount_cents)", "total")
+      .where("t.amount_cents < 0"),
+    "t",
+    accIds,
+  )
     .groupBy("c.id")
     .orderBy("SUM(t.amount_cents)", "ASC")
     .limit(topN)
@@ -190,14 +220,18 @@ export async function getStackedMonthlyExpenses(
 
   const topIds = new Set(topCats.map((c) => Number(c.id)));
 
-  const rows = await txRepo
-    .createQueryBuilder("t")
-    .leftJoin("categories", "c", "c.id = t.category_id")
-    .select(MONTH, "month")
-    .addSelect("t.category_id", "categoryId")
-    .addSelect("c.name", "categoryName")
-    .addSelect("SUM(t.amount_cents)", "total")
-    .where("t.amount_cents < 0")
+  const rows = await applyAccountScope(
+    txRepo
+      .createQueryBuilder("t")
+      .leftJoin("categories", "c", "c.id = t.category_id")
+      .select(MONTH, "month")
+      .addSelect("t.category_id", "categoryId")
+      .addSelect("c.name", "categoryName")
+      .addSelect("SUM(t.amount_cents)", "total")
+      .where("t.amount_cents < 0"),
+    "t",
+    accIds,
+  )
     .groupBy(MONTH)
     .addGroupBy("t.category_id")
     .addGroupBy("c.name")
@@ -241,21 +275,26 @@ export type CategoryBreakdownItem = {
 
 export async function getCategoryBreakdown(period: PeriodKey): Promise<CategoryBreakdownItem[]> {
   const ds = await getDataSource();
+  const accIds = await visibleAccountIds(await getScope());
   const { from, to } = periodToRange(period);
 
-  const rows = await withDates(
-    ds
-      .getRepository(TransactionEntity)
-      .createQueryBuilder("t")
-      .leftJoin("categories", "c", "c.id = t.category_id")
-      .select("t.category_id", "id")
-      .addSelect("c.name", "name")
-      .addSelect("c.color", "color")
-      .addSelect("c.icon", "icon")
-      .addSelect("SUM(t.amount_cents)", "total")
-      .andWhere("t.amount_cents < 0"),
-    from,
-    to,
+  const rows = await applyAccountScope(
+    withDates(
+      ds
+        .getRepository(TransactionEntity)
+        .createQueryBuilder("t")
+        .leftJoin("categories", "c", "c.id = t.category_id")
+        .select("t.category_id", "id")
+        .addSelect("c.name", "name")
+        .addSelect("c.color", "color")
+        .addSelect("c.icon", "icon")
+        .addSelect("SUM(t.amount_cents)", "total")
+        .andWhere("t.amount_cents < 0"),
+      from,
+      to,
+    ),
+    "t",
+    accIds,
   )
     .groupBy("t.category_id")
     .addGroupBy("c.name")
