@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { UserMenu, type CurrentUser } from "@/components/auth/user-menu";
 
 type NavItem = {
   label: string;
@@ -33,7 +34,13 @@ const NAV: NavItem[] = [
   { label: "Importer", href: "/import", icon: Upload },
 ];
 
-export function Sidebar() {
+export function Sidebar({
+  user,
+  authMode,
+}: {
+  user: CurrentUser;
+  authMode: "open" | "enforced";
+}) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -96,11 +103,9 @@ export function Sidebar() {
           );
         })}
       </nav>
-      {!collapsed && (
-        <div className="border-t p-3 text-xs text-sidebar-foreground/50">
-          Données locales · SQLite
-        </div>
-      )}
+      <div className="border-t p-2">
+        <UserMenu user={user} authMode={authMode} collapsed={collapsed} />
+      </div>
     </aside>
   );
 }
