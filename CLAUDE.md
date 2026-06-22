@@ -39,13 +39,25 @@ npm run db:migrate   # connect, synchronize schema from entities, seed defaults 
   reproduced in app code (see category/person DELETE routes).
 
 ## Layout
-- `app/(dashboard)/` — pages (sidebar shell)
-- `app/api/` — route handlers
-- `lib/db/` — entities, client (DataSource), queries, stats, seed
+- `app/(dashboard)/` — pages (sidebar shell); the layout guards auth via `getCurrentUser()`
+- `app/api/` — route handlers (incl. `auth/`, `users/`, `assets/`, `visibility`)
+- `lib/db/` — entities, client (DataSource), queries, stats, seed, `scope.ts`, `assets.ts`, `amortization.ts`
+- `lib/auth/` — argon2 password hashing, DB-backed sessions, `getCurrentUser`/`getAuthMode`
 - `lib/ingest/` — parser registry + CSV parser; PDF stubbed
 - `lib/categorize/` — rule engine + normalize; `llm.ts` is a v2 stub
 - `lib/categorize/packs/` — pattern packs (see below); `core/` = open-source defaults
-- `components/{layout,dashboard,transactions,categories,import,ui}/`
+- `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,ui}/`
+
+## Auth & visibility
+- **Auth mode** is in `settings.authMode` (`open` | `enforced`), not an env var.
+  `open` (default) resolves the single owner with no login; `enforced` requires a
+  session cookie (redirect to `/login`). Toggle via the sidebar "enable auth" prompt
+  (`/api/auth/setup`). Sessions are opaque DB tokens (`lib/auth/session.ts`).
+- **Scoping** (`lib/db/scope.ts`): list/aggregate queries filter to
+  `owner_id = me OR visibility = 'shared' OR owner_id IS NULL` — a **no-op in open
+  mode**. Transactions/stats inherit visibility from their **account**; accounts,
+  contributions, fixed_expenses, budgets, assets are scoped directly. Writes stamp
+  `owner_id`. Categories/rules stay shared config. Per-row toggles → `/api/visibility`.
 
 ## Pattern packs (categorization defaults)
 Default merchant→category patterns live as **YAML packs**, not hardcoded in seed.

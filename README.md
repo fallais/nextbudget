@@ -25,6 +25,11 @@ No external services, no telemetry — self-host with Docker Compose (app + Post
 - **Fixed expenses** (Frais fixes) — recurring charges and their schedule.
 - **Contributions** (Apports) — track who paid what into shared accounts — designed
   for couples/households splitting expenses.
+- **Patrimoine / net worth** — track assets & liabilities (savings, real estate,
+  vehicles, loans/mortgages with computed amortization) and your net worth over time.
+- **Couples & privacy** — runs **login-free by default**; a household can enable
+  per-user passwords, and mark any account / expense / contribution / asset as
+  **shared or private**. Private rows stay hidden from other members.
 - **French/EU locale everywhere** — amounts as `1 234,56 €`, dates as `15 mai 2026`.
 
 ## Quickstart (Docker Compose)
@@ -80,16 +85,18 @@ npm run test         # vitest unit tests
 
 ## Roadmap
 
-BanqueJS aims to fill a gap among self-hosted finance tools: first-class
+BanqueJS fills a gap among self-hosted finance tools: first-class
 **couples/household** support, **optional built-in** auth, and a **French/EU-first**
 experience, in one local-first app.
 
-- Multi-user / couples: each person owns accounts/budgets/contributions, each row
-  optionally **private** or **shared** (ownership columns already in the schema).
-- Optional built-in auth: runs login-free by default; a household can switch on
-  per-user passwords to make private data private.
-- Assets & liabilities: house/car credit, savings, investments → **net worth**.
-- AI-assisted categorization.
+**Shipped (v0.1):** multi-user / couples with per-row shared-vs-private visibility;
+optional built-in auth (open by default, per-user passwords); assets & liabilities
+→ **net worth** with loan amortization.
+
+**Next:**
+- AI-assisted categorization (`lib/categorize/llm.ts` is a stub today).
+- EU bank sync (CSV/upload only for now).
+- OIDC / SSO as an auth option.
 
 ## Contributing
 
