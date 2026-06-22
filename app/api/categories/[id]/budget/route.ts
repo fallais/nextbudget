@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
-import { CategoryEntity } from "@/lib/db/entities";
+import { BudgetEntity } from "@/lib/db/entities";
 import { categoryBudgetSchema } from "@/lib/validation";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,10 +21,20 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
+
   const ds = await getDataSource();
-  await ds.getRepository(CategoryEntity).update(catId, {
-    budgetAmountCents: parsed.data.budgetAmountCents,
-    budgetPeriod: parsed.data.budgetPeriod,
-  });
+  const repo = ds.getRepository(BudgetEntity);
+  // v0.1: one budget per category. Clear existing, then set if provided.
+  await repo.delete({ categoryId: catId });
+  if (parsed.data.budgetAmountCents !== null && parsed.data.budgetPeriod !== null) {
+    await repo.save(
+      repo.create({
+        categoryId: catId,
+        amountCents: parsed.data.budgetAmountCents,
+        period: parsed.data.budgetPeriod,
+        ownerId: (await getCurrentUser())?.id ?? null,
+      }),
+    );
+  }
   return NextResponse.json({ ok: true });
 }

@@ -6,6 +6,7 @@ import {
   CategoryEntity,
   FixedExpenseEntity,
   ContributionEntity,
+  BudgetEntity,
 } from "./entities";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
@@ -82,20 +83,19 @@ export async function computeResteAVivre(now: Date = new Date()): Promise<ResteA
   const fxRow = await fxQb.getRawOne<{ sum: string }>();
   const fixedTotal = Number(fxRow?.sum ?? 0);
 
-  // Budgets are still on the (shared) categories table → not visibility-scoped.
-  const budgetRow = await ds
-    .getRepository(CategoryEntity)
-    .createQueryBuilder("c")
+  const budgetQb = ds
+    .getRepository(BudgetEntity)
+    .createQueryBuilder("b")
     .select(
-      "COALESCE(SUM(CASE WHEN c.budget_period = 'monthly' THEN c.budget_amount_cents ELSE 0 END), 0)",
+      "COALESCE(SUM(CASE WHEN b.period = 'monthly' THEN b.amount_cents ELSE 0 END), 0)",
       "monthly",
     )
     .addSelect(
-      "COALESCE(SUM(CASE WHEN c.budget_period = 'weekly' THEN c.budget_amount_cents ELSE 0 END), 0)",
+      "COALESCE(SUM(CASE WHEN b.period = 'weekly' THEN b.amount_cents ELSE 0 END), 0)",
       "weekly",
-    )
-    .where("c.budget_amount_cents IS NOT NULL AND c.budget_period IS NOT NULL")
-    .getRawOne<{ monthly: string; weekly: string }>();
+    );
+  applyOwnedScope(budgetQb, "b", scope);
+  const budgetRow = await budgetQb.getRawOne<{ monthly: string; weekly: string }>();
   const budgetMonthly = Number(budgetRow?.monthly ?? 0);
   const budgetWeekly = Number(budgetRow?.weekly ?? 0);
   const budgetsTotalMonthly = budgetMonthly + Math.round(budgetWeekly * (52 / 12));

@@ -29,7 +29,7 @@ export default async function BudgetsPage() {
   const monthlyEquivalent = statuses.reduce((acc, s) => {
     return (
       acc +
-      (s.category.budgetPeriod === "weekly"
+      (s.period === "weekly"
         ? Math.round(s.budgetCents * (52 / 12))
         : s.budgetCents)
     );
@@ -37,7 +37,7 @@ export default async function BudgetsPage() {
   const monthlySpent = statuses.reduce((acc, s) => {
     return (
       acc +
-      (s.category.budgetPeriod === "weekly"
+      (s.period === "weekly"
         ? Math.round(s.spentCents * (52 / 12))
         : s.spentCents)
     );

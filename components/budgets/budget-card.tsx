@@ -101,7 +101,12 @@ export function BudgetCard({
         </CardContent>
       </Card>
 
-      <BudgetForm open={open} onOpenChange={setOpen} category={status.category} />
+      <BudgetForm
+        open={open}
+        onOpenChange={setOpen}
+        category={status.category}
+        current={{ amountCents: status.budgetCents, period: status.period }}
+      />
     </>
   );
 }

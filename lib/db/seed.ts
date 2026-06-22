@@ -1,9 +1,8 @@
 import "reflect-metadata";
-import { type DataSource, IsNull, Not } from "typeorm";
+import { type DataSource, IsNull } from "typeorm";
 import { getDataSource } from "./client";
 import {
   AccountEntity,
-  BudgetEntity,
   CategoryEntity,
   ContributionEntity,
   FixedExpenseEntity,
@@ -81,8 +80,6 @@ export async function runSeed(ds: DataSource): Promise<{
 export async function backfillOwnership(ds: DataSource): Promise<void> {
   const userRepo = ds.getRepository(UserEntity);
   const settingRepo = ds.getRepository(SettingEntity);
-  const budgetRepo = ds.getRepository(BudgetEntity);
-  const catRepo = ds.getRepository(CategoryEntity);
 
   // 1. Ensure a single owner user (open mode ⇒ no password).
   let owner = await userRepo.findOne({ where: { role: "owner" } });
@@ -103,28 +100,6 @@ export async function backfillOwnership(ds: DataSource): Promise<void> {
   await ds.getRepository(RuleEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(ContributionEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(FixedExpenseEntity).update({ ownerId: IsNull() }, { ownerId });
-
-  // 4. Snapshot inline category budgets → `budgets` rows (shared, owner=NULL).
-  //    Idempotent per (category, period). The old categories.budget* columns
-  //    stay authoritative until the budget read/write path migrates (Phase 8).
-  const budgetedCats = await catRepo.find({
-    where: { budgetAmountCents: Not(IsNull()), budgetPeriod: Not(IsNull()) },
-  });
-  for (const c of budgetedCats) {
-    if (c.budgetAmountCents == null || c.budgetPeriod == null) continue;
-    const exists = await budgetRepo.findOne({
-      where: { categoryId: c.id, ownerId: IsNull(), period: c.budgetPeriod },
-    });
-    if (!exists) {
-      await budgetRepo.save(
-        budgetRepo.create({
-          categoryId: c.id,
-          amountCents: c.budgetAmountCents,
-          period: c.budgetPeriod,
-        }),
-      );
-    }
-  }
 }
 
 async function main() {

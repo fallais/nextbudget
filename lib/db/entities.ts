@@ -55,8 +55,6 @@ export interface Category {
   color: string;
   icon: string;
   isDefault: boolean;
-  budgetAmountCents: number | null;
-  budgetPeriod: Period | null;
   createdAt: Date;
 }
 
@@ -256,13 +254,6 @@ export const CategoryEntity = new EntitySchema<Category>({
     color: { type: "text", default: "#6b7280" },
     icon: { type: "text", default: "Tag" },
     isDefault: { name: "is_default", type: Boolean, default: false },
-    budgetAmountCents: {
-      name: "budget_amount_cents",
-      type: "bigint",
-      nullable: true,
-      transformer: bigintNumber,
-    },
-    budgetPeriod: { name: "budget_period", type: "text", nullable: true },
     createdAt,
   },
 });

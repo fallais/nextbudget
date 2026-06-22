@@ -1,12 +1,18 @@
 import "server-only";
-import { IsNull, Not } from "typeorm";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, formatISO } from "date-fns";
 import { getDataSource } from "./client";
-import { CategoryEntity, TransactionEntity, FixedExpenseEntity, type Category } from "./entities";
+import {
+  BudgetEntity,
+  CategoryEntity,
+  TransactionEntity,
+  FixedExpenseEntity,
+  type Category,
+} from "./entities";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 
 export type CategoryBudgetStatus = {
   category: Category;
+  period: "weekly" | "monthly";
   periodLabel: string;
   periodStart: string;
   periodEnd: string;
@@ -25,17 +31,23 @@ function isoDate(d: Date): string {
 
 export async function getBudgetStatuses(now: Date = new Date()): Promise<CategoryBudgetStatus[]> {
   const ds = await getDataSource();
-  const cats = await ds.getRepository(CategoryEntity).find({
-    where: { budgetAmountCents: Not(IsNull()), budgetPeriod: Not(IsNull()) },
-  });
-  if (cats.length === 0) return [];
+  const scope = await getScope();
 
+  const bQb = ds.getRepository(BudgetEntity).createQueryBuilder("b");
+  applyOwnedScope(bQb, "b", scope);
+  const budgets = await bQb.getMany();
+  if (budgets.length === 0) return [];
+
+  const cats = await ds.getRepository(CategoryEntity).find();
+  const catMap = new Map(cats.map((c) => [c.id, c]));
+  const accIds = await visibleAccountIds(scope);
   const txRepo = ds.getRepository(TransactionEntity);
-  const accIds = await visibleAccountIds(await getScope());
+
   const out: CategoryBudgetStatus[] = [];
-  for (const cat of cats) {
-    if (cat.budgetAmountCents === null || cat.budgetPeriod === null) continue;
-    const isWeekly = cat.budgetPeriod === "weekly";
+  for (const b of budgets) {
+    const cat = catMap.get(b.categoryId);
+    if (!cat) continue;
+    const isWeekly = b.period === "weekly";
     const startD = isWeekly ? startOfWeek(now, { weekStartsOn: 1 }) : startOfMonth(now);
     const endD = isWeekly ? endOfWeek(now, { weekStartsOn: 1 }) : endOfMonth(now);
     const start = isoDate(startD);
@@ -44,7 +56,7 @@ export async function getBudgetStatuses(now: Date = new Date()): Promise<Categor
     const qb = txRepo
       .createQueryBuilder("t")
       .select("COALESCE(SUM(t.amount_cents), 0)", "sum")
-      .where("t.category_id = :cid", { cid: cat.id })
+      .where("t.category_id = :cid", { cid: b.categoryId })
       .andWhere("t.date >= :start", { start })
       .andWhere("t.date <= :end", { end })
       .andWhere("t.amount_cents < 0");
@@ -62,13 +74,14 @@ export async function getBudgetStatuses(now: Date = new Date()): Promise<Categor
 
     out.push({
       category: cat,
+      period: b.period,
       periodLabel: isWeekly ? "semaine" : "mois",
       periodStart: start,
       periodEnd: end,
-      budgetCents: cat.budgetAmountCents,
+      budgetCents: b.amountCents,
       spentCents: spent,
-      remainingCents: cat.budgetAmountCents - spent,
-      ratio: cat.budgetAmountCents === 0 ? 0 : spent / cat.budgetAmountCents,
+      remainingCents: b.amountCents - spent,
+      ratio: b.amountCents === 0 ? 0 : spent / b.amountCents,
       daysRemaining,
       daysTotal,
       projectedCents: projected,

@@ -27,9 +27,10 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   category: Category | null;
+  current?: { amountCents: number; period: "weekly" | "monthly" } | null;
 };
 
-export function BudgetForm({ open, onOpenChange, category }: Props) {
+export function BudgetForm({ open, onOpenChange, category, current }: Props) {
   const [amount, setAmount] = useState("");
   const [period, setPeriod] = useState<"weekly" | "monthly">("monthly");
   const [saving, setSaving] = useState(false);
@@ -37,15 +38,13 @@ export function BudgetForm({ open, onOpenChange, category }: Props) {
   const router = useRouter();
 
   useEffect(() => {
-    if (open && category) {
-      setAmount(
-        category.budgetAmountCents !== null
-          ? (category.budgetAmountCents / 100).toFixed(2).replace(".", ",")
-          : "",
-      );
-      setPeriod(category.budgetPeriod ?? "monthly");
+    if (open) {
+      setAmount(current ? (current.amountCents / 100).toFixed(2).replace(".", ",") : "");
+      setPeriod(current?.period ?? "monthly");
     }
-  }, [open, category]);
+    // Depend on the primitive budget values (not the object) to avoid resetting on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, current?.amountCents, current?.period]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -144,7 +143,7 @@ export function BudgetForm({ open, onOpenChange, category }: Props) {
             </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-between">
-            {category?.budgetAmountCents !== null && (
+            {current && (
               <Button
                 type="button"
                 variant="outline"
