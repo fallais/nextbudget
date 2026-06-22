@@ -1,7 +1,15 @@
+import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
+import { getCurrentUser } from "@/lib/auth";
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+  // open mode → resolves to the owner; enforced mode → requires a valid session.
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
   return (
     <div className="flex min-h-screen w-full">
       <Sidebar />

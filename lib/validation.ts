@@ -92,3 +92,33 @@ export const ruleTestSchema = z.object({
   matchType: matchTypeSchema.default("contains"),
   amountCondition: amountConditionSchema.default("any"),
 });
+
+// ── Auth (Phase 6) ───────────────────────────────────────────────────────────
+export const roleSchema = z.enum(["owner", "member"]);
+
+export const loginSchema = z.object({
+  identifier: z.string().trim().min(1), // email or name
+  password: z.string().min(1),
+});
+
+// First-run: owner sets a password (and optional email) to switch to enforced mode.
+export const enableAuthSchema = z.object({
+  email: z.string().trim().email().nullish(),
+  password: z.string().min(8, "8 caractères minimum"),
+});
+
+export const userInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  email: z.string().trim().email().nullish(),
+  role: roleSchema.default("member"),
+  password: z.string().min(8, "8 caractères minimum").nullish(),
+  isActive: z.boolean().default(true),
+});
+
+export const userUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  email: z.string().trim().email().nullish(),
+  role: roleSchema.optional(),
+  password: z.string().min(8, "8 caractères minimum").nullish(),
+  isActive: z.boolean().optional(),
+});
