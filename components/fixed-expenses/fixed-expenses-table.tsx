@@ -6,6 +6,7 @@ import { Pencil, Trash2, AlertTriangle, CheckCircle2, Clock, AlertCircle } from 
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VisibilityToggle } from "@/components/visibility-toggle";
 import {
   Table,
   TableBody,
@@ -136,7 +137,13 @@ export function FixedExpensesTable({
                     </div>
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                    <div className="flex items-center justify-end gap-1">
+                      <VisibilityToggle
+                        kind="fixedExpense"
+                        id={s.fixedExpense.id}
+                        visibility={s.fixedExpense.visibility}
+                        compact
+                      />
                       <Button
                         variant="ghost"
                         size="icon"

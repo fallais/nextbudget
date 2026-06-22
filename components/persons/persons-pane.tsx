@@ -26,6 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { VisibilityToggle } from "@/components/visibility-toggle";
 import { PersonForm } from "./person-form";
 import { ContributionForm } from "./contribution-form";
 import { formatCents, formatDateShort } from "@/lib/format";
@@ -297,7 +298,13 @@ export function PersonsPane({ perPerson }: { perPerson: PersonWithStatus[] }) {
                             </span>
                           )}
                         </div>
-                        <div className="flex gap-1">
+                        <div className="flex items-center gap-1">
+                          <VisibilityToggle
+                            kind="contribution"
+                            id={c.contribution.id}
+                            visibility={c.contribution.visibility}
+                            compact
+                          />
                           <Button
                             variant="ghost"
                             size="icon"

@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatCents } from "@/lib/format";
+import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AssetForm, ASSET_TYPE_LABELS } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
 import type { Asset } from "@/lib/db/entities";
@@ -60,7 +61,6 @@ export function AssetsPane({
                         <div className="flex items-center gap-2">
                           <span className="truncate font-medium">{a.name}</span>
                           <Badge variant="secondary">{ASSET_TYPE_LABELS[a.type]}</Badge>
-                          {a.visibility === "private" && <Badge variant="outline">Privé</Badge>}
                         </div>
                       </div>
                       <span
@@ -83,6 +83,7 @@ export function AssetsPane({
                           <ChevronDown className={cn("size-4 transition-transform", isOpen && "rotate-180")} />
                         </Button>
                       )}
+                      <VisibilityToggle kind="asset" id={a.id} visibility={a.visibility} compact />
                       <Button variant="ghost" size="icon" className="size-8" onClick={() => openForm(a)} aria-label="Modifier">
                         <Pencil className="size-4" />
                       </Button>
