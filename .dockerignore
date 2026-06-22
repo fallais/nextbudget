@@ -1,0 +1,19 @@
+node_modules
+.next
+.git
+.github
+data
+# never bake local/private packs or secrets into the image
+*.local.yaml
+*.local.yml
+*.local.json
+*.local.ts
+*.md
+.env*
+.vercel
+coverage
+*.log
+.DS_Store
+.claude
+.idea
+.vscode

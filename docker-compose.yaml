@@ -1,0 +1,41 @@
+# BanqueJS — minimal self-hosted deployment (app + Postgres)
+#
+#   docker compose up -d
+#   docker compose exec app npm run db:migrate   # first run: create schema + seed
+#
+# Then open http://localhost:3000
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: banquejs-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: banquejs
+      POSTGRES_PASSWORD: banquejs # ⚠️ change me
+      POSTGRES_DB: banquejs
+    volumes:
+      - banquejs-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U banquejs"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: ghcr.io/banquejs/banquejs:latest
+    container_name: banquejs
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://banquejs:banquejs@db:5432/banquejs
+      TZ: Europe/Paris
+      # Optional extra categorization packs (comma-separated paths / package dirs):
+      # PATTERN_PACKS: /packs/premium
+
+volumes:
+  banquejs-pgdata:

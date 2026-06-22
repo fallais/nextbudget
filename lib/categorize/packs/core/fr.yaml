@@ -1,0 +1,275 @@
+# BanqueJS — core pattern pack (France)
+#
+# Open-source default merchant→category patterns for well-known French /
+# international chains. Seeded into the `rules` table at db:migrate.
+#
+# Contributing: add widely-recognized national/international merchants only.
+# Keep hyper-local or personal merchants OUT of this file — put those in a
+# private pack (`*.local.yaml`, gitignored) loaded via PATTERN_PACKS.
+#
+# Rule fields: `pattern` (required), `matchType` (contains|equals|starts_with|
+# regex, default contains), `amountCondition` (any|positive|negative, default
+# any), `priority` (lower wins; default 100).
+
+name: core-fr
+description: Default French/EU merchant patterns (open-source).
+
+categories:
+  - name: Alimentation
+    color: "#16a34a"
+    icon: ShoppingCart
+    rules:
+      - pattern: CARREFOUR
+      - pattern: LECLERC
+      - pattern: INTERMARCHE
+      - pattern: AUCHAN
+      - pattern: MONOPRIX
+      - pattern: FRANPRIX
+      - pattern: LIDL
+      - pattern: PICARD
+      - pattern: BIOCOOP
+      - pattern: SUPER U
+      - pattern: BISCUITERIE
+      - pattern: BOULANGERIE
+      - pattern: PANETIERE
+
+  - name: Restaurants
+    color: "#f97316"
+    icon: UtensilsCrossed
+    rules:
+      - pattern: MCDONALD
+      - pattern: BURGER KING
+      - pattern: KFC
+      - pattern: STARBUCKS
+      - pattern: DELIVEROO
+      - pattern: UBER EATS
+      - pattern: FOODORA
+      - pattern: RESTAURANT
+      - pattern: BRASSERI
+      - pattern: PIZZA
+
+  - name: Transport
+    color: "#0ea5e9"
+    icon: Train
+    rules:
+      - pattern: SNCF
+      - pattern: RATP
+      - pattern: NAVIGO
+      - pattern: UBER
+        priority: 90
+      - pattern: BLABLACAR
+      - pattern: TOTAL
+      - pattern: TOTALENERGIES
+      - pattern: SHELL
+      - pattern: ESSO
+      - pattern: "BP "
+      - pattern: PARKING
+      - pattern: AUTOROUTE
+      - pattern: VINCI
+        matchType: starts_with
+      - pattern: ESSENCE
+      - pattern: STATION U
+      - pattern: ALLOPNEUS
+      # Word-boundary regex so "ASF" doesn't match other 3-letter substrings
+      - pattern: '\bASF\b'
+        matchType: regex
+
+  - name: Logement
+    color: "#a16207"
+    icon: Home
+    rules:
+      - pattern: LOYER
+      - pattern: BAILLEUR
+      - pattern: SYNDIC
+      - pattern: FONCIA
+      - pattern: CITYA
+      - pattern: ECH PRET
+        priority: 80
+      - pattern: PRET HABITAT
+
+  - name: Énergie
+    color: "#eab308"
+    icon: Zap
+    rules:
+      - pattern: EDF
+      - pattern: ENGIE
+      - pattern: TOTALENERGIES ELEC
+      - pattern: ENI
+
+  - name: Télécom
+    color: "#6366f1"
+    icon: Smartphone
+    rules:
+      - pattern: FREE MOBILE
+      - pattern: FREE TELECOM
+      - pattern: FREE HAUT DEBIT
+      - pattern: ORANGE
+      - pattern: SFR
+      - pattern: BOUYGUES TELECOM
+      - pattern: SOSH
+      - pattern: "B&YOU"
+
+  - name: Loisirs
+    color: "#ec4899"
+    icon: Gamepad2
+    rules:
+      - pattern: NETFLIX
+      - pattern: SPOTIFY
+      - pattern: DEEZER
+      - pattern: DISNEY
+      - pattern: PRIME VIDEO
+      - pattern: "CANAL+"
+      - pattern: CINEMA
+      - pattern: UGC
+      - pattern: PATHE
+      - pattern: FNAC
+      - pattern: STEAM
+      - pattern: AIRBNB
+      - pattern: THERMES
+
+  - name: Santé
+    color: "#dc2626"
+    icon: HeartPulse
+    rules:
+      - pattern: PHARMACIE
+      - pattern: DOCTOLIB
+      - pattern: MUTUELLE
+      - pattern: CPAM
+      - pattern: MEDECIN
+      - pattern: DENTAIRE
+
+  - name: Shopping
+    color: "#8b5cf6"
+    icon: ShoppingBag
+    rules:
+      - pattern: AMAZON
+      - pattern: ZALANDO
+      - pattern: ASOS
+      - pattern: VINTED
+      - pattern: DECATHLON
+      - pattern: IKEA
+      - pattern: DARTY
+      - pattern: BOULANGER
+      - pattern: BACK MARKET
+      - pattern: BIJOUTERIE
+      - pattern: CENTRAKOR
+
+  - name: Apports
+    color: "#10b981"
+    icon: TrendingUp
+    rules:
+      - pattern: SALAIRE
+        priority: 50
+      - pattern: VIR SEPA SALAIRE
+        priority: 50
+      - pattern: REMUNERATION
+        priority: 50
+      - pattern: URSSAF REMB
+        priority: 50
+      - pattern: REM CHQ
+        matchType: starts_with
+        amountCondition: positive
+        priority: 60
+      - pattern: REMISE CHEQUE
+        amountCondition: positive
+        priority: 60
+      # Generic incoming-money fallbacks: only when amount > 0
+      - pattern: "VIR "
+        matchType: starts_with
+        amountCondition: positive
+        priority: 250
+      - pattern: VIREMENT
+        amountCondition: positive
+        priority: 250
+      - pattern: VIR SEPA
+        amountCondition: positive
+        priority: 250
+
+  - name: Assurances
+    color: "#0891b2"
+    icon: ShieldCheck
+    rules:
+      - pattern: AGIPI
+      - pattern: ADIS
+      - pattern: MAAF
+      - pattern: MMA
+      - pattern: GROUPAMA
+      - pattern: MATMUT
+      - pattern: MAIF
+      - pattern: MACIF
+
+  - name: Banque
+    color: "#475569"
+    icon: Landmark
+    rules:
+      - pattern: AXA
+      - pattern: FRAIS BANCAIRES
+      - pattern: COTISATION CARTE
+      - pattern: AGIOS
+      # Negative-only: the loan interest you pay. Some incoming apports may
+      # include "VIR INTERETS CREDIT ..." (positive); that must not match here.
+      - pattern: INTERETS CREDIT
+        amountCondition: negative
+        priority: 80
+      - pattern: VIR REMB
+        matchType: starts_with
+      - pattern: PRET N
+        matchType: starts_with
+        amountCondition: positive
+      - pattern: FRAIS DE DOSSIER
+      - pattern: FRAIS COND
+
+  - name: Impôts
+    color: "#7c2d12"
+    icon: Receipt
+    rules:
+      - pattern: DIRECTION GENERALE DES
+      - pattern: TRESOR PUBLIC
+      - pattern: DGFIP
+      - pattern: IMPOT
+
+  - name: Épargne
+    color: "#0d9488"
+    icon: PiggyBank
+    rules:
+      - pattern: LIVRET
+
+  - name: Travaux
+    color: "#b45309"
+    icon: Hammer
+    rules:
+      - pattern: SAINT MACLOU
+      - pattern: MANOMANO
+      - pattern: LEROY MERLI
+      - pattern: ADEO
+      - pattern: BRICO MAISON
+      - pattern: BRICOLAGE
+      - pattern: CASTORAMA
+      - pattern: WELDOM
+      - pattern: CHAUSSON MATERIA
+      - pattern: LAFARGE
+
+  - name: Animaux & Jardin
+    color: "#65a30d"
+    icon: Leaf
+    rules:
+      - pattern: GAMM VERT
+      - pattern: BITIBA
+      - pattern: VETERINAIRE
+      - pattern: P VERT
+      - pattern: JARDINERIE
+      - pattern: ATLANTIC
+
+  - name: Retrait
+    color: "#9ca3af"
+    icon: Banknote
+    rules:
+      - pattern: RET DAB
+        matchType: starts_with
+      - pattern: RETRAIT DAB
+        matchType: starts_with
+
+  - name: Autre
+    color: "#94a3b8"
+    icon: HelpCircle
+    rules: []
