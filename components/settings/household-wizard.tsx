@@ -28,13 +28,17 @@ export function HouseholdWizard({
   onOpenChange,
   members,
   hasJointAccount,
+  me,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   members: SettingsMember[];
   hasJointAccount: boolean;
+  /** The member behind the current login, so you can name yourself here. */
+  me: SettingsMember | null;
 }) {
   const router = useRouter();
+  const [myName, setMyName] = useState(me?.name ?? "");
   const [partnerName, setPartnerName] = useState("");
   const [createJoint, setCreateJoint] = useState(!hasJointAccount);
   const [jointName, setJointName] = useState("Compte commun");
@@ -42,10 +46,11 @@ export function HouseholdWizard({
 
   useEffect(() => {
     if (!open) return;
+    setMyName(me?.name ?? "");
     setPartnerName("");
     setCreateJoint(!hasJointAccount);
     setJointName("Compte commun");
-  }, [open, hasJointAccount]);
+  }, [open, hasJointAccount, me?.name]);
 
   const needsPartner = members.length < 2;
 
@@ -53,6 +58,21 @@ export function HouseholdWizard({
     e.preventDefault();
     setLoading(true);
     try {
+      if (me && myName.trim() && myName.trim() !== me.name) {
+        await fetch(`/api/persons/${me.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: myName.trim() }),
+        });
+        if (me.userId != null) {
+          await fetch(`/api/users/${me.userId}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ name: myName.trim() }),
+          });
+        }
+      }
+
       if (needsPartner && partnerName.trim()) {
         const res = await fetch("/api/persons", {
           method: "POST",
@@ -109,6 +129,20 @@ export function HouseholdWizard({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
+          {me && (
+            <div className="space-y-2">
+              <Label htmlFor="wizard-me">Votre nom</Label>
+              <Input
+                id="wizard-me"
+                value={myName}
+                onChange={(e) => setMyName(e.target.value)}
+                placeholder="Alex"
+                maxLength={80}
+                autoFocus
+              />
+            </div>
+          )}
+
           {needsPartner ? (
             <div className="space-y-2">
               <Label htmlFor="wizard-partner">Nom de la deuxième personne</Label>
@@ -118,7 +152,6 @@ export function HouseholdWizard({
                 onChange={(e) => setPartnerName(e.target.value)}
                 placeholder="Camille"
                 maxLength={80}
-                autoFocus
               />
               <p className="text-xs text-muted-foreground">
                 Vous pourrez lui rattacher une connexion depuis la page Apports.

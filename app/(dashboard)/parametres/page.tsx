@@ -19,8 +19,10 @@ export default async function ParametresPage() {
   const rows: SettingsMember[] = members.map((m) => ({
     id: m.person.id,
     name: m.person.name,
-    login: m.user ? (m.user.email ?? m.user.name) : null,
+    userId: m.user?.id ?? null,
+    email: m.user?.email ?? null,
   }));
+  const mine = me ? (rows.find((r) => r.userId === me.id) ?? null) : null;
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6">
@@ -38,6 +40,7 @@ export default async function ParametresPage() {
         accountCount={accounts.length}
         jointAccountCount={accounts.filter((a) => a.kind === "joint").length}
         isOwner={me?.role === "owner"}
+        me={mine}
       />
     </div>
   );

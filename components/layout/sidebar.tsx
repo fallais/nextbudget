@@ -19,6 +19,8 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { UserMenu, type CurrentUser } from "@/components/auth/user-menu";
+import { ThemeToggle } from "./theme-toggle";
+import { LogoMark, LogoLockup } from "./logo";
 
 type NavItem = {
   label: string;
@@ -64,12 +66,15 @@ export function Sidebar({
         )}
       >
         {!collapsed && (
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Wallet className="size-5 text-primary" />
-            <span>BanqueJS</span>
+          <Link href="/" aria-label="BanqueJS">
+            <LogoLockup />
           </Link>
         )}
-        {collapsed && <Wallet className="size-5 text-primary" />}
+        {collapsed && (
+          <Link href="/" aria-label="BanqueJS">
+            <LogoMark className="size-6 text-brand" />
+          </Link>
+        )}
         <Button
           variant="ghost"
           size="icon"
@@ -108,8 +113,16 @@ export function Sidebar({
           );
         })}
       </nav>
-      <div className="border-t p-2">
-        <UserMenu user={user} authMode={authMode} collapsed={collapsed} />
+      <div
+        className={cn(
+          "flex items-center gap-1 border-t p-2",
+          collapsed ? "flex-col" : "justify-between",
+        )}
+      >
+        <div className="min-w-0 flex-1">
+          <UserMenu user={user} authMode={authMode} collapsed={collapsed} />
+        </div>
+        <ThemeToggle />
       </div>
     </aside>
   );

@@ -6,6 +6,7 @@ import {
   AccountEntity,
   type NewTransaction,
 } from "@/lib/db/entities";
+import { isUniqueViolation } from "@/lib/db/errors";
 import { detectParser, runParser } from "./parsers/registry";
 import { transactionHash } from "./hash";
 import { loadActiveCompiledRules, matchCategoryId } from "@/lib/categorize/engine";
@@ -31,15 +32,6 @@ export type IngestRunResult = {
   totals: { files: number; new: number; duplicate: number; error: number };
 };
 
-/** Postgres unique_violation. Used to detect duplicate transaction hashes. */
-function isUniqueViolation(err: unknown): boolean {
-  const e = err as { code?: string; driverError?: { code?: string }; message?: string };
-  return (
-    e?.code === "23505" ||
-    e?.driverError?.code === "23505" ||
-    (typeof e?.message === "string" && e.message.includes("duplicate key"))
-  );
-}
 
 /**
  * Fallback when the caller names no account: the oldest one, or a fresh

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { IsNull } from "typeorm";
 import { getDataSource } from "@/lib/db/client";
+import { isUniqueViolation } from "@/lib/db/errors";
 import {
   UserEntity,
   SessionEntity,
@@ -56,10 +57,21 @@ export async function PATCH(
   }
 
   const { password, ...rest } = parsed.data;
-  await repo.update(userId, {
-    ...rest,
-    ...(password ? { passwordHash: await hashPassword(password) } : {}),
-  });
+  try {
+    await repo.update(userId, {
+      ...rest,
+      ...(password ? { passwordHash: await hashPassword(password) } : {}),
+    });
+  } catch (err) {
+    // users.email is unique; say so rather than surfacing a bare 500.
+    if (isUniqueViolation(err)) {
+      return NextResponse.json(
+        { error: "Cet email est déjà utilisé par un autre compte" },
+        { status: 409 },
+      );
+    }
+    throw err;
+  }
   const updated = await repo.findOne({ where: { id: userId } });
   return NextResponse.json(updated ? publicUser(updated) : { ok: true });
 }

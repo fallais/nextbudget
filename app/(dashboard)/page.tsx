@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import {
   ArrowDownRight,
   ArrowUpRight,
   AlertTriangle,
   Wallet,
 } from "lucide-react";
+import { PeriodSelector } from "@/components/layout/period-selector";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { BalanceChart } from "@/components/dashboard/balance-chart";
@@ -82,9 +84,16 @@ export default async function DashboardPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Tableau de bord</h2>
-        <p className="text-sm text-muted-foreground">Vue d'ensemble · {periodLabel}</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight">Tableau de bord</h2>
+          <p className="text-sm text-muted-foreground">Vue d&apos;ensemble · {periodLabel}</p>
+        </div>
+        {/* This page is the only consumer of ?period — Transactions has its own
+            Du/Au range in its filter panel — so the control lives here. */}
+        <Suspense fallback={null}>
+          <PeriodSelector />
+        </Suspense>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

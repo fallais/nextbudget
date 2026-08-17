@@ -35,6 +35,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-brand: var(--brand);
+  --color-brand-accent: var(--brand-accent);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -49,6 +51,12 @@
 }
 
 :root {
+  /* Brand (logo). --brand is the façade navy; it lightens in dark mode so the
+     mark stays visible. --brand-accent is the "JS" blue and is legible on both
+     grounds, so it is the same in both themes. */
+  --brand: #0e2348;
+  --brand-accent: #1d6ef2;
+
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -84,6 +92,9 @@
 }
 
 .dark {
+  --brand: #e8eefb;
+  --brand-accent: #5b93ff;
+
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);

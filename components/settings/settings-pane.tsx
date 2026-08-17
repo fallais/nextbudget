@@ -3,9 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Lock, Users2, User, ArrowRight } from "lucide-react";
+import { Lock, Users2, User, ArrowRight, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -13,7 +15,13 @@ import { EnableAuthDialog } from "@/components/auth/enable-auth-dialog";
 import { HouseholdWizard } from "./household-wizard";
 import type { HouseholdMode } from "@/lib/db/settings";
 
-export type SettingsMember = { id: number; name: string; login: string | null };
+export type SettingsMember = {
+  id: number;
+  name: string;
+  /** The login this member is attached to, if any. */
+  userId: number | null;
+  email: string | null;
+};
 
 export function SettingsPane({
   household,
@@ -22,6 +30,7 @@ export function SettingsPane({
   accountCount,
   jointAccountCount,
   isOwner,
+  me,
 }: {
   household: HouseholdMode;
   authMode: "open" | "enforced";
@@ -29,6 +38,7 @@ export function SettingsPane({
   accountCount: number;
   jointAccountCount: number;
   isOwner: boolean;
+  me: SettingsMember | null;
 }) {
   const router = useRouter();
   const [authOpen, setAuthOpen] = useState(false);
@@ -101,15 +111,7 @@ export function SettingsPane({
             </div>
             <ul className="space-y-1">
               {members.map((m) => (
-                <li key={m.id} className="flex items-center gap-2 text-sm">
-                  <User className="size-3.5 text-muted-foreground" />
-                  <span>{m.name}</span>
-                  {m.login ? (
-                    <Badge variant="secondary">{m.login}</Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">sans connexion</span>
-                  )}
-                </li>
+                <MemberRow key={m.id} member={m} editable={isOwner} />
               ))}
             </ul>
           </CardContent>
@@ -177,8 +179,167 @@ export function SettingsPane({
         onOpenChange={setWizardOpen}
         members={members}
         hasJointAccount={jointAccountCount > 0}
+        me={me}
       />
     </div>
+  );
+}
+
+/**
+ * A member's name and email, editable in place.
+ *
+ * The name is written to the person and, when one is attached, to the login
+ * too. They are separate records on purpose — a person needs no login — but
+ * they are one human, so letting the two names drift would only confuse.
+ *
+ * Email belongs to the login, so a member without one has nowhere to put it.
+ * Rather than silently hiding the field, it is shown disabled with the reason.
+ */
+function MemberRow({ member, editable }: { member: SettingsMember; editable: boolean }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(member.name);
+  const [email, setEmail] = useState(member.email ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const hasLogin = member.userId != null;
+
+  function reset() {
+    setName(member.name);
+    setEmail(member.email ?? "");
+    setEditing(false);
+  }
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    const nextName = name.trim();
+    const nextEmail = email.trim();
+    if (!nextName) {
+      toast.error("Le nom ne peut pas être vide");
+      return;
+    }
+    const nameChanged = nextName !== member.name;
+    const emailChanged = hasLogin && nextEmail !== (member.email ?? "");
+    if (!nameChanged && !emailChanged) {
+      reset();
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (nameChanged) {
+        const res = await fetch(`/api/persons/${member.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: nextName }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Échec du renommage");
+        }
+      }
+      if (hasLogin && (nameChanged || emailChanged)) {
+        const res = await fetch(`/api/users/${member.userId}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            ...(nameChanged ? { name: nextName } : {}),
+            ...(emailChanged ? { email: nextEmail || null } : {}),
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error ?? "Échec de la mise à jour de la connexion");
+        }
+      }
+      toast.success("Membre mis à jour");
+      setEditing(false);
+      router.refresh();
+    } catch (err) {
+      toast.error("Échec de l'enregistrement", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <li className="rounded-md border bg-background p-3">
+        <form onSubmit={save} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor={`member-name-${member.id}`} className="text-xs">
+                Nom
+              </Label>
+              <Input
+                id={`member-name-${member.id}`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={80}
+                autoFocus
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor={`member-email-${member.id}`} className="text-xs">
+                Email
+              </Label>
+              <Input
+                id={`member-email-${member.id}`}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={!hasLogin}
+                placeholder={hasLogin ? "camille@exemple.com" : "—"}
+                className="h-8"
+              />
+            </div>
+          </div>
+          {!hasLogin && (
+            <p className="text-xs text-muted-foreground">
+              L&apos;email sert à se connecter : rattachez d&apos;abord un compte
+              utilisateur à cette personne depuis la page Apports.
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button type="submit" size="sm" disabled={saving}>
+              {saving ? "Enregistrement…" : "Enregistrer"}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={reset}>
+              Annuler
+            </Button>
+          </div>
+        </form>
+      </li>
+    );
+  }
+
+  return (
+    <li className="flex items-center gap-2 text-sm">
+      <User className="size-3.5 text-muted-foreground" />
+      <span>{member.name}</span>
+      {member.email ? (
+        <Badge variant="secondary">{member.email}</Badge>
+      ) : (
+        <span className="text-xs text-muted-foreground">
+          {hasLogin ? "connexion sans email" : "sans connexion"}
+        </span>
+      )}
+      {editable && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs text-muted-foreground"
+          onClick={() => setEditing(true)}
+        >
+          <Pencil className="mr-1 size-3" />
+          Modifier
+        </Button>
+      )}
+    </li>
   );
 }
 
