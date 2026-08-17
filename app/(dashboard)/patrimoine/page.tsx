@@ -9,7 +9,7 @@ import {
 import { listAllAccounts } from "@application/queries";
 import { listMembers, getPersonForUser } from "@application/household";
 import { getCurrentUser } from "@application/auth";
-import type { ShareInput } from "@domain/shares";
+import type { OwnerShareRow } from "@domain/value-objects/share";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@shared/utils";
 import { formatCents } from "@shared/format";
@@ -36,7 +36,7 @@ export default async function PatrimoinePage() {
   const breakdown = persons.length > 1 ? await getNetWorthByPerson() : null;
 
   const ownerRows = await listAssetOwners(assets.map((a) => a.id));
-  const ownersByAsset: Record<number, ShareInput[]> = {};
+  const ownersByAsset: Record<number, OwnerShareRow[]> = {};
   for (const [assetId, rows] of ownerRows) {
     ownersByAsset[assetId] = rows.map((r) => ({
       personId: r.personId,

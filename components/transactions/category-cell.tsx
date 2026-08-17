@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/command";
 import { CategoryBadge } from "@/components/categories/category-badge";
 import { getCategoryIcon } from "@shared/category-icons";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 
 export function CategoryCell({
   transactionId,
@@ -24,8 +24,8 @@ export function CategoryCell({
   categories,
 }: {
   transactionId: number;
-  current: Pick<Category, "id" | "name" | "color" | "icon"> | null;
-  categories: Category[];
+  current: Pick<CategoryRow, "id" | "name" | "color" | "icon"> | null;
+  categories: CategoryRow[];
 }) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();

@@ -38,7 +38,7 @@ import {
   PERIOD_LABELS,
   isPeriodKey,
   type PeriodKey,
-} from "@domain/period";
+} from "@domain/value-objects/period";
 import { formatCents, formatPercent } from "@shared/format";
 
 export const runtime = "nodejs";

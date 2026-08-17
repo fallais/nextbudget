@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { TransactionEntity } from "@infrastructure/db/schemas";
-import { ruleTestSchema } from "@domain/validation";
+import { ruleTestSchema } from "@application/contracts/validation";
 import { compileRule } from "@application/categorize/engine";
 
 export const runtime = "nodejs";

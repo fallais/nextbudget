@@ -22,13 +22,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Category, FixedExpense } from "@domain/entities";
+import type { CategoryRow, FixedExpenseRow } from "@domain/entities";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  fixedExpense: FixedExpense | null;
-  categories: Category[];
+  fixedExpense: FixedExpenseRow | null;
+  categories: CategoryRow[];
 };
 
 export function FixedExpenseForm({ open, onOpenChange, fixedExpense, categories }: Props) {

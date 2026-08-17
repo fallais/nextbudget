@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCents, formatDateShort } from "@shared/format";
-import type { Rule } from "@domain/entities";
+import type { RuleRow } from "@domain/entities";
 
 type Sample = {
   id: number;
@@ -20,8 +20,8 @@ export function RuleTest({
   amountCondition = "any",
 }: {
   pattern: string;
-  matchType: Rule["matchType"];
-  amountCondition?: Rule["amountCondition"];
+  matchType: RuleRow["matchType"];
+  amountCondition?: RuleRow["amountCondition"];
 }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<TestResult | null>(null);

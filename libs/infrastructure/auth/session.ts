@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { getDataSource } from "@infrastructure/db/client";
 import { SessionEntity, UserEntity } from "@infrastructure/db/schemas";
-import type { User } from "@domain/entities";
+import type { UserRow } from "@domain/entities";
 
 const COOKIE = "banquejs_session";
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -36,7 +36,7 @@ export async function destroySession(): Promise<void> {
 }
 
 /** Resolve the user behind the current session cookie, or null. */
-export async function getSessionUser(): Promise<User | null> {
+export async function getSessionUser(): Promise<UserRow | null> {
   const jar = await cookies();
   const token = jar.get(COOKIE)?.value;
   if (!token) return null;

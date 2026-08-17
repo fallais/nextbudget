@@ -1,7 +1,7 @@
 import { getDataSource } from "@infrastructure/db/client";
 import { TransactionEntity } from "@infrastructure/db/schemas";
 import { listAllAccounts } from "@application/queries";
-import { AccountsPane, type AccountRow } from "@/components/accounts/accounts-pane";
+import { AccountsPane, type AccountListItem } from "@/components/accounts/accounts-pane";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export default async function ComptesPage() {
     .getRawMany<{ accountId: number; count: string }>();
   const byAccount = new Map(counts.map((c) => [Number(c.accountId), Number(c.count)]));
 
-  const rows: AccountRow[] = accounts.map((a) => ({
+  const rows: AccountListItem[] = accounts.map((a) => ({
     ...a,
     txCount: byAccount.get(a.id) ?? 0,
   }));

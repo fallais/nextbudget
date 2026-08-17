@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { BudgetEntity } from "@infrastructure/db/schemas";
-import { categoryBudgetSchema } from "@domain/validation";
+import { categoryBudgetSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
 
 export const runtime = "nodejs";

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { ContributionEntity } from "@infrastructure/db/schemas";
 import { listContributions } from "@application/contributions";
-import { contributionInputSchema } from "@domain/validation";
+import { contributionInputSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
 
 export const runtime = "nodejs";

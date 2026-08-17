@@ -13,7 +13,7 @@ import {
   PERIOD_OPTIONS,
   isPeriodKey,
   type PeriodKey,
-} from "@domain/period";
+} from "@domain/value-objects/period";
 
 export function PeriodSelector({ defaultPeriod = "month" }: { defaultPeriod?: PeriodKey }) {
   const router = useRouter();

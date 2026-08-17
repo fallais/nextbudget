@@ -1,7 +1,7 @@
 import "server-only";
 import { getDataSource } from "@infrastructure/db/client";
 import { SettingEntity, UserEntity } from "@infrastructure/db/schemas";
-import type { User } from "@domain/entities";
+import type { UserRow } from "@domain/entities";
 import { getSessionUser } from "@infrastructure/auth/session";
 
 export { createSession, destroySession, getSessionUser } from "@infrastructure/auth/session";
@@ -16,7 +16,7 @@ export async function getAuthMode(): Promise<AuthMode> {
 }
 
 /** Strip the password hash before returning a user over the wire. */
-export function publicUser(u: User) {
+export function publicUser(u: UserRow) {
   return {
     id: u.id,
     name: u.name,
@@ -28,7 +28,7 @@ export function publicUser(u: User) {
   };
 }
 
-export async function getOwner(): Promise<User | null> {
+export async function getOwner(): Promise<UserRow | null> {
   const ds = await getDataSource();
   return ds.getRepository(UserEntity).findOne({ where: { role: "owner" } });
 }
@@ -38,7 +38,7 @@ export async function getOwner(): Promise<User | null> {
  * - `open` mode: the single owner (no login required).
  * - `enforced` mode: the user behind a valid session cookie, or null.
  */
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<UserRow | null> {
   const mode = await getAuthMode();
   if (mode === "open") return getOwner();
   return getSessionUser();

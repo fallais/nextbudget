@@ -22,16 +22,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RuleTest } from "./rule-test";
-import type { Rule } from "@domain/entities";
+import type { RuleRow } from "@domain/entities";
 
-const MATCH_LABELS: Record<Rule["matchType"], string> = {
+const MATCH_LABELS: Record<RuleRow["matchType"], string> = {
   contains: "Contient",
   equals: "Égal à",
   starts_with: "Commence par",
   regex: "Expression régulière",
 };
 
-const AMOUNT_LABELS: Record<Rule["amountCondition"], string> = {
+const AMOUNT_LABELS: Record<RuleRow["amountCondition"], string> = {
   any: "Toutes les transactions",
   positive: "Recettes uniquement (montant positif)",
   negative: "Dépenses uniquement (montant négatif)",
@@ -41,14 +41,14 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   categoryId: number;
-  rule: Rule | null;
+  rule: RuleRow | null;
 };
 
 export function RuleForm({ open, onOpenChange, categoryId, rule }: Props) {
   const [pattern, setPattern] = useState("");
-  const [matchType, setMatchType] = useState<Rule["matchType"]>("contains");
+  const [matchType, setMatchType] = useState<RuleRow["matchType"]>("contains");
   const [amountCondition, setAmountCondition] =
-    useState<Rule["amountCondition"]>("any");
+    useState<RuleRow["amountCondition"]>("any");
   const [priority, setPriority] = useState("100");
   const [saving, setSaving] = useState(false);
   const [, startTransition] = useTransition();
@@ -117,7 +117,7 @@ export function RuleForm({ open, onOpenChange, categoryId, rule }: Props) {
               <Select
                 value={matchType}
                 items={MATCH_LABELS}
-                onValueChange={(v) => setMatchType(v as Rule["matchType"])}
+                onValueChange={(v) => setMatchType(v as RuleRow["matchType"])}
               >
                 <SelectTrigger id="rule-type">
                   <SelectValue />
@@ -153,7 +153,7 @@ export function RuleForm({ open, onOpenChange, categoryId, rule }: Props) {
                 value={amountCondition}
                 items={AMOUNT_LABELS}
                 onValueChange={(v) =>
-                  v && setAmountCondition(v as Rule["amountCondition"])
+                  v && setAmountCondition(v as RuleRow["amountCondition"])
                 }
               >
                 <SelectTrigger id="rule-amount">

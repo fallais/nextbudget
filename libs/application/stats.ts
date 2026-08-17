@@ -2,9 +2,9 @@ import "server-only";
 import type { SelectQueryBuilder } from "typeorm";
 import { getDataSource } from "@infrastructure/db/client";
 import { TransactionEntity } from "@infrastructure/db/schemas";
-import type { Transaction } from "@domain/entities";
+import type { TransactionRow } from "@domain/entities";
 import { getScope, visibleAccountIds, applyAccountScope } from "@application/scope";
-import { periodToRange, previousPeriodRange, type PeriodKey } from "@domain/period";
+import { periodToRange, previousPeriodRange, type PeriodKey } from "@domain/value-objects/period";
 
 // Month bucket from an ISO 'yyyy-MM-dd' text date → 'yyyy-MM' (Postgres-portable).
 const MONTH = "substr(t.date, 1, 7)";
@@ -19,10 +19,10 @@ export type PeriodSummary = {
 };
 
 function withDates(
-  qb: SelectQueryBuilder<Transaction>,
+  qb: SelectQueryBuilder<TransactionRow>,
   from: string | null,
   to: string | null,
-): SelectQueryBuilder<Transaction> {
+): SelectQueryBuilder<TransactionRow> {
   if (from) qb.andWhere("t.date >= :from", { from });
   if (to) qb.andWhere("t.date <= :to", { to });
   return qb;

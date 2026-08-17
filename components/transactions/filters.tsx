@@ -15,11 +15,11 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@shared/utils";
 import { CategoryBadge } from "@/components/categories/category-badge";
-import type { Category, Account } from "@domain/entities";
+import type { CategoryRow, AccountRow } from "@domain/entities";
 
 type Props = {
-  categories: Category[];
-  accounts: Account[];
+  categories: CategoryRow[];
+  accounts: AccountRow[];
 };
 
 function toIsoDate(d: Date | undefined) {

@@ -3,7 +3,7 @@ import { IsNull } from "typeorm";
 import { getDataSource } from "@infrastructure/db/client";
 import { isUniqueViolation } from "@infrastructure/db/errors";
 import { UserEntity, SessionEntity, PersonEntity, AccountEntity, RuleEntity, ContributionEntity, FixedExpenseEntity, BudgetEntity, AssetEntity } from "@infrastructure/db/schemas";
-import { userUpdateSchema } from "@domain/validation";
+import { userUpdateSchema } from "@application/contracts/validation";
 import { getCurrentUser, hashPassword, publicUser } from "@application/auth";
 
 export const runtime = "nodejs";

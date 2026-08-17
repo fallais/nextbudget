@@ -1,4 +1,4 @@
-import { normalizeDescription } from "./normalize";
+import { normalizeDescription } from "@domain/value-objects/normalized-description";
 
 export type AmountCondition = "any" | "positive" | "negative";
 

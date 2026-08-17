@@ -1,8 +1,5 @@
 import { EntitySchema, type ValueTransformer } from "typeorm";
-import type {
-  User, Session, Setting, Account, Category, Rule, Transaction, Person,
-  Contribution, FixedExpense, Budget, Asset, AssetOwner, AssetValuation, Import,
-} from "@domain/entities";
+import type { UserRow, SessionRow, SettingRow, AccountRow, CategoryRow, RuleRow, TransactionRow, PersonRow, ContributionRow, FixedExpenseRow, BudgetRow, AssetRow, AssetOwnerRow, AssetValuationRow, ImportRow } from "@domain/entities";
 
 /**
  * How domain rows map to Postgres tables. `synchronize: true` derives the
@@ -25,7 +22,7 @@ const owner = {
   visibility: { type: "text" as const, default: "shared" },
 };
 
-export const UserEntity = new EntitySchema<User>({
+export const UserEntity = new EntitySchema<UserRow>({
   name: "users",
   columns: {
     id,
@@ -38,7 +35,7 @@ export const UserEntity = new EntitySchema<User>({
   },
 });
 
-export const SessionEntity = new EntitySchema<Session>({
+export const SessionEntity = new EntitySchema<SessionRow>({
   name: "sessions",
   columns: {
     id: { type: "text", primary: true },
@@ -48,7 +45,7 @@ export const SessionEntity = new EntitySchema<Session>({
   indices: [{ name: "sessions_user_idx", columns: ["userId"] }],
 });
 
-export const SettingEntity = new EntitySchema<Setting>({
+export const SettingEntity = new EntitySchema<SettingRow>({
   name: "settings",
   columns: {
     key: { type: "text", primary: true },
@@ -56,7 +53,7 @@ export const SettingEntity = new EntitySchema<Setting>({
   },
 });
 
-export const AccountEntity = new EntitySchema<Account>({
+export const AccountEntity = new EntitySchema<AccountRow>({
   name: "accounts",
   columns: {
     id,
@@ -70,7 +67,7 @@ export const AccountEntity = new EntitySchema<Account>({
   },
 });
 
-export const CategoryEntity = new EntitySchema<Category>({
+export const CategoryEntity = new EntitySchema<CategoryRow>({
   name: "categories",
   columns: {
     id,
@@ -82,7 +79,7 @@ export const CategoryEntity = new EntitySchema<Category>({
   },
 });
 
-export const RuleEntity = new EntitySchema<Rule>({
+export const RuleEntity = new EntitySchema<RuleRow>({
   name: "rules",
   columns: {
     id,
@@ -98,7 +95,7 @@ export const RuleEntity = new EntitySchema<Rule>({
   indices: [{ name: "rules_priority_idx", columns: ["priority"] }],
 });
 
-export const TransactionEntity = new EntitySchema<Transaction>({
+export const TransactionEntity = new EntitySchema<TransactionRow>({
   name: "transactions",
   columns: {
     id,
@@ -130,7 +127,7 @@ export const TransactionEntity = new EntitySchema<Transaction>({
   ],
 });
 
-export const PersonEntity = new EntitySchema<Person>({
+export const PersonEntity = new EntitySchema<PersonRow>({
   name: "persons",
   columns: {
     id,
@@ -150,7 +147,7 @@ export const PersonEntity = new EntitySchema<Person>({
   },
 });
 
-export const ContributionEntity = new EntitySchema<Contribution>({
+export const ContributionEntity = new EntitySchema<ContributionRow>({
   name: "contributions",
   columns: {
     id,
@@ -171,7 +168,7 @@ export const ContributionEntity = new EntitySchema<Contribution>({
   },
 });
 
-export const FixedExpenseEntity = new EntitySchema<FixedExpense>({
+export const FixedExpenseEntity = new EntitySchema<FixedExpenseRow>({
   name: "fixed_expenses",
   columns: {
     id,
@@ -194,7 +191,7 @@ export const FixedExpenseEntity = new EntitySchema<FixedExpense>({
   },
 });
 
-export const BudgetEntity = new EntitySchema<Budget>({
+export const BudgetEntity = new EntitySchema<BudgetRow>({
   name: "budgets",
   columns: {
     id,
@@ -213,7 +210,7 @@ export const BudgetEntity = new EntitySchema<Budget>({
   ],
 });
 
-export const AssetEntity = new EntitySchema<Asset>({
+export const AssetEntity = new EntitySchema<AssetRow>({
   name: "assets",
   columns: {
     id,
@@ -264,7 +261,7 @@ export const AssetEntity = new EntitySchema<Asset>({
   },
 });
 
-export const AssetOwnerEntity = new EntitySchema<AssetOwner>({
+export const AssetOwnerEntity = new EntitySchema<AssetOwnerRow>({
   name: "asset_owners",
   columns: {
     id,
@@ -282,7 +279,7 @@ export const AssetOwnerEntity = new EntitySchema<AssetOwner>({
   ],
 });
 
-export const AssetValuationEntity = new EntitySchema<AssetValuation>({
+export const AssetValuationEntity = new EntitySchema<AssetValuationRow>({
   name: "asset_valuations",
   columns: {
     id,
@@ -293,7 +290,7 @@ export const AssetValuationEntity = new EntitySchema<AssetValuation>({
   indices: [{ name: "asset_valuations_asset_idx", columns: ["assetId"] }],
 });
 
-export const ImportEntity = new EntitySchema<Import>({
+export const ImportEntity = new EntitySchema<ImportRow>({
   name: "imports",
   columns: {
     id,

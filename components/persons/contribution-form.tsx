@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Contribution } from "@domain/entities";
+import type { ContributionRow } from "@domain/entities";
 
 type MatchType = "contains" | "starts_with" | "regex";
 
@@ -30,7 +30,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   personId: number;
-  contribution: Contribution | null;
+  contribution: ContributionRow | null;
 };
 
 export function ContributionForm({

@@ -18,7 +18,7 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
 
 ## Conventions
 - Amounts stored as signed integer **cents** (Postgres `bigint`, exposed as JS numbers
-  via a column transformer); format only at the UI edge (`lib/format.ts`).
+  via a column transformer); format only at the UI edge (`libs/shared/format.ts`).
 - All `app/api/**/route.ts` must `export const runtime = 'nodejs'` (TypeORM/pg).
 - French locale for dates/currency: `1 234,56 €`, `15 mai 2026`, `15/05/2026`.
 - Transaction dedup hash: `sha256(date|amountCents|normalizedDescription)` — a
@@ -31,11 +31,14 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
   `multipart/form-data`; parsed in-memory. Accepted: `.csv`, `.tsv`, `.txt`.
 
 ## Data layer (TypeORM)
-- `lib/db/entities.ts` — `EntitySchema` definitions (no decorators) + row interfaces.
-- `lib/db/client.ts` — lazy, process-global `DataSource` (`getDataSource()`, `repo()`).
+- `libs/domain/entities/` — one file per entity: the class (invariants, behaviour)
+  and its `*Row` type. `libs/infrastructure/db/schemas.ts` holds the matching
+  `EntitySchema` definitions (no decorators).
+- `libs/infrastructure/db/client.ts` — lazy, process-global `DataSource` (`getDataSource()`, `repo()`).
   `synchronize: true` (no migrations); the schema is derived from the entities.
   The DataSource initializes on first use, never at import → `next build` needs no DB.
-- `lib/db/schema.ts` — backwards-compatible **type** barrel re-exporting entity row types.
+- `libs/infrastructure/db/mappers/` — row ⇄ entity. Reads `reconstitute`, writes
+  go through `create()` so invalid data cannot reach a table.
 - Aggregates use the query builder with `getRawMany()`/`getRawOne()`; wrap numeric
   results in `Number(...)`. Month buckets use `substr(date,1,7)` (date is ISO text).
 - `typeorm`/`pg` are in `serverExternalPackages` (next.config.ts) so webpack does
@@ -43,16 +46,37 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
 - No DB-level FK constraints (scalar FK columns); delete cascades that mattered are
   reproduced in app code (see category/person DELETE routes).
 
-## Layout
-- `app/(dashboard)/` — pages (sidebar shell); the layout guards auth via `getCurrentUser()`
-- `app/api/` — route handlers (incl. `auth/`, `users/`, `assets/`, `visibility`)
-- `lib/db/` — entities, client (DataSource), queries, stats, seed, `scope.ts`, `assets.ts`,
-  `amortization.ts`, `household.ts` (persons ↔ users), `settings.ts` (household mode)
-- `lib/auth/` — argon2 password hashing, DB-backed sessions, `getCurrentUser`/`getAuthMode`
-- `lib/shares.ts` — pure ownership maths in basis points (DB-free, unit-tested)
-- `lib/ingest/` — parser registry + CSV parser; PDF stubbed
-- `lib/categorize/` — rule engine + normalize; `categories.yaml` + `defaults.ts`
-  are the seeded defaults (see below); `llm.ts` is a v2 stub
+## Layout — layered, dependencies point inward
+```
+app/            pages + route handlers   →  may use every layer
+components/     React                    →  @domain (types), @shared
+libs/domain/    entities, VOs, services  →  nothing. No I/O, no imports outward
+libs/application/  use cases             →  @domain, @infrastructure
+libs/infrastructure/  DB, auth, parsers  →  @domain
+libs/shared/    format, cn, icons        →  nothing
+```
+Aliases: `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*`
+(tsconfig `paths`; **mirrored in `vitest.config.mts`**, which does not read them).
+
+- `libs/domain/ddd/` — `Entity` (identity equality), `AggregateRoot` (consistency
+  boundary), `ValueObject`. No event machinery: nothing publishes events, and an
+  unused event bus is a liability, not robustness.
+- `libs/domain/entities/` — one file per entity. Each exports the **class**
+  (behaviour + invariants, server-side) and its **`*Row` type** — the persisted
+  shape, which doubles as the DTO, since class instances cannot cross into a
+  Client Component. `create()` validates user input; `reconstitute()` trusts a
+  stored row (re-validating on read would let a new rule break old data).
+- `libs/domain/enums/` — closed value sets as `as const` arrays with the union
+  derived from them, **not** TS `enum`s. See that folder's README for why.
+- `libs/domain/value-objects/` — `Money` (signed cents), `Share`/`Ownership`
+  (basis points; the 100 % invariant lives on the set), `period`,
+  `normalized-description`.
+- `libs/domain/services/` — `amortization` (loan cost + schedule),
+  `categorization` (rule compiling and matching).
+- `libs/infrastructure/db/` — `client` (DataSource), `schemas` (EntitySchemas),
+  `mappers` (row ⇄ entity), `seed`, `errors`.
+- `app/(dashboard)/` — pages (sidebar shell); the layout guards auth via
+  `getCurrentUser()`. `app/api/` — route handlers.
 - `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,accounts,settings,ui}/`
 
 ## Household (couple support)
@@ -64,7 +88,7 @@ See `docs/couple-plan.md` for the full design and what was deliberately left out
   bank account, distinct from `visibility`. Contributions are matched only against
   joint accounts, falling back to all visible ones when none is marked joint.
 - **Ownership shares** live in `asset_owners (asset_id, person_id, share_bps)`,
-  10000 = 100%, validated in app code (`lib/shares.ts`). An asset with **no** rows
+  10000 = 100%, validated in app code (`libs/domain/value-objects/share.ts`). An asset with **no** rows
   reads as wholly owned by its `owner_id` — that is what keeps legacy rows and solo
   installs correct with no migration. Three separate axes, never merged: ownership
   share (how much is yours) · visibility (who can see it) · payment share (who funds
@@ -75,7 +99,7 @@ See `docs/couple-plan.md` for the full design and what was deliberately left out
   and account selectors appear only past one person / one account.
 
 ## PATCH bodies
-Use `patchSchema(xInputSchema)` from `lib/validation.ts`, never
+Use `patchSchema(xInputSchema)` from `libs/application/contracts/validation.ts`, never
 `xInputSchema.partial()`. Zod 4 keeps `.default()` on a key made optional by
 `.partial()`, so an omitted field materialises its default and the route writes it
 over the stored value. `patchSchema` unwraps defaults first.
@@ -84,8 +108,8 @@ over the stored value. `patchSchema` unwraps defaults first.
 - **Auth mode** is in `settings.authMode` (`open` | `enforced`), not an env var.
   `open` (default) resolves the single owner with no login; `enforced` requires a
   session cookie (redirect to `/login`). Toggle via the sidebar "enable auth" prompt
-  (`/api/auth/setup`). Sessions are opaque DB tokens (`lib/auth/session.ts`).
-- **Scoping** (`lib/db/scope.ts`): list/aggregate queries filter to
+  (`/api/auth/setup`). Sessions are opaque DB tokens (`libs/infrastructure/auth/session.ts`).
+- **Scoping** (`libs/application/scope.ts`): list/aggregate queries filter to
   `owner_id = me OR visibility = 'shared' OR owner_id IS NULL` — a **no-op in open
   mode**. Transactions/stats inherit visibility from their **account**; accounts,
   contributions, fixed_expenses, budgets, assets are scoped directly. Writes stamp
@@ -93,8 +117,8 @@ over the stored value. `patchSchema` unwraps defaults first.
 
 ## Categorization defaults
 Default categories and merchant patterns live in **one YAML file**,
-`lib/categorize/categories.yaml`, validated by a Zod schema in
-`lib/categorize/defaults.ts`.
+`libs/infrastructure/categorize/categories.yaml`, validated by a Zod schema in
+`libs/infrastructure/categorize/defaults.ts`.
 - **Seeded into `categories` + `rules`** at `db:migrate`, additively: only
   missing rows are created, so edits made in the Rules UI survive a re-run.
 - After seeding, the **DB is the only source the engine reads**. There is no
@@ -107,8 +131,8 @@ Default categories and merchant patterns live in **one YAML file**,
   Rules page — not in this file.
 
 ## Adding a new bank parser
-Add `lib/ingest/parsers/<name>.ts` exporting a function returning `ParseResult`,
-then register it in `lib/ingest/parsers/registry.ts` (extension- or
+Add `libs/infrastructure/ingest/parsers/<name>.ts` exporting a function returning `ParseResult`,
+then register it in `libs/infrastructure/ingest/parsers/registry.ts` (extension- or
 signature-based). Reuse `parseAmountToCents` and `normalizeDescription`.
 
 ## Deployment (Docker + GHCR)

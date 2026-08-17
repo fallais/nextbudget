@@ -2,7 +2,7 @@ import "server-only";
 import { Brackets, type SelectQueryBuilder } from "typeorm";
 import { getDataSource } from "@infrastructure/db/client";
 import { TransactionEntity, CategoryEntity, AccountEntity } from "@infrastructure/db/schemas";
-import type { Transaction, Category, Account } from "@domain/entities";
+import type { TransactionRow, CategoryRow, AccountRow } from "@domain/entities";
 import {
   getScope,
   visibleAccountIds,
@@ -21,15 +21,15 @@ export type TransactionFilters = {
   amountMax?: number;
 };
 
-export type ListedTransaction = Transaction & {
-  category: Category | null;
-  account: Account | null;
+export type ListedTransaction = TransactionRow & {
+  category: CategoryRow | null;
+  account: AccountRow | null;
 };
 
 function applyFilters(
-  qb: SelectQueryBuilder<Transaction>,
+  qb: SelectQueryBuilder<TransactionRow>,
   filters: TransactionFilters,
-): SelectQueryBuilder<Transaction> {
+): SelectQueryBuilder<TransactionRow> {
   if (filters.from) qb.andWhere("t.date >= :from", { from: filters.from });
   if (filters.to) qb.andWhere("t.date <= :to", { to: filters.to });
   if (filters.uncategorized) {
@@ -60,7 +60,7 @@ function applyFilters(
   return qb;
 }
 
-async function attachRefs(txs: Transaction[]): Promise<ListedTransaction[]> {
+async function attachRefs(txs: TransactionRow[]): Promise<ListedTransaction[]> {
   if (txs.length === 0) return [];
   const ds = await getDataSource();
   const cats = await ds.getRepository(CategoryEntity).find();
@@ -92,12 +92,12 @@ export async function listTransactions(
   return { rows: await attachRefs(txs), total };
 }
 
-export async function listAllCategories(): Promise<Category[]> {
+export async function listAllCategories(): Promise<CategoryRow[]> {
   const ds = await getDataSource();
   return ds.getRepository(CategoryEntity).find({ order: { name: "ASC" } });
 }
 
-export async function listAllAccounts(): Promise<Account[]> {
+export async function listAllAccounts(): Promise<AccountRow[]> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AccountEntity).createQueryBuilder("a").orderBy("a.name", "ASC");
   applyOwnedScope(qb, "a", await getScope());

@@ -14,7 +14,7 @@ import {
 import { CategoryCell } from "./category-cell";
 import { formatCents, formatDateShort } from "@shared/format";
 import { cn } from "@shared/utils";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 import type { ListedTransaction } from "@application/queries";
 
 type Props = {
@@ -22,7 +22,7 @@ type Props = {
   total: number;
   page: number;
   pageSize: number;
-  categories: Category[];
+  categories: CategoryRow[];
 };
 
 export function TransactionsTable({ rows, total, page, pageSize, categories }: Props) {

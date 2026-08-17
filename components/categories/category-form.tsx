@@ -17,12 +17,12 @@ import { Button } from "@/components/ui/button";
 import { ColorPicker } from "./color-picker";
 import { IconPicker } from "./icon-picker";
 import { CategoryBadge } from "./category-badge";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  category: Category | null;
+  category: CategoryRow | null;
 };
 
 export function CategoryForm({ open, onOpenChange, category }: Props) {

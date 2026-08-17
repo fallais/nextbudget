@@ -10,10 +10,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import type { Import } from "@domain/entities";
+import type { ImportRow } from "@domain/entities";
 
 const statusMeta: Record<
-  Import["status"],
+  ImportRow["status"],
   { label: string; icon: typeof CheckCircle2; variant: "default" | "secondary" | "destructive" }
 > = {
   success: { label: "Succès", icon: CheckCircle2, variant: "secondary" },
@@ -21,7 +21,7 @@ const statusMeta: Record<
   error: { label: "Erreur", icon: XCircle, variant: "destructive" },
 };
 
-export function ImportsHistory({ imports }: { imports: Import[] }) {
+export function ImportsHistory({ imports }: { imports: ImportRow[] }) {
   if (imports.length === 0) {
     return (
       <div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">

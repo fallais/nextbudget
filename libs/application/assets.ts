@@ -2,11 +2,12 @@ import "server-only";
 import { In, type EntityManager } from "typeorm";
 import { getDataSource } from "@infrastructure/db/client";
 import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, PersonEntity } from "@infrastructure/db/schemas";
-import type { Asset, AssetOwner, Person } from "@domain/entities";
+import type { AssetRow, AssetOwnerRow, PersonRow } from "@domain/entities";
+import { toAsset } from "@infrastructure/db/mappers";
 import { getScope, applyOwnedScope } from "@application/scope";
-import { TOTAL_BPS, applyShare, type ShareInput } from "@domain/shares";
+import { Ownership, Share, type OwnerShareRow } from "@domain/value-objects/share";
 
-export async function listAssets(): Promise<Asset[]> {
+export async function listAssets(): Promise<AssetRow[]> {
   const ds = await getDataSource();
   const qb = ds
     .getRepository(AssetEntity)
@@ -17,7 +18,7 @@ export async function listAssets(): Promise<Asset[]> {
   return qb.getMany();
 }
 
-export async function getVisibleAsset(id: number): Promise<Asset | null> {
+export async function getVisibleAsset(id: number): Promise<AssetRow | null> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.id = :id", { id });
   applyOwnedScope(qb, "a", await getScope());
@@ -40,11 +41,12 @@ export async function getNetWorth(): Promise<NetWorth> {
   let assetsCents = 0;
   let liabilitiesCents = 0;
   const byTypeMap = new Map<string, number>();
-  for (const a of assets) {
-    if (a.kind === "asset") assetsCents += a.valueCents;
-    else liabilitiesCents += a.valueCents;
-    const key = `${a.kind}:${a.type}`;
-    byTypeMap.set(key, (byTypeMap.get(key) ?? 0) + a.valueCents);
+  for (const row of assets) {
+    const asset = toAsset(row);
+    if (asset.kind === "asset") assetsCents += asset.value.cents;
+    else liabilitiesCents += asset.value.cents;
+    const key = `${asset.kind}:${asset.type}`;
+    byTypeMap.set(key, (byTypeMap.get(key) ?? 0) + asset.value.cents);
   }
   const byType = [...byTypeMap.entries()]
     .map(([k, totalCents]) => {
@@ -64,8 +66,8 @@ export async function getNetWorth(): Promise<NetWorth> {
 /** Ownership rows for the given assets, keyed by asset id. */
 export async function listAssetOwners(
   assetIds: number[],
-): Promise<Map<number, AssetOwner[]>> {
-  const byAsset = new Map<number, AssetOwner[]>();
+): Promise<Map<number, AssetOwnerRow[]>> {
+  const byAsset = new Map<number, AssetOwnerRow[]>();
   if (assetIds.length === 0) return byAsset;
   const ds = await getDataSource();
   const rows = await ds.getRepository(AssetOwnerEntity).findBy({ assetId: In(assetIds) });
@@ -87,15 +89,15 @@ export async function listAssetOwners(
  * with it: it still counts in the household total, but in no personal one.
  */
 export function effectiveOwners(
-  asset: Asset,
-  explicit: AssetOwner[] | undefined,
-  personByUserId: Map<number, Person>,
-): ShareInput[] {
+  asset: AssetRow,
+  explicit: AssetOwnerRow[] | undefined,
+  personByUserId: Map<number, PersonRow>,
+): OwnerShareRow[] {
   if (explicit && explicit.length > 0) {
     return explicit.map((o) => ({ personId: o.personId, shareBps: o.shareBps }));
   }
   const fallback = asset.ownerId != null ? personByUserId.get(asset.ownerId) : undefined;
-  return fallback ? [{ personId: fallback.id, shareBps: TOTAL_BPS }] : [];
+  return fallback ? Ownership.sole(fallback.id).toRows() : [];
 }
 
 /**
@@ -106,7 +108,7 @@ export function effectiveOwners(
 export async function replaceAssetOwners(
   manager: EntityManager,
   assetId: number,
-  owners: ShareInput[],
+  owners: OwnerShareRow[],
 ): Promise<{ error: string } | null> {
   const personIds = owners.map((o) => o.personId);
   const found = await manager.getRepository(PersonEntity).findBy({ id: In(personIds) });
@@ -161,17 +163,19 @@ export async function getNetWorthByPerson(): Promise<NetWorthBreakdown> {
   const totals = new Map<number, { assets: number; liabilities: number }>();
   let unattributedNetCents = 0;
 
-  for (const a of assets) {
-    const shares = effectiveOwners(a, owners.get(a.id), personByUserId);
-    const sign = a.kind === "asset" ? 1 : -1;
+  for (const row of assets) {
+    // Through the entity: the sign of a liability and the size of a slice are
+    // domain rules, not query-shaping details.
+    const asset = toAsset(row);
+    const shares = effectiveOwners(row, owners.get(row.id), personByUserId);
     if (shares.length === 0) {
-      unattributedNetCents += sign * a.valueCents;
+      unattributedNetCents += asset.netWorthContribution.cents;
       continue;
     }
     for (const s of shares) {
-      const slice = applyShare(a.valueCents, s.shareBps);
+      const slice = Share.fromBps(s.shareBps).applyTo(row.valueCents);
       const acc = totals.get(s.personId) ?? { assets: 0, liabilities: 0 };
-      if (a.kind === "asset") acc.assets += slice;
+      if (asset.kind === "asset") acc.assets += slice;
       else acc.liabilities += slice;
       totals.set(s.personId, acc);
     }
@@ -217,7 +221,7 @@ export async function getNetWorthHistory(): Promise<NetWorthPoint[]> {
   }
 
   const dates = [...new Set(valuations.map((v) => v.date))].sort();
-  const sign = (a: Asset) => (a.kind === "asset" ? 1 : -1);
+  const sign = (a: AssetRow) => (a.kind === "asset" ? 1 : -1);
 
   return dates.map((date) => {
     let net = 0;

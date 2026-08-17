@@ -29,7 +29,7 @@ import { CategoryBadge } from "@/components/categories/category-badge";
 import { FixedExpenseForm } from "./fixed-expense-form";
 import { formatCents, formatDateShort } from "@shared/format";
 import { cn } from "@shared/utils";
-import type { Category, FixedExpense } from "@domain/entities";
+import type { CategoryRow, FixedExpenseRow } from "@domain/entities";
 import type { FixedExpenseStatus } from "@application/fixed-expenses";
 
 const STATE_META: Record<
@@ -47,15 +47,15 @@ export function FixedExpensesTable({
   categories,
 }: {
   statuses: FixedExpenseStatus[];
-  categories: Category[];
+  categories: CategoryRow[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [editing, setEditing] = useState<FixedExpense | null>(null);
+  const [editing, setEditing] = useState<FixedExpenseRow | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<FixedExpense | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FixedExpenseRow | null>(null);
 
-  async function deleteFx(fx: FixedExpense) {
+  async function deleteFx(fx: FixedExpenseRow) {
     try {
       const res = await fetch(`/api/fixed-expenses/${fx.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -209,7 +209,7 @@ export function FixedExpensesTable({
   );
 }
 
-export function NewFixedExpenseButton({ categories }: { categories: Category[] }) {
+export function NewFixedExpenseButton({ categories }: { categories: CategoryRow[] }) {
   const [open, setOpen] = useState(false);
   return (
     <>

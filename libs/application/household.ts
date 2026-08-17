@@ -2,7 +2,7 @@ import "server-only";
 import { In } from "typeorm";
 import { getDataSource } from "@infrastructure/db/client";
 import { PersonEntity, UserEntity } from "@infrastructure/db/schemas";
-import type { Person, User } from "@domain/entities";
+import type { PersonRow, UserRow } from "@domain/entities";
 
 /**
  * The household: who lives here, and which of them can log in.
@@ -14,14 +14,14 @@ import type { Person, User } from "@domain/entities";
  * a member does have a login.
  */
 
-export type MemberUser = Pick<User, "id" | "name" | "email" | "role" | "isActive">;
+export type MemberUser = Pick<UserRow, "id" | "name" | "email" | "role" | "isActive">;
 
 export type Member = {
-  person: Person;
+  person: PersonRow;
   user: MemberUser | null;
 };
 
-function toMemberUser(u: User): MemberUser {
+function toMemberUser(u: UserRow): MemberUser {
   return { id: u.id, name: u.name, email: u.email, role: u.role, isActive: u.isActive };
 }
 
@@ -29,7 +29,7 @@ export async function listMembers(): Promise<Member[]> {
   const ds = await getDataSource();
   const persons = await ds.getRepository(PersonEntity).find({ order: { name: "ASC" } });
   const linkedIds = persons.map((p) => p.userId).filter((v): v is number => v != null);
-  const users: User[] = linkedIds.length
+  const users: UserRow[] = linkedIds.length
     ? await ds.getRepository(UserEntity).findBy({ id: In(linkedIds) })
     : [];
   const byId = new Map(users.map((u) => [u.id, toMemberUser(u)]));
@@ -40,7 +40,7 @@ export async function listMembers(): Promise<Member[]> {
 }
 
 /** The person a login speaks for, if the link has been made. */
-export async function getPersonForUser(userId: number): Promise<Person | null> {
+export async function getPersonForUser(userId: number): Promise<PersonRow | null> {
   const ds = await getDataSource();
   return ds.getRepository(PersonEntity).findOne({ where: { userId } });
 }

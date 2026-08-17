@@ -25,14 +25,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseAmountToCents } from "@shared/format";
 import {
+  Ownership,
   TOTAL_BPS,
-  evenShares,
   formatBps,
-  shareErrorMessage,
-  validateShares,
-  type ShareInput,
-} from "@domain/shares";
-import type { Asset } from "@domain/entities";
+  type OwnerShareRow,
+} from "@domain/value-objects/share";
+import { isDomainError } from "@domain/errors";
+import type { AssetRow } from "@domain/entities";
 
 export type FormPerson = { id: number; name: string };
 
@@ -44,7 +43,7 @@ export type FormPerson = { id: number; name: string };
  */
 type ShareMode = "shared" | "mine" | "custom";
 
-export const ASSET_TYPE_LABELS: Record<Asset["type"], string> = {
+export const ASSET_TYPE_LABELS: Record<AssetRow["type"], string> = {
   real_estate: "Immobilier",
   vehicle: "Véhicule",
   savings: "Épargne",
@@ -55,10 +54,10 @@ export const ASSET_TYPE_LABELS: Record<Asset["type"], string> = {
 };
 
 // Types valid for each nature — a liability can't be "Immobilier", etc.
-const ASSET_TYPES: Asset["type"][] = ["real_estate", "vehicle", "savings", "investment", "other"];
-const LIABILITY_TYPES: Asset["type"][] = ["mortgage", "loan", "other"];
-const typesFor = (k: Asset["kind"]) => (k === "asset" ? ASSET_TYPES : LIABILITY_TYPES);
-const defaultTypeFor = (k: Asset["kind"]): Asset["type"] => (k === "asset" ? "savings" : "mortgage");
+const ASSET_TYPES: AssetRow["type"][] = ["real_estate", "vehicle", "savings", "investment", "other"];
+const LIABILITY_TYPES: AssetRow["type"][] = ["mortgage", "loan", "other"];
+const typesFor = (k: AssetRow["kind"]) => (k === "asset" ? ASSET_TYPES : LIABILITY_TYPES);
+const defaultTypeFor = (k: AssetRow["kind"]): AssetRow["type"] => (k === "asset" ? "savings" : "mortgage");
 
 const centsToInput = (c: number | null | undefined) =>
   c == null ? "" : (c / 100).toFixed(2).replace(".", ",");
@@ -67,7 +66,7 @@ const toCents = (s: string) => (s ? Math.abs(parseAmountToCents(s)) : null);
 
 /** Work out which preset an existing set of shares corresponds to. */
 function modeForOwners(
-  owners: ShareInput[],
+  owners: OwnerShareRow[],
   persons: FormPerson[],
   mePersonId: number | null,
 ): ShareMode {
@@ -79,7 +78,7 @@ function modeForOwners(
   ) {
     return "mine";
   }
-  const even = evenShares(persons.map((p) => p.id));
+  const even = Ownership.even(persons.map((p) => p.id)).toRows();
   const sameSet =
     owners.length === even.length &&
     even.every((e) => owners.some((o) => o.personId === e.personId && o.shareBps === e.shareBps));
@@ -97,16 +96,16 @@ export function AssetForm({
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  asset?: Asset | null;
+  asset?: AssetRow | null;
   accounts: { id: number; name: string }[];
   persons?: FormPerson[];
-  owners?: ShareInput[];
+  owners?: OwnerShareRow[];
   mePersonId?: number | null;
 }) {
   const router = useRouter();
   const editing = !!asset;
-  const [kind, setKind] = useState<Asset["kind"]>(asset?.kind ?? "asset");
-  const [type, setType] = useState<Asset["type"]>(asset?.type ?? "savings");
+  const [kind, setKind] = useState<AssetRow["kind"]>(asset?.kind ?? "asset");
+  const [type, setType] = useState<AssetRow["type"]>(asset?.type ?? "savings");
   const [name, setName] = useState(asset?.name ?? "");
   const [value, setValue] = useState(centsToInput(asset?.valueCents));
   const [principal, setPrincipal] = useState(centsToInput(asset?.principalCents));
@@ -132,7 +131,8 @@ export function AssetForm({
   );
   // Percentages as typed, keyed by person id, e.g. { 1: "60", 2: "40" }.
   const [customPct, setCustomPct] = useState<Record<number, string>>(() => {
-    const initial = owners.length > 0 ? owners : evenShares(persons.map((p) => p.id));
+    const initial =
+      owners.length > 0 ? owners : Ownership.even(persons.map((p) => p.id)).toRows();
     return Object.fromEntries(
       persons.map((p) => {
         const bps = initial.find((o) => o.personId === p.id)?.shareBps ?? 0;
@@ -141,9 +141,9 @@ export function AssetForm({
     );
   });
 
-  function ownersPayload(): ShareInput[] | undefined {
+  function ownersPayload(): OwnerShareRow[] | undefined {
     if (!showShares) return undefined;
-    if (shareMode === "shared") return evenShares(persons.map((p) => p.id));
+    if (shareMode === "shared") return Ownership.even(persons.map((p) => p.id)).toRows();
     if (shareMode === "mine") {
       return mePersonId != null ? [{ personId: mePersonId, shareBps: TOTAL_BPS }] : undefined;
     }
@@ -172,7 +172,7 @@ export function AssetForm({
   // When adding real estate, offer to also record the mortgage that funds it.
   const offerCredit = !editing && kind === "asset" && type === "real_estate";
 
-  function changeKind(k: Asset["kind"]) {
+  function changeKind(k: AssetRow["kind"]) {
     setKind(k);
     if (!typesFor(k).includes(type)) setType(defaultTypeFor(k));
     if (k !== "asset") setAddCredit(false);
@@ -227,9 +227,11 @@ export function AssetForm({
     }
     const owners = ownersPayload();
     if (owners) {
-      const invalid = validateShares(owners);
-      if (invalid) {
-        toast.error(shareErrorMessage(invalid));
+      // Same rule as the server: an invalid split cannot be built at all.
+      try {
+        Ownership.fromRows(owners);
+      } catch (err) {
+        toast.error(isDomainError(err) ? err.message : "Quotes-parts invalides");
         return;
       }
     }
@@ -315,7 +317,7 @@ export function AssetForm({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Nature</Label>
-              <Select value={kind} items={kindItems} onValueChange={(v) => v && changeKind(v as Asset["kind"])}>
+              <Select value={kind} items={kindItems} onValueChange={(v) => v && changeKind(v as AssetRow["kind"])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="asset">Actif</SelectItem>
@@ -325,7 +327,7 @@ export function AssetForm({
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={type} items={ASSET_TYPE_LABELS} onValueChange={(v) => v && setType(v as Asset["type"])}>
+              <Select value={type} items={ASSET_TYPE_LABELS} onValueChange={(v) => v && setType(v as AssetRow["type"])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {typesFor(kind).map((t) => (
@@ -407,7 +409,8 @@ export function AssetForm({
 
               {shareMode === "shared" && (
                 <p className="text-xs text-muted-foreground">
-                  {evenShares(persons.map((p) => p.id))
+                  {Ownership.even(persons.map((p) => p.id))
+                    .toRows()
                     .map((s) => {
                       const who = persons.find((p) => p.id === s.personId);
                       return `${who?.name ?? "—"} ${formatBps(s.shareBps)}`;

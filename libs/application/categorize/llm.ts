@@ -5,7 +5,7 @@
  * and have it return a category id from the existing list — never create
  * categories on the fly. Keep results auditable and rate-limited.
  */
-import type { Category, Transaction } from "@domain/entities";
+import type { CategoryRow, TransactionRow } from "@domain/entities";
 
 export type LlmCategorizationResult = {
   categoryId: number | null;
@@ -14,8 +14,8 @@ export type LlmCategorizationResult = {
 };
 
 export async function categorizeWithLlm(
-  _transaction: Pick<Transaction, "description" | "amountCents" | "date">,
-  _availableCategories: Pick<Category, "id" | "name">[],
+  _transaction: Pick<TransactionRow, "description" | "amountCents" | "date">,
+  _availableCategories: Pick<CategoryRow, "id" | "name">[],
 ): Promise<LlmCategorizationResult> {
   throw new Error("LLM categorization not implemented (v2 feature)");
 }

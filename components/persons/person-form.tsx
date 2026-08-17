@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Person } from "@domain/entities";
+import type { PersonRow } from "@domain/entities";
 
 type MatchType = "contains" | "starts_with" | "regex";
 
@@ -31,7 +31,7 @@ type LinkableUser = { id: number; name: string; email: string | null };
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  person: Person | null;
+  person: PersonRow | null;
 };
 
 export function PersonForm({ open, onOpenChange, person }: Props) {

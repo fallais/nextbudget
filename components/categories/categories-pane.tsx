@@ -22,24 +22,24 @@ import { RuleForm } from "./rule-form";
 import { RecategorizeButton } from "./recategorize-button";
 import { getCategoryIcon } from "@shared/category-icons";
 import { cn } from "@shared/utils";
-import type { Category, Rule } from "@domain/entities";
+import type { CategoryRow, RuleRow } from "@domain/entities";
 
-const MATCH_LABELS: Record<Rule["matchType"], string> = {
+const MATCH_LABELS: Record<RuleRow["matchType"], string> = {
   contains: "contient",
   equals: "égal à",
   starts_with: "commence par",
   regex: "regex",
 };
 
-const AMOUNT_HINT: Record<Rule["amountCondition"], string | null> = {
+const AMOUNT_HINT: Record<RuleRow["amountCondition"], string | null> = {
   any: null,
   positive: "+",
   negative: "−",
 };
 
 type Props = {
-  categories: Category[];
-  rulesByCategory: Record<number, Rule[]>;
+  categories: CategoryRow[];
+  rulesByCategory: Record<number, RuleRow[]>;
 };
 
 export function CategoriesPane({ categories, rulesByCategory }: Props) {
@@ -49,16 +49,16 @@ export function CategoriesPane({ categories, rulesByCategory }: Props) {
     categories[0]?.id ?? null,
   );
   const [catFormOpen, setCatFormOpen] = useState(false);
-  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [editingCat, setEditingCat] = useState<CategoryRow | null>(null);
   const [ruleFormOpen, setRuleFormOpen] = useState(false);
-  const [editingRule, setEditingRule] = useState<Rule | null>(null);
-  const [confirmDeleteCat, setConfirmDeleteCat] = useState<Category | null>(null);
-  const [confirmDeleteRule, setConfirmDeleteRule] = useState<Rule | null>(null);
+  const [editingRule, setEditingRule] = useState<RuleRow | null>(null);
+  const [confirmDeleteCat, setConfirmDeleteCat] = useState<CategoryRow | null>(null);
+  const [confirmDeleteRule, setConfirmDeleteRule] = useState<RuleRow | null>(null);
 
   const selected = categories.find((c) => c.id === selectedId) ?? categories[0] ?? null;
   const rules = selected ? rulesByCategory[selected.id] ?? [] : [];
 
-  async function deleteCategory(c: Category) {
+  async function deleteCategory(c: CategoryRow) {
     try {
       const res = await fetch(`/api/categories/${c.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -73,7 +73,7 @@ export function CategoriesPane({ categories, rulesByCategory }: Props) {
     }
   }
 
-  async function deleteRule(r: Rule) {
+  async function deleteRule(r: RuleRow) {
     try {
       const res = await fetch(`/api/rules/${r.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);

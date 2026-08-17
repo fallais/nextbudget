@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeDescription } from "./normalize";
+import { normalizeDescription } from "@domain/value-objects/normalized-description";
 
 describe("normalizeDescription", () => {
   it("uppercases, strips accents and collapses whitespace", () => {

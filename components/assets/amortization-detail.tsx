@@ -5,10 +5,10 @@ import {
   amortizationSchedule,
   summarizeLoan,
   type LoanSummary,
-} from "@domain/amortization";
+} from "@domain/services/amortization";
 import { formatCents, formatDateShort } from "@shared/format";
 import { Button } from "@/components/ui/button";
-import type { Asset } from "@domain/entities";
+import type { AssetRow } from "@domain/entities";
 
 /** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
 function todayIso(): string {
@@ -34,7 +34,7 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-export function AmortizationDetail({ asset }: { asset: Asset }) {
+export function AmortizationDetail({ asset }: { asset: AssetRow }) {
   const [open, setOpen] = useState(false);
 
   if (asset.principalCents == null || asset.interestRateBps == null || !asset.termMonths) {

@@ -31,7 +31,7 @@ import { PersonForm } from "./person-form";
 import { ContributionForm } from "./contribution-form";
 import { formatCents, formatDateShort } from "@shared/format";
 import { cn } from "@shared/utils";
-import type { Contribution, Person } from "@domain/entities";
+import type { ContributionRow, PersonRow } from "@domain/entities";
 import type { ContributionStatus, PersonWithStatus } from "@application/contributions";
 
 const STATE_META: Record<
@@ -50,16 +50,16 @@ export function PersonsPane({ perPerson }: { perPerson: PersonWithStatus[] }) {
     perPerson[0]?.person.id ?? null,
   );
   const [personFormOpen, setPersonFormOpen] = useState(false);
-  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
+  const [editingPerson, setEditingPerson] = useState<PersonRow | null>(null);
   const [contribFormOpen, setContribFormOpen] = useState(false);
-  const [editingContrib, setEditingContrib] = useState<Contribution | null>(null);
-  const [confirmDeletePerson, setConfirmDeletePerson] = useState<Person | null>(null);
-  const [confirmDeleteContrib, setConfirmDeleteContrib] = useState<Contribution | null>(null);
+  const [editingContrib, setEditingContrib] = useState<ContributionRow | null>(null);
+  const [confirmDeletePerson, setConfirmDeletePerson] = useState<PersonRow | null>(null);
+  const [confirmDeleteContrib, setConfirmDeleteContrib] = useState<ContributionRow | null>(null);
 
   const selected =
     perPerson.find((p) => p.person.id === selectedId) ?? perPerson[0] ?? null;
 
-  async function deletePerson(p: Person) {
+  async function deletePerson(p: PersonRow) {
     try {
       const res = await fetch(`/api/persons/${p.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);
@@ -74,7 +74,7 @@ export function PersonsPane({ perPerson }: { perPerson: PersonWithStatus[] }) {
     }
   }
 
-  async function deleteContrib(c: Contribution) {
+  async function deleteContrib(c: ContributionRow) {
     try {
       const res = await fetch(`/api/contributions/${c.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error(`Erreur ${res.status}`);

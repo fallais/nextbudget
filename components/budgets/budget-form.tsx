@@ -21,12 +21,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  category: Category | null;
+  category: CategoryRow | null;
   current?: { amountCents: number; period: "weekly" | "monthly" } | null;
 };
 

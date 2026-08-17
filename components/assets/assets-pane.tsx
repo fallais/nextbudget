@@ -12,8 +12,8 @@ import { formatCents } from "@shared/format";
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AssetForm, ASSET_TYPE_LABELS, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
-import { formatBps, type ShareInput } from "@domain/shares";
-import type { Asset } from "@domain/entities";
+import { formatBps, type OwnerShareRow } from "@domain/value-objects/share";
+import type { AssetRow } from "@domain/entities";
 
 export function AssetsPane({
   assets,
@@ -22,23 +22,23 @@ export function AssetsPane({
   ownersByAsset = {},
   mePersonId = null,
 }: {
-  assets: Asset[];
+  assets: AssetRow[];
   accounts: { id: number; name: string }[];
   persons?: FormPerson[];
-  ownersByAsset?: Record<number, ShareInput[]>;
+  ownersByAsset?: Record<number, OwnerShareRow[]>;
   mePersonId?: number | null;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Asset | null>(null);
+  const [editing, setEditing] = useState<AssetRow | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  function openForm(a: Asset | null) {
+  function openForm(a: AssetRow | null) {
     setEditing(a);
     setFormOpen(true);
   }
 
-  async function remove(a: Asset) {
+  async function remove(a: AssetRow) {
     if (!window.confirm(`Supprimer « ${a.name} » ?`)) return;
     const res = await fetch(`/api/assets/${a.id}`, { method: "DELETE" });
     if (!res.ok) {
@@ -63,7 +63,7 @@ export function AssetsPane({
       .join(" · ");
   }
 
-  function renderSection(title: string, list: Asset[]) {
+  function renderSection(title: string, list: AssetRow[]) {
     return (
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>

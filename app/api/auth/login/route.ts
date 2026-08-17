@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { UserEntity } from "@infrastructure/db/schemas";
-import { loginSchema } from "@domain/validation";
+import { loginSchema } from "@application/contracts/validation";
 import { verifyPassword, createSession } from "@application/auth";
 
 export const runtime = "nodejs";

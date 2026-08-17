@@ -21,7 +21,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import type { Account, AccountKind } from "@domain/entities";
+import type { AccountRow } from "@domain/entities";
+import type { AccountKind } from "@domain/enums";
 
 export const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
   personal: "Personnel",
@@ -31,7 +32,7 @@ export const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  account: Account | null;
+  account: AccountRow | null;
 };
 
 export function AccountForm({ open, onOpenChange, account }: Props) {

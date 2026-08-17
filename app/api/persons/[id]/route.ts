@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { PersonEntity, ContributionEntity } from "@infrastructure/db/schemas";
 import { isUserLinkTaken } from "@application/household";
-import { personInputSchema, patchSchema } from "@domain/validation";
+import { personInputSchema, patchSchema } from "@application/contracts/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

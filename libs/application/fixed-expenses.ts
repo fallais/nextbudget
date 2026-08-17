@@ -2,14 +2,14 @@ import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
 import { getDataSource } from "@infrastructure/db/client";
 import { FixedExpenseEntity, CategoryEntity, TransactionEntity } from "@infrastructure/db/schemas";
-import type { FixedExpense, Category, Transaction } from "@domain/entities";
-import { compileRule } from "@domain/categorize/core";
+import type { FixedExpenseRow, CategoryRow, TransactionRow } from "@domain/entities";
+import { compileRule } from "@domain/services/categorization";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type FixedExpenseStatus = {
-  fixedExpense: FixedExpense;
-  category: Category | null;
-  matched: Pick<Transaction, "id" | "date" | "description" | "amountCents">[];
+  fixedExpense: FixedExpenseRow;
+  category: CategoryRow | null;
+  matched: Pick<TransactionRow, "id" | "date" | "description" | "amountCents">[];
   paidAmountCents: number;
   state: "paid" | "pending" | "overdue" | "anomaly";
   variancePct: number | null;

@@ -9,21 +9,21 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AccountForm, ACCOUNT_KIND_LABELS } from "./account-form";
-import type { Account } from "@domain/entities";
+import type { AccountRow } from "@domain/entities";
 
-export type AccountRow = Account & { txCount: number };
+export type AccountListItem = AccountRow & { txCount: number };
 
-export function AccountsPane({ accounts }: { accounts: AccountRow[] }) {
+export function AccountsPane({ accounts }: { accounts: AccountListItem[] }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
-  const [editing, setEditing] = useState<Account | null>(null);
+  const [editing, setEditing] = useState<AccountRow | null>(null);
 
-  function openForm(a: Account | null) {
+  function openForm(a: AccountRow | null) {
     setEditing(a);
     setFormOpen(true);
   }
 
-  async function remove(a: AccountRow) {
+  async function remove(a: AccountListItem) {
     if (!window.confirm(`Supprimer « ${a.name} » ?`)) return;
     const res = await fetch(`/api/accounts/${a.id}`, { method: "DELETE" });
     if (!res.ok) {
@@ -38,7 +38,7 @@ export function AccountsPane({ accounts }: { accounts: AccountRow[] }) {
   const joint = accounts.filter((a) => a.kind === "joint");
   const personal = accounts.filter((a) => a.kind !== "joint");
 
-  function renderSection(title: string, list: AccountRow[], empty: string) {
+  function renderSection(title: string, list: AccountListItem[], empty: string) {
     return (
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-muted-foreground">{title}</h4>

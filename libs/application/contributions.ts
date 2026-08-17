@@ -2,20 +2,20 @@ import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
 import { getDataSource } from "@infrastructure/db/client";
 import { AccountEntity, ContributionEntity, PersonEntity, TransactionEntity } from "@infrastructure/db/schemas";
-import type { Contribution, Person, Transaction } from "@domain/entities";
-import { compileRule } from "@domain/categorize/core";
+import type { ContributionRow, PersonRow, TransactionRow } from "@domain/entities";
+import { compileRule } from "@domain/services/categorization";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type ContributionStatus = {
-  contribution: Contribution;
-  matched: Pick<Transaction, "id" | "date" | "description" | "amountCents">[];
+  contribution: ContributionRow;
+  matched: Pick<TransactionRow, "id" | "date" | "description" | "amountCents">[];
   receivedCents: number;
   state: "received" | "pending" | "anomaly";
   variancePct: number | null;
 };
 
 export type PersonWithStatus = {
-  person: Person;
+  person: PersonRow;
   contributions: ContributionStatus[];
   expectedTotalCents: number;
   receivedByContribCents: number;
@@ -36,12 +36,12 @@ function isoDate(d: Date): string {
   return formatISO(d, { representation: "date" });
 }
 
-export async function listPersons(): Promise<Person[]> {
+export async function listPersons(): Promise<PersonRow[]> {
   const ds = await getDataSource();
   return ds.getRepository(PersonEntity).find({ order: { name: "ASC" } });
 }
 
-export async function listContributions(): Promise<Contribution[]> {
+export async function listContributions(): Promise<ContributionRow[]> {
   const ds = await getDataSource();
   const qb = ds
     .getRepository(ContributionEntity)
@@ -167,7 +167,7 @@ export async function getContributionsByPersonWithStatus(
   return out;
 }
 
-function computeStatus(c: Contribution, monthlyTxs: MonthlyTx[]): ContributionStatus {
+function computeStatus(c: ContributionRow, monthlyTxs: MonthlyTx[]): ContributionStatus {
   if (!c.isActive) {
     return { contribution: c, matched: [], receivedCents: 0, state: "pending", variancePct: null };
   }

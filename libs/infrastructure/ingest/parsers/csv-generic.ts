@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import { parse, isValid, formatISO } from "date-fns";
 import { parseAmountToCents } from "@shared/format";
-import { normalizeDescription } from "@domain/categorize/normalize";
+import { normalizeDescription } from "@domain/value-objects/normalized-description";
 
 export type ParsedRow = {
   date: string;

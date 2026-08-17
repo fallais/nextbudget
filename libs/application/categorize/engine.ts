@@ -6,8 +6,8 @@ import {
   compileContributionsAsRules,
   matchCategoryId,
   type CompiledRule,
-} from "@domain/categorize/core";
-export { compileRule, matchCategoryId, type CompiledRule } from "@domain/categorize/core";
+} from "@domain/services/categorization";
+export { compileRule, matchCategoryId, type CompiledRule } from "@domain/services/categorization";
 
 /**
  * The active rule set: everything in the `rules` table, plus synthetic rules

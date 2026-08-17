@@ -1,6 +1,6 @@
 import { getDataSource } from "@infrastructure/db/client";
 import { CategoryEntity, RuleEntity } from "@infrastructure/db/schemas";
-import type { Rule } from "@domain/entities";
+import type { RuleRow } from "@domain/entities";
 import { CategoriesPane } from "@/components/categories/categories-pane";
 import { RecategorizeButton } from "@/components/categories/recategorize-button";
 
@@ -14,7 +14,7 @@ export default async function CategoriesPage() {
     ds.getRepository(RuleEntity).find({ order: { priority: "ASC" } }),
   ]);
 
-  const rulesByCategory: Record<number, Rule[]> = {};
+  const rulesByCategory: Record<number, RuleRow[]> = {};
   for (const r of rules) {
     (rulesByCategory[r.categoryId] ??= []).push(r);
   }

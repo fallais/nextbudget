@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { FixedExpenseEntity } from "@infrastructure/db/schemas";
-import { fixedExpenseInputSchema } from "@domain/validation";
+import { fixedExpenseInputSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
 import { getScope, applyOwnedScope } from "@application/scope";
 

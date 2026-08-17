@@ -3,7 +3,7 @@ import { getDataSource } from "@infrastructure/db/client";
 import { PersonEntity } from "@infrastructure/db/schemas";
 import { listPersons } from "@application/contributions";
 import { isUserLinkTaken } from "@application/household";
-import { personInputSchema } from "@domain/validation";
+import { personInputSchema } from "@application/contracts/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@infrastructure/db/client";
 import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
-import { assetUpdateSchema } from "@domain/validation";
+import { assetUpdateSchema } from "@application/contracts/validation";
 import { replaceAssetOwners } from "@application/assets";
-import { shareErrorMessage, validateShares } from "@domain/shares";
+import { Ownership } from "@domain/value-objects/share";
+import { isDomainError } from "@domain/errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,10 +22,16 @@ export async function PATCH(
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
   const { owners, ...assetData } = parsed.data;
+  // Ownership validates itself: a set that does not total 100% cannot be
+  // constructed, so an invalid split never reaches the database.
   if (owners) {
-    const invalid = validateShares(owners);
-    if (invalid) {
-      return NextResponse.json({ error: shareErrorMessage(invalid) }, { status: 400 });
+    try {
+      Ownership.fromRows(owners);
+    } catch (err) {
+      if (isDomainError(err)) {
+        return NextResponse.json({ error: err.message }, { status: 400 });
+      }
+      throw err;
     }
   }
 

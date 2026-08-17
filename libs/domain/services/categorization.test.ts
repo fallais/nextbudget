@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compileRule, matchCategoryId, type CompiledRule } from "./core";
+import { compileRule, matchCategoryId, type CompiledRule } from "@domain/services/categorization";
 
 const base = { id: 1, categoryId: 10, amountCondition: "any", priority: 100 } as const;
 

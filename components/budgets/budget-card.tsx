@@ -9,7 +9,7 @@ import { CategoryBadge } from "@/components/categories/category-badge";
 import { BudgetForm } from "./budget-form";
 import { formatCents } from "@shared/format";
 import { cn } from "@shared/utils";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 import type { CategoryBudgetStatus } from "@application/budgets";
 
 export function BudgetCard({
@@ -111,7 +111,7 @@ export function BudgetCard({
   );
 }
 
-export function CategoryWithoutBudget({ category }: { category: Category }) {
+export function CategoryWithoutBudget({ category }: { category: CategoryRow }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -132,7 +132,7 @@ export function CategoryCoveredByFixed({
   category,
   info,
 }: {
-  category: Category;
+  category: CategoryRow;
   info: { count: number; expectedTotalCents: number };
 }) {
   const [open, setOpen] = useState(false);

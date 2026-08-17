@@ -1,13 +1,13 @@
 import { cn } from "@shared/utils";
 import { getCategoryIcon } from "@shared/category-icons";
-import type { Category } from "@domain/entities";
+import type { CategoryRow } from "@domain/entities";
 
 export function CategoryBadge({
   category,
   size = "sm",
   className,
 }: {
-  category: Pick<Category, "name" | "color" | "icon"> | null;
+  category: Pick<CategoryRow, "name" | "color" | "icon"> | null;
   size?: "sm" | "md";
   className?: string;
 }) {
