@@ -1,14 +1,9 @@
 import "server-only";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, formatISO } from "date-fns";
-import { getDataSource } from "./client";
-import {
-  BudgetEntity,
-  CategoryEntity,
-  TransactionEntity,
-  FixedExpenseEntity,
-  type Category,
-} from "./entities";
-import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
+import { getDataSource } from "@infrastructure/db/client";
+import { BudgetEntity, CategoryEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
+import type { Category } from "@domain/entities";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type CategoryBudgetStatus = {
   category: Category;

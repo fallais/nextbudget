@@ -9,8 +9,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatCents, formatCentsCompact, formatMonthLabel } from "@/lib/format";
-import type { CategorySeries, StackedMonthlyPoint } from "@/lib/db/stats";
+import { formatCents, formatCentsCompact, formatMonthLabel } from "@shared/format";
+import type { CategorySeries, StackedMonthlyPoint } from "@application/stats";
 
 export function MonthlyBarChart({
   data,

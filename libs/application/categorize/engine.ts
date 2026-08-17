@@ -1,18 +1,13 @@
 import { IsNull } from "typeorm";
-import { getDataSource } from "@/lib/db/client";
-import {
-  RuleEntity,
-  TransactionEntity,
-  CategoryEntity,
-  ContributionEntity,
-} from "@/lib/db/entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { RuleEntity, TransactionEntity, CategoryEntity, ContributionEntity } from "@infrastructure/db/schemas";
 import {
   compileRule,
   compileContributionsAsRules,
   matchCategoryId,
   type CompiledRule,
-} from "./core";
-export { compileRule, matchCategoryId, type CompiledRule } from "./core";
+} from "@domain/categorize/core";
+export { compileRule, matchCategoryId, type CompiledRule } from "@domain/categorize/core";
 
 /**
  * The active rule set: everything in the `rules` table, plus synthetic rules

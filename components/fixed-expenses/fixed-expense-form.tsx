@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Category, FixedExpense } from "@/lib/db/schema";
+import type { Category, FixedExpense } from "@domain/entities";
 
 type Props = {
   open: boolean;

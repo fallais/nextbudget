@@ -1,8 +1,8 @@
 import { TrendingUp, TrendingDown } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { ActualNetCashflow } from "@/lib/db/reste-a-vivre";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { ActualNetCashflow } from "@application/reste-a-vivre";
 
 export function SoldeNetCard({ data }: { data: ActualNetCashflow }) {
   const negative = data.netCents < 0;

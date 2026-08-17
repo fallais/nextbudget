@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowRight, Users2, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { PersonWithStatus } from "@/lib/db/contributions";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { PersonWithStatus } from "@application/contributions";
 
 export function ApportsPanel({ perPerson }: { perPerson: PersonWithStatus[] }) {
   const active = perPerson.filter(

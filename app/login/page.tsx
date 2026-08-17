@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@application/auth";
 import { LoginForm } from "@/components/auth/login-form";
 
 export const runtime = "nodejs";

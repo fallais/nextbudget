@@ -1,17 +1,10 @@
 import "server-only";
 import { In, type EntityManager } from "typeorm";
-import { getDataSource } from "./client";
-import {
-  AssetEntity,
-  AssetOwnerEntity,
-  AssetValuationEntity,
-  PersonEntity,
-  type Asset,
-  type AssetOwner,
-  type Person,
-} from "./entities";
-import { getScope, applyOwnedScope } from "./scope";
-import { TOTAL_BPS, applyShare, type ShareInput } from "@/lib/shares";
+import { getDataSource } from "@infrastructure/db/client";
+import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, PersonEntity } from "@infrastructure/db/schemas";
+import type { Asset, AssetOwner, Person } from "@domain/entities";
+import { getScope, applyOwnedScope } from "@application/scope";
+import { TOTAL_BPS, applyShare, type ShareInput } from "@domain/shares";
 
 export async function listAssets(): Promise<Asset[]> {
   const ds = await getDataSource();

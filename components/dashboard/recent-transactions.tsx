@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { CategoryBadge } from "@/components/categories/category-badge";
-import { formatCents, formatDateShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { ListedTransaction } from "@/lib/db/queries";
+import { formatCents, formatDateShort } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { ListedTransaction } from "@application/queries";
 
 export function RecentTransactions({ rows }: { rows: ListedTransaction[] }) {
   if (rows.length === 0) {

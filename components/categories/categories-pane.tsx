@@ -20,9 +20,9 @@ import { CategoryBadge } from "./category-badge";
 import { CategoryForm } from "./category-form";
 import { RuleForm } from "./rule-form";
 import { RecategorizeButton } from "./recategorize-button";
-import { getCategoryIcon } from "@/lib/category-icons";
-import { cn } from "@/lib/utils";
-import type { Category, Rule } from "@/lib/db/schema";
+import { getCategoryIcon } from "@shared/category-icons";
+import { cn } from "@shared/utils";
+import type { Category, Rule } from "@domain/entities";
 
 const MATCH_LABELS: Record<Rule["matchType"], string> = {
   contains: "contient",

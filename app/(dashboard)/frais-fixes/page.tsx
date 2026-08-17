@@ -1,13 +1,13 @@
-import { listAllCategories } from "@/lib/db/queries";
+import { listAllCategories } from "@application/queries";
 import {
   getFixedExpensesWithStatus,
   summarizeFixedExpenses,
-} from "@/lib/db/fixed-expenses";
+} from "@application/fixed-expenses";
 import {
   FixedExpensesTable,
   NewFixedExpenseButton,
 } from "@/components/fixed-expenses/fixed-expenses-table";
-import { formatCents } from "@/lib/format";
+import { formatCents } from "@shared/format";
 import { Card, CardContent } from "@/components/ui/card";
 
 export const runtime = "nodejs";

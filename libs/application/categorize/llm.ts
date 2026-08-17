@@ -5,7 +5,7 @@
  * and have it return a category id from the existing list — never create
  * categories on the fly. Keep results auditable and rate-limited.
  */
-import type { Category, Transaction } from "@/lib/db/schema";
+import type { Category, Transaction } from "@domain/entities";
 
 export type LlmCategorizationResult = {
   categoryId: number | null;

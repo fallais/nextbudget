@@ -1,20 +1,14 @@
 import "server-only";
 import { Brackets, type SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "./client";
-import {
-  TransactionEntity,
-  CategoryEntity,
-  AccountEntity,
-  type Transaction,
-  type Category,
-  type Account,
-} from "./entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { TransactionEntity, CategoryEntity, AccountEntity } from "@infrastructure/db/schemas";
+import type { Transaction, Category, Account } from "@domain/entities";
 import {
   getScope,
   visibleAccountIds,
   applyAccountScope,
   applyOwnedScope,
-} from "./scope";
+} from "@application/scope";
 
 export type TransactionFilters = {
   from?: string | null;

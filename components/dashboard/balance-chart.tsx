@@ -7,8 +7,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatCentsCompact, formatMonthLabel, formatCents } from "@/lib/format";
-import type { BalancePoint } from "@/lib/db/stats";
+import { formatCentsCompact, formatMonthLabel, formatCents } from "@shared/format";
+import type { BalancePoint } from "@application/stats";
 
 const config = {
   balance: { label: "Solde cumulé", color: "var(--chart-1)" },

@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import type { Account, AccountKind } from "@/lib/db/entities";
+import type { Account, AccountKind } from "@domain/entities";
 
 export const ACCOUNT_KIND_LABELS: Record<AccountKind, string> = {
   personal: "Personnel",

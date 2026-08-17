@@ -1,6 +1,6 @@
-import { getDataSource } from "@/lib/db/client";
-import { TransactionEntity } from "@/lib/db/entities";
-import { listAllAccounts } from "@/lib/db/queries";
+import { getDataSource } from "@infrastructure/db/client";
+import { TransactionEntity } from "@infrastructure/db/schemas";
+import { listAllAccounts } from "@application/queries";
 import { AccountsPane, type AccountRow } from "@/components/accounts/accounts-pane";
 
 export const runtime = "nodejs";

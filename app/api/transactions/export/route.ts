@@ -1,4 +1,4 @@
-import { listTransactions } from "@/lib/db/queries";
+import { listTransactions } from "@application/queries";
 import Papa from "papaparse";
 
 export const runtime = "nodejs";

@@ -1,10 +1,11 @@
 import "server-only";
-import { getDataSource } from "@/lib/db/client";
-import { SettingEntity, UserEntity, type User } from "@/lib/db/entities";
-import { getSessionUser } from "./session";
+import { getDataSource } from "@infrastructure/db/client";
+import { SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import type { User } from "@domain/entities";
+import { getSessionUser } from "@infrastructure/auth/session";
 
-export { createSession, destroySession, getSessionUser } from "./session";
-export { hashPassword, verifyPassword } from "./password";
+export { createSession, destroySession, getSessionUser } from "@infrastructure/auth/session";
+export { hashPassword, verifyPassword } from "@infrastructure/auth/password";
 
 export type AuthMode = "open" | "enforced";
 

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AccountForm, ACCOUNT_KIND_LABELS } from "./account-form";
-import type { Account } from "@/lib/db/entities";
+import type { Account } from "@domain/entities";
 
 export type AccountRow = Account & { txCount: number };
 

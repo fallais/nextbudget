@@ -2,9 +2,9 @@ import Link from "next/link";
 import { ArrowRight, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CategoryBadge } from "@/components/categories/category-badge";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { CategoryBudgetStatus } from "@/lib/db/budgets";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { CategoryBudgetStatus } from "@application/budgets";
 
 export function BudgetsPanel({ statuses }: { statuses: CategoryBudgetStatus[] }) {
   if (statuses.length === 0) {

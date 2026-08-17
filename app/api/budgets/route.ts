@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getBudgetStatuses } from "@/lib/db/budgets";
+import { getBudgetStatuses } from "@application/budgets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

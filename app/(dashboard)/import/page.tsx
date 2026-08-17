@@ -1,6 +1,6 @@
-import { getDataSource } from "@/lib/db/client";
-import { ImportEntity } from "@/lib/db/entities";
-import { listAllAccounts } from "@/lib/db/queries";
+import { getDataSource } from "@infrastructure/db/client";
+import { ImportEntity } from "@infrastructure/db/schemas";
+import { listAllAccounts } from "@application/queries";
 import { ImportButton } from "@/components/import/import-button";
 import { ImportsHistory } from "@/components/import/imports-history";
 

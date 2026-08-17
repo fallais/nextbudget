@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { FixedExpenseEntity } from "@/lib/db/entities";
-import { fixedExpenseInputSchema, patchSchema } from "@/lib/validation";
+import { getDataSource } from "@infrastructure/db/client";
+import { FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { fixedExpenseInputSchema, patchSchema } from "@domain/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

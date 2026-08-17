@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { AccountKind } from "@/lib/db/entities";
+import type { AccountKind } from "@domain/entities";
 import {
   Select,
   SelectContent,

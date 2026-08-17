@@ -1,14 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import {
-  AssetEntity,
-  AssetOwnerEntity,
-  AssetValuationEntity,
-  FixedExpenseEntity,
-} from "@/lib/db/entities";
-import { assetUpdateSchema } from "@/lib/validation";
-import { replaceAssetOwners } from "@/lib/db/assets";
-import { shareErrorMessage, validateShares } from "@/lib/shares";
+import { getDataSource } from "@infrastructure/db/client";
+import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { assetUpdateSchema } from "@domain/validation";
+import { replaceAssetOwners } from "@application/assets";
+import { shareErrorMessage, validateShares } from "@domain/shares";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

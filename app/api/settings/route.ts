@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getHouseholdMode, setHouseholdMode } from "@/lib/db/settings";
-import { getAuthMode, getCurrentUser } from "@/lib/auth";
+import { getHouseholdMode, setHouseholdMode } from "@application/settings";
+import { getAuthMode, getCurrentUser } from "@application/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

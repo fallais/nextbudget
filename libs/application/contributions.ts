@@ -1,17 +1,10 @@
 import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
-import { getDataSource } from "./client";
-import {
-  AccountEntity,
-  ContributionEntity,
-  PersonEntity,
-  TransactionEntity,
-  type Contribution,
-  type Person,
-  type Transaction,
-} from "./entities";
-import { compileRule } from "@/lib/categorize/core";
-import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
+import { getDataSource } from "@infrastructure/db/client";
+import { AccountEntity, ContributionEntity, PersonEntity, TransactionEntity } from "@infrastructure/db/schemas";
+import type { Contribution, Person, Transaction } from "@domain/entities";
+import { compileRule } from "@domain/categorize/core";
+import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type ContributionStatus = {
   contribution: Contribution;

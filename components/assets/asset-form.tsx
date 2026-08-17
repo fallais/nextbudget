@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { parseAmountToCents } from "@/lib/format";
+import { parseAmountToCents } from "@shared/format";
 import {
   TOTAL_BPS,
   evenShares,
@@ -31,8 +31,8 @@ import {
   shareErrorMessage,
   validateShares,
   type ShareInput,
-} from "@/lib/shares";
-import type { Asset } from "@/lib/db/entities";
+} from "@domain/shares";
+import type { Asset } from "@domain/entities";
 
 export type FormPerson = { id: number; name: string };
 

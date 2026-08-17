@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, AlertCircle, AlertTriangle, Clock } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { FixedExpenseStatus, FixedExpensesSummary } from "@/lib/db/fixed-expenses";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { FixedExpenseStatus, FixedExpensesSummary } from "@application/fixed-expenses";
 
 const STATE_META: Record<
   FixedExpenseStatus["state"],

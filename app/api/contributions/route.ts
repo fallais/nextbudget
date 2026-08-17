@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { ContributionEntity } from "@/lib/db/entities";
-import { listContributions } from "@/lib/db/contributions";
-import { contributionInputSchema } from "@/lib/validation";
-import { getCurrentUser } from "@/lib/auth";
+import { getDataSource } from "@infrastructure/db/client";
+import { ContributionEntity } from "@infrastructure/db/schemas";
+import { listContributions } from "@application/contributions";
+import { contributionInputSchema } from "@domain/validation";
+import { getCurrentUser } from "@application/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

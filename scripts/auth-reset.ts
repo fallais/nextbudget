@@ -1,7 +1,7 @@
 import "reflect-metadata";
-import { getDataSource } from "../lib/db/client";
-import { SettingEntity, UserEntity } from "../lib/db/entities";
-import { hashPassword } from "../lib/auth/password";
+import { getDataSource } from "@infrastructure/db/client";
+import { SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import { hashPassword } from "@infrastructure/auth/password";
 
 /**
  * Break-glass recovery, run from the server.

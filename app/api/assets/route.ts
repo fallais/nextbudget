@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { AssetEntity } from "@/lib/db/entities";
-import { assetInputSchema } from "@/lib/validation";
-import { getCurrentUser } from "@/lib/auth";
-import { listAssets, replaceAssetOwners } from "@/lib/db/assets";
-import { shareErrorMessage, validateShares } from "@/lib/shares";
+import { getDataSource } from "@infrastructure/db/client";
+import { AssetEntity } from "@infrastructure/db/schemas";
+import { assetInputSchema } from "@domain/validation";
+import { getCurrentUser } from "@application/auth";
+import { listAssets, replaceAssetOwners } from "@application/assets";
+import { shareErrorMessage, validateShares } from "@domain/shares";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

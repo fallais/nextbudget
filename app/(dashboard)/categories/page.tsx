@@ -1,5 +1,6 @@
-import { getDataSource } from "@/lib/db/client";
-import { CategoryEntity, RuleEntity, type Rule } from "@/lib/db/entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { CategoryEntity, RuleEntity } from "@infrastructure/db/schemas";
+import type { Rule } from "@domain/entities";
 import { CategoriesPane } from "@/components/categories/categories-pane";
 import { RecategorizeButton } from "@/components/categories/recategorize-button";
 

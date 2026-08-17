@@ -1,7 +1,8 @@
 import "server-only";
 import { In } from "typeorm";
-import { getDataSource } from "./client";
-import { PersonEntity, UserEntity, type Person, type User } from "./entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { PersonEntity, UserEntity } from "@infrastructure/db/schemas";
+import type { Person, User } from "@domain/entities";
 
 /**
  * The household: who lives here, and which of them can log in.

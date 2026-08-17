@@ -1,4 +1,4 @@
-import { getContributionsByPersonWithStatus } from "@/lib/db/contributions";
+import { getContributionsByPersonWithStatus } from "@application/contributions";
 import { PersonsPane } from "@/components/persons/persons-pane";
 
 export const runtime = "nodejs";

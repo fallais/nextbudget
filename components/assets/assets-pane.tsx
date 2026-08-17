@@ -7,13 +7,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { formatCents } from "@/lib/format";
+import { cn } from "@shared/utils";
+import { formatCents } from "@shared/format";
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AssetForm, ASSET_TYPE_LABELS, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
-import { formatBps, type ShareInput } from "@/lib/shares";
-import type { Asset } from "@/lib/db/entities";
+import { formatBps, type ShareInput } from "@domain/shares";
+import type { Asset } from "@domain/entities";
 
 export function AssetsPane({
   assets,

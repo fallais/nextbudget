@@ -7,10 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CategoryBadge } from "@/components/categories/category-badge";
 import { BudgetForm } from "./budget-form";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Category } from "@/lib/db/schema";
-import type { CategoryBudgetStatus } from "@/lib/db/budgets";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { Category } from "@domain/entities";
+import type { CategoryBudgetStatus } from "@application/budgets";
 
 export function BudgetCard({
   status,

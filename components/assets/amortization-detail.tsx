@@ -5,10 +5,10 @@ import {
   amortizationSchedule,
   summarizeLoan,
   type LoanSummary,
-} from "@/lib/db/amortization";
-import { formatCents, formatDateShort } from "@/lib/format";
+} from "@domain/amortization";
+import { formatCents, formatDateShort } from "@shared/format";
 import { Button } from "@/components/ui/button";
-import type { Asset } from "@/lib/db/entities";
+import type { Asset } from "@domain/entities";
 
 /** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
 function todayIso(): string {

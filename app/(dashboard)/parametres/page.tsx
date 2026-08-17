@@ -1,7 +1,7 @@
-import { listMembers } from "@/lib/db/household";
-import { listAllAccounts } from "@/lib/db/queries";
-import { getHouseholdMode } from "@/lib/db/settings";
-import { getAuthMode, getCurrentUser } from "@/lib/auth";
+import { listMembers } from "@application/household";
+import { listAllAccounts } from "@application/queries";
+import { getHouseholdMode } from "@application/settings";
+import { getAuthMode, getCurrentUser } from "@application/auth";
 import { SettingsPane, type SettingsMember } from "@/components/settings/settings-pane";
 
 export const runtime = "nodejs";

@@ -27,10 +27,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { CategoryBadge } from "@/components/categories/category-badge";
 import { FixedExpenseForm } from "./fixed-expense-form";
-import { formatCents, formatDateShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Category, FixedExpense } from "@/lib/db/schema";
-import type { FixedExpenseStatus } from "@/lib/db/fixed-expenses";
+import { formatCents, formatDateShort } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { Category, FixedExpense } from "@domain/entities";
+import type { FixedExpenseStatus } from "@application/fixed-expenses";
 
 const STATE_META: Record<
   FixedExpenseStatus["state"],

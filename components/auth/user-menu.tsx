@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, ShieldCheck, User as UserIcon, ChevronsUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

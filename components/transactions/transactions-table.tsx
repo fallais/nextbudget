@@ -12,10 +12,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CategoryCell } from "./category-cell";
-import { formatCents, formatDateShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Category } from "@/lib/db/schema";
-import type { ListedTransaction } from "@/lib/db/queries";
+import { formatCents, formatDateShort } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { Category } from "@domain/entities";
+import type { ListedTransaction } from "@application/queries";
 
 type Props = {
   rows: ListedTransaction[];

@@ -17,18 +17,18 @@ import {
   getBalanceEvolution,
   getStackedMonthlyExpenses,
   getCategoryBreakdown,
-} from "@/lib/db/stats";
-import { listRecentTransactions } from "@/lib/db/queries";
-import { getBudgetStatuses } from "@/lib/db/budgets";
+} from "@application/stats";
+import { listRecentTransactions } from "@application/queries";
+import { getBudgetStatuses } from "@application/budgets";
 import {
   getFixedExpensesWithStatus,
   summarizeFixedExpenses,
-} from "@/lib/db/fixed-expenses";
+} from "@application/fixed-expenses";
 import {
   computeResteAVivre,
   computeActualNetCashflow,
-} from "@/lib/db/reste-a-vivre";
-import { getContributionsByPersonWithStatus } from "@/lib/db/contributions";
+} from "@application/reste-a-vivre";
+import { getContributionsByPersonWithStatus } from "@application/contributions";
 import { ResteAVivreCard } from "@/components/dashboard/reste-a-vivre-card";
 import { SoldeNetCard } from "@/components/dashboard/solde-net-card";
 import { BudgetsPanel } from "@/components/dashboard/budgets-panel";
@@ -38,8 +38,8 @@ import {
   PERIOD_LABELS,
   isPeriodKey,
   type PeriodKey,
-} from "@/lib/period";
-import { formatCents, formatPercent } from "@/lib/format";
+} from "@domain/period";
+import { formatCents, formatPercent } from "@shared/format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

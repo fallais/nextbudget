@@ -7,8 +7,8 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { formatCents } from "@/lib/format";
-import type { CategoryBreakdownItem } from "@/lib/db/stats";
+import { formatCents } from "@shared/format";
+import type { CategoryBreakdownItem } from "@application/stats";
 
 export function CategoryDonut({ data }: { data: CategoryBreakdownItem[] }) {
   if (data.length === 0) {

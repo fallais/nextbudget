@@ -29,10 +29,10 @@ import {
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { PersonForm } from "./person-form";
 import { ContributionForm } from "./contribution-form";
-import { formatCents, formatDateShort } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { Contribution, Person } from "@/lib/db/schema";
-import type { ContributionStatus, PersonWithStatus } from "@/lib/db/contributions";
+import { formatCents, formatDateShort } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { Contribution, Person } from "@domain/entities";
+import type { ContributionStatus, PersonWithStatus } from "@application/contributions";
 
 const STATE_META: Record<
   ContributionStatus["state"],

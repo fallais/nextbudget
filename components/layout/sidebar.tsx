@@ -16,7 +16,7 @@ import {
   Landmark,
   Settings,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 import { Button } from "@/components/ui/button";
 import { UserMenu, type CurrentUser } from "@/components/auth/user-menu";
 import { ThemeToggle } from "./theme-toggle";

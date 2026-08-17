@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { BudgetEntity } from "@/lib/db/entities";
-import { categoryBudgetSchema } from "@/lib/validation";
-import { getCurrentUser } from "@/lib/auth";
+import { getDataSource } from "@infrastructure/db/client";
+import { BudgetEntity } from "@infrastructure/db/schemas";
+import { categoryBudgetSchema } from "@domain/validation";
+import { getCurrentUser } from "@application/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

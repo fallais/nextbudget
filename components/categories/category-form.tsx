@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ColorPicker } from "./color-picker";
 import { IconPicker } from "./icon-picker";
 import { CategoryBadge } from "./category-badge";
-import type { Category } from "@/lib/db/schema";
+import type { Category } from "@domain/entities";
 
 type Props = {
   open: boolean;

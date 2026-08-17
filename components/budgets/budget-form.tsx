@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { Category } from "@/lib/db/schema";
+import type { Category } from "@domain/entities";
 
 type Props = {
   open: boolean;

@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { Loader2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { formatCents, formatDateShort } from "@/lib/format";
-import type { Rule } from "@/lib/db/schema";
+import { formatCents, formatDateShort } from "@shared/format";
+import type { Rule } from "@domain/entities";
 
 type Sample = {
   id: number;

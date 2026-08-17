@@ -4,8 +4,8 @@ import { useState } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { buttonVariants } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ICON_OPTIONS, getCategoryIcon } from "@/lib/category-icons";
-import { cn } from "@/lib/utils";
+import { ICON_OPTIONS, getCategoryIcon } from "@shared/category-icons";
+import { cn } from "@shared/utils";
 
 export function IconPicker({
   value,

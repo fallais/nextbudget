@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { TransactionEntity } from "@/lib/db/entities";
-import { ruleTestSchema } from "@/lib/validation";
-import { compileRule } from "@/lib/categorize/engine";
+import { getDataSource } from "@infrastructure/db/client";
+import { TransactionEntity } from "@infrastructure/db/schemas";
+import { ruleTestSchema } from "@domain/validation";
+import { compileRule } from "@application/categorize/engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

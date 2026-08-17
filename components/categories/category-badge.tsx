@@ -1,6 +1,6 @@
-import { cn } from "@/lib/utils";
-import { getCategoryIcon } from "@/lib/category-icons";
-import type { Category } from "@/lib/db/schema";
+import { cn } from "@shared/utils";
+import { getCategoryIcon } from "@shared/category-icons";
+import type { Category } from "@domain/entities";
 
 export function CategoryBadge({
   category,

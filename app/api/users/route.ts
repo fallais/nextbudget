@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { UserEntity } from "@/lib/db/entities";
-import { userInputSchema } from "@/lib/validation";
-import { getCurrentUser, hashPassword, publicUser } from "@/lib/auth";
+import { getDataSource } from "@infrastructure/db/client";
+import { UserEntity } from "@infrastructure/db/schemas";
+import { userInputSchema } from "@domain/validation";
+import { getCurrentUser, hashPassword, publicUser } from "@application/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

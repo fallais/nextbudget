@@ -1,15 +1,11 @@
 import "server-only";
-import { getDataSource } from "@/lib/db/client";
-import {
-  ImportEntity,
-  TransactionEntity,
-  AccountEntity,
-  type NewTransaction,
-} from "@/lib/db/entities";
-import { isUniqueViolation } from "@/lib/db/errors";
-import { detectParser, runParser } from "./parsers/registry";
-import { transactionHash } from "./hash";
-import { loadActiveCompiledRules, matchCategoryId } from "@/lib/categorize/engine";
+import { getDataSource } from "@infrastructure/db/client";
+import { ImportEntity, TransactionEntity, AccountEntity } from "@infrastructure/db/schemas";
+import type { NewTransaction } from "@domain/entities";
+import { isUniqueViolation } from "@infrastructure/db/errors";
+import { detectParser, runParser } from "@infrastructure/ingest/parsers/registry";
+import { transactionHash } from "@infrastructure/ingest/hash";
+import { loadActiveCompiledRules, matchCategoryId } from "@application/categorize/engine";
 
 export type UploadedFile = {
   filename: string;

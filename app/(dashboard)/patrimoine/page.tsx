@@ -5,14 +5,14 @@ import {
   getNetWorth,
   getNetWorthByPerson,
   getNetWorthHistory,
-} from "@/lib/db/assets";
-import { listAllAccounts } from "@/lib/db/queries";
-import { listMembers, getPersonForUser } from "@/lib/db/household";
-import { getCurrentUser } from "@/lib/auth";
-import type { ShareInput } from "@/lib/shares";
+} from "@application/assets";
+import { listAllAccounts } from "@application/queries";
+import { listMembers, getPersonForUser } from "@application/household";
+import { getCurrentUser } from "@application/auth";
+import type { ShareInput } from "@domain/shares";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
-import { formatCents } from "@/lib/format";
+import { cn } from "@shared/utils";
+import { formatCents } from "@shared/format";
 import { AssetsPane } from "@/components/assets/assets-pane";
 import { NetWorthChart } from "@/components/assets/net-worth-chart";
 

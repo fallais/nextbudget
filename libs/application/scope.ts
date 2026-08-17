@@ -1,8 +1,8 @@
 import "server-only";
 import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "./client";
-import { AccountEntity } from "./entities";
-import { getAuthMode, getCurrentUser } from "@/lib/auth";
+import { getDataSource } from "@infrastructure/db/client";
+import { AccountEntity } from "@infrastructure/db/schemas";
+import { getAuthMode, getCurrentUser } from "@application/auth";
 
 /**
  * Visibility scope for the current request.

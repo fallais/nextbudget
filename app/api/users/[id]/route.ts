@@ -1,20 +1,10 @@
 import { NextResponse } from "next/server";
 import { IsNull } from "typeorm";
-import { getDataSource } from "@/lib/db/client";
-import { isUniqueViolation } from "@/lib/db/errors";
-import {
-  UserEntity,
-  SessionEntity,
-  PersonEntity,
-  AccountEntity,
-  RuleEntity,
-  ContributionEntity,
-  FixedExpenseEntity,
-  BudgetEntity,
-  AssetEntity,
-} from "@/lib/db/entities";
-import { userUpdateSchema } from "@/lib/validation";
-import { getCurrentUser, hashPassword, publicUser } from "@/lib/auth";
+import { getDataSource } from "@infrastructure/db/client";
+import { isUniqueViolation } from "@infrastructure/db/errors";
+import { UserEntity, SessionEntity, PersonEntity, AccountEntity, RuleEntity, ContributionEntity, FixedExpenseEntity, BudgetEntity, AssetEntity } from "@infrastructure/db/schemas";
+import { userUpdateSchema } from "@domain/validation";
+import { getCurrentUser, hashPassword, publicUser } from "@application/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

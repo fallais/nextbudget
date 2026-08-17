@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { AssetValuationEntity } from "@/lib/db/entities";
-import { listAssets } from "@/lib/db/assets";
+import { getDataSource } from "@infrastructure/db/client";
+import { AssetValuationEntity } from "@infrastructure/db/schemas";
+import { listAssets } from "@application/assets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

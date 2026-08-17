@@ -25,6 +25,18 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@domain/*": [
+        "./libs/domain/*"
+      ],
+      "@application/*": [
+        "./libs/application/*"
+      ],
+      "@infrastructure/*": [
+        "./libs/infrastructure/*"
+      ],
+      "@shared/*": [
+        "./libs/shared/*"
       ]
     }
   },

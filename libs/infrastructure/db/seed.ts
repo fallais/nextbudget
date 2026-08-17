@@ -1,17 +1,8 @@
 import "reflect-metadata";
 import { type DataSource, IsNull } from "typeorm";
-import { getDataSource } from "./client";
-import {
-  AccountEntity,
-  CategoryEntity,
-  ContributionEntity,
-  FixedExpenseEntity,
-  PersonEntity,
-  RuleEntity,
-  SettingEntity,
-  UserEntity,
-} from "./entities";
-import { loadDefaultCategories } from "../categorize/defaults";
+import { getDataSource } from "@infrastructure/db/client";
+import { AccountEntity, CategoryEntity, ContributionEntity, FixedExpenseEntity, PersonEntity, RuleEntity, SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import { loadDefaultCategories } from "@infrastructure/categorize/defaults";
 
 const DEFAULT_CATEGORY_COLOR = "#94a3b8";
 const DEFAULT_CATEGORY_ICON = "HelpCircle";

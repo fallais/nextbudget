@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { FixedExpenseEntity } from "@/lib/db/entities";
-import { fixedExpenseInputSchema } from "@/lib/validation";
-import { getCurrentUser } from "@/lib/auth";
-import { getScope, applyOwnedScope } from "@/lib/db/scope";
+import { getDataSource } from "@infrastructure/db/client";
+import { FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { fixedExpenseInputSchema } from "@domain/validation";
+import { getCurrentUser } from "@application/auth";
+import { getScope, applyOwnedScope } from "@application/scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

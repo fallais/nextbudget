@@ -1,7 +1,7 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 
 const PRESET_COLORS = [
   "#16a34a",

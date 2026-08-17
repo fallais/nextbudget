@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
-import { getCurrentUser, getAuthMode } from "@/lib/auth";
+import { getCurrentUser, getAuthMode } from "@application/auth";
 
 export const dynamic = "force-dynamic";
 

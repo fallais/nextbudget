@@ -5,7 +5,7 @@ import {
   type ObjectLiteral,
   type Repository,
 } from "typeorm";
-import { ALL_ENTITIES } from "./entities";
+import { ALL_ENTITIES } from "@infrastructure/db/schemas";
 
 // Lazy, process-global DataSource. Initialized on first use (never at import
 // time) so `next build` does not require a live database. Cached on globalThis

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { recategorizeAll } from "@/lib/categorize/engine";
+import { recategorizeAll } from "@application/categorize/engine";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -10,10 +10,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 import { EnableAuthDialog } from "@/components/auth/enable-auth-dialog";
 import { HouseholdWizard } from "./household-wizard";
-import type { HouseholdMode } from "@/lib/db/settings";
+import type { HouseholdMode } from "@application/settings";
 
 export type SettingsMember = {
   id: number;

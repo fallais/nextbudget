@@ -1,6 +1,6 @@
 import "server-only";
-import { getDataSource } from "./client";
-import { SettingEntity } from "./entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { SettingEntity } from "@infrastructure/db/schemas";
 
 /**
  * App configuration lives in the `settings` table and is edited from the UI,

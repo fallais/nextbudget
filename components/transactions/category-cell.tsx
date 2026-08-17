@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -15,8 +15,8 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { CategoryBadge } from "@/components/categories/category-badge";
-import { getCategoryIcon } from "@/lib/category-icons";
-import type { Category } from "@/lib/db/schema";
+import { getCategoryIcon } from "@shared/category-icons";
+import type { Category } from "@domain/entities";
 
 export function CategoryCell({
   transactionId,

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listTransactions } from "@/lib/db/queries";
+import { listTransactions } from "@application/queries";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

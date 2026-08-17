@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import {
-  CategoryEntity,
-  RuleEntity,
-  BudgetEntity,
-  TransactionEntity,
-  FixedExpenseEntity,
-} from "@/lib/db/entities";
-import { categoryInputSchema, patchSchema } from "@/lib/validation";
+import { getDataSource } from "@infrastructure/db/client";
+import { CategoryEntity, RuleEntity, BudgetEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { categoryInputSchema, patchSchema } from "@domain/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

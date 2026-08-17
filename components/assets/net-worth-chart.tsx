@@ -11,8 +11,8 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
-import { formatCents, formatCentsCompact, formatDateShort } from "@/lib/format";
-import type { NetWorthPoint } from "@/lib/db/assets";
+import { formatCents, formatCentsCompact, formatDateShort } from "@shared/format";
+import type { NetWorthPoint } from "@application/assets";
 
 const config = {
   net: { label: "Valeur nette", color: "var(--chart-1)" },

@@ -1,14 +1,14 @@
-import { listAllCategories } from "@/lib/db/queries";
+import { listAllCategories } from "@application/queries";
 import {
   getBudgetStatuses,
   getCategoriesWithFixedExpenseCount,
-} from "@/lib/db/budgets";
+} from "@application/budgets";
 import {
   BudgetCard,
   CategoryWithoutBudget,
   CategoryCoveredByFixed,
 } from "@/components/budgets/budget-card";
-import { formatCents } from "@/lib/format";
+import { formatCents } from "@shared/format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

@@ -12,7 +12,13 @@ import { z } from "zod";
  * Rules page stays changed.
  */
 
-const DEFAULTS_FILE = path.join(process.cwd(), "lib", "categorize", "categories.yaml");
+const DEFAULTS_FILE = path.join(
+  process.cwd(),
+  "libs",
+  "infrastructure",
+  "categorize",
+  "categories.yaml",
+);
 
 /** A bare string is the common case: "contains", any amount, priority 100. */
 const patternSchema = z.union([

@@ -1,14 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDataSource } from "@/lib/db/client";
-import {
-  AccountEntity,
-  AssetEntity,
-  BudgetEntity,
-  ContributionEntity,
-  FixedExpenseEntity,
-  RuleEntity,
-} from "@/lib/db/entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { AccountEntity, AssetEntity, BudgetEntity, ContributionEntity, FixedExpenseEntity, RuleEntity } from "@infrastructure/db/schemas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

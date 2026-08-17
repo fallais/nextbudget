@@ -4,7 +4,7 @@ import {
   listAllCategories,
   listAllAccounts,
   type TransactionFilters,
-} from "@/lib/db/queries";
+} from "@application/queries";
 import { TransactionsFilters } from "@/components/transactions/filters";
 import { TransactionsTable } from "@/components/transactions/transactions-table";
 import { Skeleton } from "@/components/ui/skeleton";

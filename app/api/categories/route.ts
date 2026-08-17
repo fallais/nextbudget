@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@/lib/db/client";
-import { CategoryEntity } from "@/lib/db/entities";
-import { categoryInputSchema } from "@/lib/validation";
+import { getDataSource } from "@infrastructure/db/client";
+import { CategoryEntity } from "@infrastructure/db/schemas";
+import { categoryInputSchema } from "@domain/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

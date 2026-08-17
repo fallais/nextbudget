@@ -13,9 +13,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn } from "@shared/utils";
 import { CategoryBadge } from "@/components/categories/category-badge";
-import type { Category, Account } from "@/lib/db/schema";
+import type { Category, Account } from "@domain/entities";
 
 type Props = {
   categories: Category[];

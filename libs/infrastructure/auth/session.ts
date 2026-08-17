@@ -1,8 +1,9 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { getDataSource } from "@/lib/db/client";
-import { SessionEntity, UserEntity, type User } from "@/lib/db/entities";
+import { getDataSource } from "@infrastructure/db/client";
+import { SessionEntity, UserEntity } from "@infrastructure/db/schemas";
+import type { User } from "@domain/entities";
 
 const COOKIE = "banquejs_session";
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days

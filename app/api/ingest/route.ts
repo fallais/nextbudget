@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ingestUploads, type UploadedFile } from "@/lib/ingest";
+import { ingestUploads, type UploadedFile } from "@application/ingest";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

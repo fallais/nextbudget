@@ -1,8 +1,8 @@
 import { Wallet } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCents } from "@/lib/format";
-import { cn } from "@/lib/utils";
-import type { ResteAVivre } from "@/lib/db/reste-a-vivre";
+import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
+import type { ResteAVivre } from "@application/reste-a-vivre";
 
 export function ResteAVivreCard({ data }: { data: ResteAVivre }) {
   const negative = data.resteAVivreCents < 0;

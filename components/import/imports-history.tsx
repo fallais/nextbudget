@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import type { Import } from "@/lib/db/schema";
+import type { Import } from "@domain/entities";
 
 const statusMeta: Record<
   Import["status"],

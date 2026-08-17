@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { RuleTest } from "./rule-test";
-import type { Rule } from "@/lib/db/schema";
+import type { Rule } from "@domain/entities";
 
 const MATCH_LABELS: Record<Rule["matchType"], string> = {
   contains: "Contient",

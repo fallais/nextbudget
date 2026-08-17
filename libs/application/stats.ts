@@ -1,9 +1,10 @@
 import "server-only";
 import type { SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "./client";
-import { TransactionEntity, type Transaction } from "./entities";
-import { getScope, visibleAccountIds, applyAccountScope } from "./scope";
-import { periodToRange, previousPeriodRange, type PeriodKey } from "@/lib/period";
+import { getDataSource } from "@infrastructure/db/client";
+import { TransactionEntity } from "@infrastructure/db/schemas";
+import type { Transaction } from "@domain/entities";
+import { getScope, visibleAccountIds, applyAccountScope } from "@application/scope";
+import { periodToRange, previousPeriodRange, type PeriodKey } from "@domain/period";
 
 // Month bucket from an ISO 'yyyy-MM-dd' text date → 'yyyy-MM' (Postgres-portable).
 const MONTH = "substr(t.date, 1, 7)";
