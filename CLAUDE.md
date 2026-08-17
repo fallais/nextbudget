@@ -11,7 +11,10 @@ npm run typecheck    # tsc --noEmit
 npm run lint         # eslint
 npm run test         # vitest (unit tests, no DB)
 npm run db:migrate   # connect, synchronize schema from entities, seed defaults (idempotent)
+npm run auth:reset   # break-glass: drop back to open mode, or `-- <password>` to reset the owner's
 ```
+`db:migrate` and `auth:reset` are standalone `tsx` scripts, so they do **not**
+read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run …`.
 
 ## Conventions
 - Amounts stored as signed integer **cents** (Postgres `bigint`, exposed as JS numbers
@@ -43,12 +46,39 @@ npm run db:migrate   # connect, synchronize schema from entities, seed defaults 
 ## Layout
 - `app/(dashboard)/` — pages (sidebar shell); the layout guards auth via `getCurrentUser()`
 - `app/api/` — route handlers (incl. `auth/`, `users/`, `assets/`, `visibility`)
-- `lib/db/` — entities, client (DataSource), queries, stats, seed, `scope.ts`, `assets.ts`, `amortization.ts`
+- `lib/db/` — entities, client (DataSource), queries, stats, seed, `scope.ts`, `assets.ts`,
+  `amortization.ts`, `household.ts` (persons ↔ users), `settings.ts` (household mode)
 - `lib/auth/` — argon2 password hashing, DB-backed sessions, `getCurrentUser`/`getAuthMode`
+- `lib/shares.ts` — pure ownership maths in basis points (DB-free, unit-tested)
 - `lib/ingest/` — parser registry + CSV parser; PDF stubbed
 - `lib/categorize/` — rule engine + normalize; `llm.ts` is a v2 stub
 - `lib/categorize/packs/` — pattern packs (see below); `core/` = open-source defaults
-- `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,ui}/`
+- `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,accounts,settings,ui}/`
+
+## Household (couple support)
+See `docs/couple-plan.md` for the full design and what was deliberately left out.
+- **Person ≠ user.** `persons` is the domain concept (everyone whose money is
+  tracked, no login needed); `users` is auth. `persons.user_id` links them.
+  Ownership and contributions attach to **persons**, so they work in open mode.
+- **Accounts** carry `kind` (`personal` | `joint`). Joint-ness is a fact about the
+  bank account, distinct from `visibility`. Contributions are matched only against
+  joint accounts, falling back to all visible ones when none is marked joint.
+- **Ownership shares** live in `asset_owners (asset_id, person_id, share_bps)`,
+  10000 = 100%, validated in app code (`lib/shares.ts`). An asset with **no** rows
+  reads as wholly owned by its `owner_id` — that is what keeps legacy rows and solo
+  installs correct with no migration. Three separate axes, never merged: ownership
+  share (how much is yours) · visibility (who can see it) · payment share (who funds
+  it, via `contributions`/`fixed_expenses`).
+- **Config** (`settings.household` = `solo` | `couple`) is DB + UI like `authMode`,
+  edited at `/parametres`. Env stays for deployment facts only.
+- Every couple feature is gated so a **solo install is unchanged** — share pickers
+  and account selectors appear only past one person / one account.
+
+## PATCH bodies
+Use `patchSchema(xInputSchema)` from `lib/validation.ts`, never
+`xInputSchema.partial()`. Zod 4 keeps `.default()` on a key made optional by
+`.partial()`, so an omitted field materialises its default and the route writes it
+over the stored value. `patchSchema` unwraps defaults first.
 
 ## Auth & visibility
 - **Auth mode** is in `settings.authMode` (`open` | `enforced`), not an env var.
