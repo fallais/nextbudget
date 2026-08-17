@@ -31,6 +31,9 @@ export const fixedExpenseMatchTypeSchema = z.enum(["contains", "starts_with", "r
 
 export const personInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
+  // Optional link to a login. A person exists with or without one: in open
+  // mode nobody logs in, but shares and contributions still need a subject.
+  userId: z.number().int().positive().nullable().optional(),
   monthlySalaryCents: z.number().int().positive().nullable().optional(),
   matchPattern: z.string().trim().max(256).nullable().optional(),
   matchType: fixedExpenseMatchTypeSchema.optional(),

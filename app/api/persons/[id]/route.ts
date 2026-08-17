@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { PersonEntity, ContributionEntity } from "@/lib/db/entities";
+import { isUserLinkTaken } from "@/lib/db/household";
 import { personInputSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -19,6 +20,12 @@ export async function PATCH(
   const parsed = personInputSchema.partial().safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+  }
+  if (parsed.data.userId != null && (await isUserLinkTaken(parsed.data.userId, personId))) {
+    return NextResponse.json(
+      { error: "Ce compte utilisateur est déjà lié à une autre personne" },
+      { status: 409 },
+    );
   }
   const ds = await getDataSource();
   await ds.getRepository(PersonEntity).update(personId, parsed.data);

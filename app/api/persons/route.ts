@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { PersonEntity } from "@/lib/db/entities";
 import { listPersons } from "@/lib/db/contributions";
+import { isUserLinkTaken } from "@/lib/db/household";
 import { personInputSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
@@ -18,11 +19,19 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
+  const userId = parsed.data.userId ?? null;
+  if (userId != null && (await isUserLinkTaken(userId))) {
+    return NextResponse.json(
+      { error: "Ce compte utilisateur est déjà lié à une autre personne" },
+      { status: 409 },
+    );
+  }
   const ds = await getDataSource();
   const repo = ds.getRepository(PersonEntity);
   const created = await repo.save(
     repo.create({
       name: parsed.data.name,
+      userId,
       monthlySalaryCents: parsed.data.monthlySalaryCents ?? null,
       matchPattern: parsed.data.matchPattern ?? null,
       matchType: parsed.data.matchType ?? "contains",

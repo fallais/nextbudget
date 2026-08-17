@@ -71,12 +71,21 @@ set, never read.
 
 **Schema:** none. The column exists (`lib/db/entities.ts:304`).
 
-- [ ] `lib/validation.ts:32` — `personInputSchema` accepts `userId: number | null`
-- [ ] `app/api/persons/route.ts`, `[id]/route.ts` — accept and persist the link
-- [ ] `lib/db/household.ts` *(new)* — `listMembers()` joining persons + users
-- [ ] `lib/db/seed.ts:82` — in `backfillOwnership`, ensure a `Person` exists for
-      the owner user
-- [ ] `components/persons/person-form.tsx` — optional "compte utilisateur" select
+- [x] `lib/validation.ts:32` — `personInputSchema` accepts `userId: number | null`
+- [x] `app/api/persons/route.ts`, `[id]/route.ts` — accept and persist the link,
+      409 when a login is already claimed by another person (one login ⇒ at most
+      one member, enforced in app code since there are no DB constraints)
+- [x] `lib/db/household.ts` *(new)* — `listMembers()`, `getPersonForUser()`,
+      `isUserLinkTaken()`
+- [x] `lib/db/seed.ts:82` — in `backfillOwnership`, ensure a `Person` exists for
+      the owner user; adopts a pre-existing unlinked person rather than
+      duplicating them
+- [x] `components/persons/person-form.tsx` — optional "compte utilisateur" select,
+      rendered only when the install has more than one login
+
+**Note:** `npm run db:migrate` does not read `.env.local` — that file is loaded by
+Next, not by the standalone `tsx` script. Run it as
+`DATABASE_URL=postgres://banquejs:banquejs@localhost:5432/banquejs npm run db:migrate`.
 
 The seed step matters: without it a solo user has zero person rows until they
 visit `/apports`, and Phase C's share picker would have nobody to assign to.

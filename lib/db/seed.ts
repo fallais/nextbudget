@@ -6,6 +6,7 @@ import {
   CategoryEntity,
   ContributionEntity,
   FixedExpenseEntity,
+  PersonEntity,
   RuleEntity,
   SettingEntity,
   UserEntity,
@@ -94,7 +95,26 @@ export async function backfillOwnership(ds: DataSource): Promise<void> {
     await settingRepo.save(settingRepo.create({ key: "authMode", value: "open" }));
   }
 
-  // 3. Attribute existing ownable rows to the owner (visibility already
+  // 3. Ensure the owner exists as a household member too. Ownership shares and
+  //    contributions are attributed to persons, not users, so a brand-new solo
+  //    install needs one before it can record who owns what.
+  const personRepo = ds.getRepository(PersonEntity);
+  const ownerPerson = await personRepo.findOne({ where: { userId: ownerId } });
+  if (!ownerPerson) {
+    // An install that predates the link may already have a person standing in
+    // for the owner; adopt the first unlinked one rather than duplicating them.
+    const orphan = await personRepo.findOne({
+      where: { userId: IsNull() },
+      order: { id: "ASC" },
+    });
+    if (orphan) {
+      await personRepo.update(orphan.id, { userId: ownerId });
+    } else {
+      await personRepo.save(personRepo.create({ name: owner.name, userId: ownerId }));
+    }
+  }
+
+  // 4. Attribute existing ownable rows to the owner (visibility already
   //    defaults to 'shared'). Only fills NULL owner_id, so re-runs are no-ops.
   await ds.getRepository(AccountEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(RuleEntity).update({ ownerId: IsNull() }, { ownerId });

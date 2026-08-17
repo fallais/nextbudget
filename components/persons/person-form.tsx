@@ -26,6 +26,8 @@ import type { Person } from "@/lib/db/schema";
 
 type MatchType = "contains" | "starts_with" | "regex";
 
+type LinkableUser = { id: number; name: string; email: string | null };
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,6 +36,8 @@ type Props = {
 
 export function PersonForm({ open, onOpenChange, person }: Props) {
   const [name, setName] = useState("");
+  const [users, setUsers] = useState<LinkableUser[]>([]);
+  const [userId, setUserId] = useState<string>("none");
   const [salary, setSalary] = useState("");
   const [matchPattern, setMatchPattern] = useState("");
   const [matchType, setMatchType] = useState<MatchType>("contains");
@@ -43,9 +47,28 @@ export function PersonForm({ open, onOpenChange, person }: Props) {
   const [, startTransition] = useTransition();
   const router = useRouter();
 
+  // Only relevant once the household has more than one login; a solo install
+  // never sees this field. `/api/users` is owner-only and 403s otherwise.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    fetch("/api/users")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((rows: LinkableUser[]) => {
+        if (!cancelled) setUsers(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        if (!cancelled) setUsers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
+
   useEffect(() => {
     if (open) {
       setName(person?.name ?? "");
+      setUserId(person?.userId != null ? String(person.userId) : "none");
       setSalary(
         person?.monthlySalaryCents
           ? (person.monthlySalaryCents / 100).toFixed(2).replace(".", ",")
@@ -67,6 +90,7 @@ export function PersonForm({ open, onOpenChange, person }: Props) {
         : null;
       const payload = {
         name: name.trim(),
+        userId: userId === "none" ? null : Number(userId),
         monthlySalaryCents:
           salaryCents !== null && Number.isFinite(salaryCents) && salaryCents > 0
             ? salaryCents
@@ -139,6 +163,38 @@ export function PersonForm({ open, onOpenChange, person }: Props) {
                 />
               </div>
             </div>
+
+            {users.length > 1 && (
+              <div className="space-y-2">
+                <Label htmlFor="person-user">Compte utilisateur — optionnel</Label>
+                <Select
+                  value={userId}
+                  items={{
+                    none: "Aucun",
+                    ...Object.fromEntries(users.map((u) => [String(u.id), u.name])),
+                  }}
+                  onValueChange={(v) => v && setUserId(String(v))}
+                >
+                  <SelectTrigger id="person-user">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun</SelectItem>
+                    {users.map((u) => (
+                      <SelectItem key={u.id} value={String(u.id)}>
+                        {u.name}
+                        {u.email ? ` · ${u.email}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Rattache cette personne à un identifiant de connexion. Sans
+                  rattachement, elle reste suivie normalement mais ne voit pas
+                  ses propres données quand la confidentialité est activée.
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2 rounded-md border bg-muted/30 p-3">
               <Label htmlFor="person-pat" className="text-sm">
