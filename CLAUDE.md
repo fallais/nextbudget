@@ -51,8 +51,8 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
 - `lib/auth/` — argon2 password hashing, DB-backed sessions, `getCurrentUser`/`getAuthMode`
 - `lib/shares.ts` — pure ownership maths in basis points (DB-free, unit-tested)
 - `lib/ingest/` — parser registry + CSV parser; PDF stubbed
-- `lib/categorize/` — rule engine + normalize; `llm.ts` is a v2 stub
-- `lib/categorize/packs/` — pattern packs (see below); `core/` = open-source defaults
+- `lib/categorize/` — rule engine + normalize; `categories.yaml` + `defaults.ts`
+  are the seeded defaults (see below); `llm.ts` is a v2 stub
 - `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,accounts,settings,ui}/`
 
 ## Household (couple support)
@@ -91,18 +91,20 @@ over the stored value. `patchSchema` unwraps defaults first.
   contributions, fixed_expenses, budgets, assets are scoped directly. Writes stamp
   `owner_id`. Categories/rules stay shared config. Per-row toggles → `/api/visibility`.
 
-## Pattern packs (categorization defaults)
-Default merchant→category patterns live as **YAML packs**, not hardcoded in seed.
-- `lib/categorize/packs/core/*.yaml` — open-source defaults (well-known FR/EU
-  chains). Community contributions add patterns here. Validated by a Zod schema
-  (`lib/categorize/packs/schema.ts`). **Seeded into the `rules` table** at
-  `db:migrate` (editable afterwards in the Rules UI).
-- `PATTERN_PACKS` env (comma-separated file/dir paths, or an installed package
-  dir) loads **extra packs at runtime** as a fallback layer *below* the DB rules
-  (user rules always win). Used for private/personal packs and the proprietary
-  SaaS "premium" pack — these are **never** written to the DB.
-- Keep merchant rules **generic** (national/international chains). Put hyper-local
-  or personal merchants in a local pack (`*.local.yaml`, gitignored).
+## Categorization defaults
+Default categories and merchant patterns live in **one YAML file**,
+`lib/categorize/categories.yaml`, validated by a Zod schema in
+`lib/categorize/defaults.ts`.
+- **Seeded into `categories` + `rules`** at `db:migrate`, additively: only
+  missing rows are created, so edits made in the Rules UI survive a re-run.
+- After seeding, the **DB is the only source the engine reads**. There is no
+  runtime overlay and no `PATTERN_PACKS` env — what the Rules page shows is what
+  runs.
+- A pattern is normally just a string; use the long form
+  (`pattern`/`matchType`/`amountCondition`/`priority`) only when a rule needs it.
+- Keep contributed merchants **generic** (national/international chains).
+  Hyper-local or personal merchants belong in your own install, added from the
+  Rules page — not in this file.
 
 ## Adding a new bank parser
 Add `lib/ingest/parsers/<name>.ts` exporting a function returning `ParseResult`,

@@ -44,7 +44,8 @@ docker compose exec app npm run db:migrate   # first run: create schema + seed d
 ```
 
 Configuration is via environment variables (see [`.env.example`](./.env.example)):
-`DATABASE_URL` (Postgres connection string) and optionally `PATTERN_PACKS`.
+`DATABASE_URL` (Postgres connection string) and optionally `TZ`. Everything else
+— household, privacy, accounts, categories — is configured in the app itself.
 
 ## Local development
 
@@ -78,9 +79,9 @@ npm run test         # vitest unit tests
   via `synchronize` — there are no migration files to manage.
 - Imports are parsed by a small **parser registry** (`lib/ingest/`); adding support
   for a new bank format is a single file — see `CLAUDE.md` → *Adding a new bank parser*.
-- Categorization rules live in `lib/categorize/`; default patterns ship as YAML
-  **packs** under `lib/categorize/packs/core/` (well-known French chains). Extra
-  packs can be loaded at runtime via `PATTERN_PACKS`.
+- Categorization rules live in `lib/categorize/`; the default categories and
+  merchant patterns are a single YAML file, `lib/categorize/categories.yaml`,
+  seeded into the database at migrate time and editable from the Rules page.
 - All `app/api/**/route.ts` handlers run on the Node.js runtime.
 
 ## Roadmap
@@ -101,7 +102,8 @@ optional built-in auth (open by default, per-user passwords); assets & liabiliti
 ## Contributing
 
 Contributions are welcome — see [`CONTRIBUTING.md`](./CONTRIBUTING.md). Adding
-merchant patterns is as easy as editing `lib/categorize/packs/core/fr.yaml`.
+merchant patterns is as easy as adding a line to
+[`lib/categorize/categories.yaml`](./lib/categorize/categories.yaml).
 
 ## License
 

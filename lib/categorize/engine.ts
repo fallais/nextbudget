@@ -12,10 +12,14 @@ import {
   matchCategoryId,
   type CompiledRule,
 } from "./core";
-import { loadRuntimePacks, compilePackRules } from "./packs/loader";
-
 export { compileRule, matchCategoryId, type CompiledRule } from "./core";
 
+/**
+ * The active rule set: everything in the `rules` table, plus synthetic rules
+ * derived from contributions. Defaults from `categories.yaml` are seeded into
+ * that table at migrate time, so there is no separate layer to consult here —
+ * what the Rules page shows is what runs.
+ */
 export async function loadActiveCompiledRules(): Promise<CompiledRule[]> {
   const ds = await getDataSource();
   const all = await ds
@@ -28,26 +32,13 @@ export async function loadActiveCompiledRules(): Promise<CompiledRule[]> {
   const categories = await ds.getRepository(CategoryEntity).find();
   const apports = categories.find((c) => c.name === "Apports");
 
-  let dbLayer: CompiledRule[];
-  if (!apports) {
-    dbLayer = regular;
-  } else {
-    const activeContribs = await ds
-      .getRepository(ContributionEntity)
-      .find({ where: { isActive: true } });
-    const contribRules = compileContributionsAsRules(apports.id, activeContribs);
-    dbLayer = [...contribRules, ...regular].sort((a, b) => a.priority - b.priority);
-  }
+  if (!apports) return regular;
 
-  // Runtime overlay packs (PATTERN_PACKS): personal/local + SaaS "premium".
-  // Applied strictly BELOW the DB rules as a pure fallback — user/DB rules win.
-  const runtimePacks = loadRuntimePacks();
-  if (runtimePacks.length === 0) return dbLayer;
-  const categoryIdByName = new Map(categories.map((c) => [c.name, c.id]));
-  const overlay = compilePackRules(runtimePacks, categoryIdByName).sort(
-    (a, b) => a.priority - b.priority,
-  );
-  return [...dbLayer, ...overlay];
+  const activeContribs = await ds
+    .getRepository(ContributionEntity)
+    .find({ where: { isActive: true } });
+  const contribRules = compileContributionsAsRules(apports.id, activeContribs);
+  return [...contribRules, ...regular].sort((a, b) => a.priority - b.priority);
 }
 
 export type RecategorizeResult = {

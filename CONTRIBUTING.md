@@ -27,6 +27,45 @@ npm run db:migrate   # synchronize schema from entities + seed
 npm run dev
 ```
 
+## Adding categories and merchant patterns
+
+The easiest and most useful contribution. Everything lives in one file,
+[`lib/categorize/categories.yaml`](./lib/categorize/categories.yaml) — no build
+step, no registration, no plugin format. Most additions are one line:
+
+```yaml
+  - name: Alimentation
+    patterns:
+      - CARREFOUR
+      - MONOPRIX      # ← your addition
+```
+
+Use the long form only when a plain "contains" match is not enough:
+
+```yaml
+      - pattern: VINCI
+        matchType: starts_with     # contains (default) | equals | starts_with | regex
+        amountCondition: positive  # any (default) | positive | negative
+        priority: 90               # lower wins; default 100
+```
+
+What we take:
+
+- **Yes** — chains people across a country or region would recognise
+  (supermarkets, fuel, telecoms, streaming, insurers, utilities).
+- **No** — your local baker, your landlord's name, your employer. Add those to
+  your own install from the Rules page; they would only create false matches for
+  everyone else.
+- Patterns are matched case-insensitively against the *normalised* description,
+  so write them upper-case and without accents.
+- Keep patterns **specific enough not to collide**: `BP ` (with the space) rather
+  than `BP`. Prefer the shortest string that is still unambiguous.
+
+Patterns are seeded into the database at `npm run db:migrate` and are keyed on
+the pattern text, so an existing install picks up new ones on its next migrate
+without losing local edits. `npm test` checks the file parses and has no
+duplicates.
+
 ## Before opening a pull request
 
 ```bash

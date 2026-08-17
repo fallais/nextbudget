@@ -11,7 +11,7 @@ import {
   SettingEntity,
   UserEntity,
 } from "./entities";
-import { loadCorePacks } from "../categorize/packs/loader";
+import { loadDefaultCategories } from "../categorize/defaults";
 
 const DEFAULT_CATEGORY_COLOR = "#94a3b8";
 const DEFAULT_CATEGORY_ICON = "HelpCircle";
@@ -27,12 +27,10 @@ export async function runSeed(ds: DataSource): Promise<{
   let createdCats = 0;
   let createdRules = 0;
 
-  // Default categories + rules come from the open-source core packs
-  // (lib/categorize/packs/core/*.yaml). Extra packs (PATTERN_PACKS) are a
-  // runtime overlay and are NOT seeded.
-  const seedCategories = loadCorePacks().flatMap((pack) => pack.categories);
-
-  for (const cat of seedCategories) {
+  // Defaults live in lib/categorize/categories.yaml. Seeding is additive: it
+  // only creates what is missing, so edits made on the Rules page survive a
+  // re-run and the DB stays the single source of truth for the engine.
+  for (const cat of loadDefaultCategories()) {
     let category = await catRepo.findOne({ where: { name: cat.name } });
     if (!category) {
       category = await catRepo.save(
@@ -46,16 +44,16 @@ export async function runSeed(ds: DataSource): Promise<{
       createdCats++;
     }
 
-    for (const rule of cat.rules) {
+    for (const rule of cat.patterns) {
       const exists = await ruleRepo.findOne({ where: { pattern: rule.pattern } });
       if (!exists) {
         await ruleRepo.save(
           ruleRepo.create({
             categoryId: category.id,
             pattern: rule.pattern,
-            matchType: rule.matchType ?? "contains",
-            amountCondition: rule.amountCondition ?? "any",
-            priority: rule.priority ?? 100,
+            matchType: rule.matchType,
+            amountCondition: rule.amountCondition,
+            priority: rule.priority,
             isActive: true,
           }),
         );

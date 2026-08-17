@@ -41,7 +41,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# local-only, never-committed files (personal pattern packs, private config…)
+# local-only, never-committed files (private config, personal notes…)
 *.local.yaml
 *.local.yml
 *.local.json

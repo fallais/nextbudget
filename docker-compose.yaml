@@ -34,8 +34,6 @@ services:
     environment:
       DATABASE_URL: postgres://banquejs:banquejs@db:5432/banquejs
       TZ: Europe/Paris
-      # Optional extra categorization packs (comma-separated paths / package dirs):
-      # PATTERN_PACKS: /packs/premium
 
 volumes:
   banquejs-pgdata:

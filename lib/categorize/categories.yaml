@@ -1,0 +1,290 @@
+# BanqueJS — default categories and merchant patterns.
+#
+# Seeded into the `categories` and `rules` tables by `npm run db:migrate`.
+# Seeding is additive and idempotent: it creates what is missing and never
+# touches what you have already edited, so the Rules page stays the source of
+# truth for your own install.
+#
+# Contributing
+# ------------
+# Add widely-recognised national or international merchants. Keep hyper-local
+# and personal merchants out of this file — add those to your own install from
+# the Rules page instead.
+#
+# A pattern is usually just the text to look for, matched case-insensitively
+# against the normalised description:
+#
+#   patterns:
+#     - CARREFOUR
+#
+# Use the long form when a rule needs more than that:
+#
+#   - pattern: VINCI
+#     matchType: starts_with     # contains (default) | equals | starts_with | regex
+#     amountCondition: positive  # any (default) | positive | negative
+#     priority: 90               # lower wins; default 100
+#
+# Categories also carry a `color` (hex) and an `icon` (any lucide-react name).
+
+categories:
+  - name: Alimentation
+    color: "#16a34a"
+    icon: ShoppingCart
+    patterns:
+      - CARREFOUR
+      - LECLERC
+      - INTERMARCHE
+      - AUCHAN
+      - MONOPRIX
+      - FRANPRIX
+      - LIDL
+      - PICARD
+      - BIOCOOP
+      - SUPER U
+      - BISCUITERIE
+      - BOULANGERIE
+      - PANETIERE
+
+  - name: Restaurants
+    color: "#f97316"
+    icon: UtensilsCrossed
+    patterns:
+      - MCDONALD
+      - BURGER KING
+      - KFC
+      - STARBUCKS
+      - DELIVEROO
+      - UBER EATS
+      - FOODORA
+      - RESTAURANT
+      - BRASSERI
+      - PIZZA
+
+  - name: Transport
+    color: "#0ea5e9"
+    icon: Train
+    patterns:
+      - SNCF
+      - RATP
+      - NAVIGO
+      # Ahead of the generic rules so "UBER EATS" is not caught here first.
+      - pattern: UBER
+        priority: 90
+      - BLABLACAR
+      - TOTAL
+      - TOTALENERGIES
+      - SHELL
+      - ESSO
+      - "BP "
+      - PARKING
+      - AUTOROUTE
+      - pattern: VINCI
+        matchType: starts_with
+      - ESSENCE
+      - STATION U
+      - ALLOPNEUS
+      # Word-boundary regex so "ASF" doesn't match other 3-letter substrings.
+      - pattern: '\bASF\b'
+        matchType: regex
+
+  - name: Logement
+    color: "#a16207"
+    icon: Home
+    patterns:
+      - LOYER
+      - BAILLEUR
+      - SYNDIC
+      - FONCIA
+      - CITYA
+      - pattern: ECH PRET
+        priority: 80
+      - PRET HABITAT
+
+  - name: Énergie
+    color: "#eab308"
+    icon: Zap
+    patterns:
+      - EDF
+      - ENGIE
+      - TOTALENERGIES ELEC
+      - ENI
+
+  - name: Télécom
+    color: "#6366f1"
+    icon: Smartphone
+    patterns:
+      - FREE MOBILE
+      - FREE TELECOM
+      - FREE HAUT DEBIT
+      - ORANGE
+      - SFR
+      - BOUYGUES TELECOM
+      - SOSH
+      - "B&YOU"
+
+  - name: Loisirs
+    color: "#ec4899"
+    icon: Gamepad2
+    patterns:
+      - NETFLIX
+      - SPOTIFY
+      - DEEZER
+      - DISNEY
+      - PRIME VIDEO
+      - "CANAL+"
+      - CINEMA
+      - UGC
+      - PATHE
+      - FNAC
+      - STEAM
+      - AIRBNB
+      - THERMES
+
+  - name: Santé
+    color: "#dc2626"
+    icon: HeartPulse
+    patterns:
+      - PHARMACIE
+      - DOCTOLIB
+      - MUTUELLE
+      - CPAM
+      - MEDECIN
+      - DENTAIRE
+
+  - name: Shopping
+    color: "#8b5cf6"
+    icon: ShoppingBag
+    patterns:
+      - AMAZON
+      - ZALANDO
+      - ASOS
+      - VINTED
+      - DECATHLON
+      - IKEA
+      - DARTY
+      - BOULANGER
+      - BACK MARKET
+      - BIJOUTERIE
+      - CENTRAKOR
+
+  - name: Apports
+    color: "#10b981"
+    icon: TrendingUp
+    patterns:
+      - pattern: SALAIRE
+        priority: 50
+      - pattern: VIR SEPA SALAIRE
+        priority: 50
+      - pattern: REMUNERATION
+        priority: 50
+      - pattern: URSSAF REMB
+        priority: 50
+      - pattern: REM CHQ
+        matchType: starts_with
+        amountCondition: positive
+        priority: 60
+      - pattern: REMISE CHEQUE
+        amountCondition: positive
+        priority: 60
+      # Generic incoming-money fallbacks: only when the amount is positive, and
+      # last, so a named merchant always wins.
+      - pattern: "VIR "
+        matchType: starts_with
+        amountCondition: positive
+        priority: 250
+      - pattern: VIREMENT
+        amountCondition: positive
+        priority: 250
+      - pattern: VIR SEPA
+        amountCondition: positive
+        priority: 250
+
+  - name: Assurances
+    color: "#0891b2"
+    icon: ShieldCheck
+    patterns:
+      - AGIPI
+      - ADIS
+      - MAAF
+      - MMA
+      - GROUPAMA
+      - MATMUT
+      - MAIF
+      - MACIF
+
+  - name: Banque
+    color: "#475569"
+    icon: Landmark
+    patterns:
+      - AXA
+      - FRAIS BANCAIRES
+      - COTISATION CARTE
+      - AGIOS
+      # Negative only: the loan interest you pay. An incoming apport may read
+      # "VIR INTERETS CREDIT ..." (positive), and must not match here.
+      - pattern: INTERETS CREDIT
+        amountCondition: negative
+        priority: 80
+      - pattern: VIR REMB
+        matchType: starts_with
+      - pattern: PRET N
+        matchType: starts_with
+        amountCondition: positive
+      - FRAIS DE DOSSIER
+      - FRAIS COND
+
+  - name: Impôts
+    color: "#7c2d12"
+    icon: Receipt
+    patterns:
+      - DIRECTION GENERALE DES
+      - TRESOR PUBLIC
+      - DGFIP
+      - IMPOT
+
+  - name: Épargne
+    color: "#0d9488"
+    icon: PiggyBank
+    patterns:
+      - LIVRET
+
+  - name: Travaux
+    color: "#b45309"
+    icon: Hammer
+    patterns:
+      - SAINT MACLOU
+      - MANOMANO
+      - LEROY MERLI
+      - ADEO
+      - BRICO MAISON
+      - BRICOLAGE
+      - CASTORAMA
+      - WELDOM
+      - CHAUSSON MATERIA
+      - LAFARGE
+
+  - name: Animaux & Jardin
+    color: "#65a30d"
+    icon: Leaf
+    patterns:
+      - GAMM VERT
+      - BITIBA
+      - VETERINAIRE
+      - P VERT
+      - JARDINERIE
+      - ATLANTIC
+
+  - name: Retrait
+    color: "#9ca3af"
+    icon: Banknote
+    patterns:
+      - pattern: RET DAB
+        matchType: starts_with
+      - pattern: RETRAIT DAB
+        matchType: starts_with
+
+  # Fallback bucket for anything the rules above don't catch.
+  - name: Autre
+    color: "#94a3b8"
+    icon: HelpCircle
+    patterns: []
