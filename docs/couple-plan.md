@@ -259,14 +259,39 @@ meaningless — `getCurrentUser()` just returns the owner in open mode.
 
 ## Phase E — Couple views
 
-- [ ] **Apports** — scope contribution matching to `kind='joint'` transactions
-      (depends on B); removes the false-positive class above
-- [ ] **Dashboard** — household by default, per-person toggle in couple mode
-- [ ] **Patrimoine** — per-person net worth from Phase C
+- [x] **Apports** — contribution matching now runs only over `kind='joint'`
+      accounts, falling back to every visible account when none is marked joint
+      so solo and pre-existing installs are unaffected
+      (`matchableAccountIds()` in `lib/db/contributions.ts`)
+- [x] **Patrimoine** — per-person net worth, delivered in Phase C
+- [ ] **Dashboard per-person toggle — not built, deliberately.** See below.
 
-**Out of scope for v1:** who-owes-whom settlement, and splitting a single
-transaction across two people. Both real, both big, neither needed to answer
-"what's mine, what's ours".
+Verified: the same 850 € "VIR CAMILLE LOYER" line existing in both the joint
+account and Camille's personal account is now counted once (850 € received, not
+1 700 €).
+
+### Why there is no per-person dashboard
+
+The plan called for "household by default, per-person toggle in couple mode".
+Building it honestly turns out to need something this version deliberately does
+not model.
+
+A per-person *reste à vivre* is income minus fixed expenses minus budgets. Only
+the income half can be attributed: a person's contributions are theirs. Fixed
+expenses and budgets carry an `owner_id` but no share, so there is no truthful
+way to say what portion of the 92,40 € electricity bill is yours. Splitting a
+shared expense between people is exactly the modelling this version put out of
+scope, and a "reste à vivre" computed by silently assigning whole shared
+expenses to one person would be a confidently wrong number on the app's most
+prominent card.
+
+The pieces that *can* be attributed are already per-person where they belong:
+apports on the Apports page, net worth on Patrimoine. Doing this properly means
+giving `fixed_expenses` and `budgets` the same share model `asset_owners` gives
+assets — a coherent next phase, not a toggle.
+
+**Also out of scope for v1:** who-owes-whom settlement, and splitting a single
+transaction across two people.
 
 ---
 

@@ -2,6 +2,7 @@ import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
 import { getDataSource } from "./client";
 import {
+  AccountEntity,
   ContributionEntity,
   PersonEntity,
   TransactionEntity,
@@ -58,6 +59,32 @@ export async function listContributions(): Promise<Contribution[]> {
   return qb.getMany();
 }
 
+/**
+ * The accounts a contribution can be matched against.
+ *
+ * An "apport" is money arriving in the household's common pot, so only joint
+ * accounts should count: a salary landing in someone's personal account can
+ * otherwise match their own contribution pattern and mark the month as paid.
+ *
+ * Falls back to every visible account when no account is marked joint, which
+ * keeps installs that predate the personal/joint distinction — and solo ones —
+ * behaving exactly as before.
+ */
+async function matchableAccountIds(): Promise<number[] | null> {
+  const scope = await getScope();
+  const visible = await visibleAccountIds(scope);
+  const ds = await getDataSource();
+  const qb = ds
+    .getRepository(AccountEntity)
+    .createQueryBuilder("a")
+    .select("a.id", "id")
+    .where("a.kind = :kind", { kind: "joint" });
+  applyOwnedScope(qb, "a", scope);
+  const joint = (await qb.getRawMany<{ id: number }>()).map((r) => Number(r.id));
+  if (joint.length === 0) return visible;
+  return visible === null ? joint : joint.filter((id) => visible.includes(id));
+}
+
 export async function getContributionsByPersonWithStatus(
   now: Date = new Date(),
 ): Promise<PersonWithStatus[]> {
@@ -74,7 +101,7 @@ export async function getContributionsByPersonWithStatus(
     .createQueryBuilder("t")
     .where("t.date >= :start", { start })
     .andWhere("t.date <= :end", { end });
-  applyAccountScope(monthlyQb, "t", await visibleAccountIds(await getScope()));
+  applyAccountScope(monthlyQb, "t", await matchableAccountIds());
   const monthlyRows = await monthlyQb.getMany();
   const monthlyTxs: MonthlyTx[] = monthlyRows.map((t) => ({
     id: t.id,
