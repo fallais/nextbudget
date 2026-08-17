@@ -1,8 +1,17 @@
 import "server-only";
-import { In } from "typeorm";
+import { In, type EntityManager } from "typeorm";
 import { getDataSource } from "./client";
-import { AssetEntity, AssetValuationEntity, type Asset } from "./entities";
+import {
+  AssetEntity,
+  AssetOwnerEntity,
+  AssetValuationEntity,
+  PersonEntity,
+  type Asset,
+  type AssetOwner,
+  type Person,
+} from "./entities";
 import { getScope, applyOwnedScope } from "./scope";
+import { TOTAL_BPS, applyShare, type ShareInput } from "@/lib/shares";
 
 export async function listAssets(): Promise<Asset[]> {
   const ds = await getDataSource();
@@ -57,6 +66,135 @@ export async function getNetWorth(): Promise<NetWorth> {
     netCents: assetsCents - liabilitiesCents,
     byType,
   };
+}
+
+/** Ownership rows for the given assets, keyed by asset id. */
+export async function listAssetOwners(
+  assetIds: number[],
+): Promise<Map<number, AssetOwner[]>> {
+  const byAsset = new Map<number, AssetOwner[]>();
+  if (assetIds.length === 0) return byAsset;
+  const ds = await getDataSource();
+  const rows = await ds.getRepository(AssetOwnerEntity).findBy({ assetId: In(assetIds) });
+  for (const r of rows) {
+    const arr = byAsset.get(r.assetId) ?? [];
+    arr.push(r);
+    byAsset.set(r.assetId, arr);
+  }
+  return byAsset;
+}
+
+/**
+ * Who owns `asset`, and in what proportion.
+ *
+ * With no explicit rows the asset belongs wholly to the person behind
+ * `assets.owner_id` — that is what keeps rows created before shares existed,
+ * and every solo install, reading correctly with no data migration. If that
+ * user has no person (or the asset has no owner at all) nobody is charged
+ * with it: it still counts in the household total, but in no personal one.
+ */
+export function effectiveOwners(
+  asset: Asset,
+  explicit: AssetOwner[] | undefined,
+  personByUserId: Map<number, Person>,
+): ShareInput[] {
+  if (explicit && explicit.length > 0) {
+    return explicit.map((o) => ({ personId: o.personId, shareBps: o.shareBps }));
+  }
+  const fallback = asset.ownerId != null ? personByUserId.get(asset.ownerId) : undefined;
+  return fallback ? [{ personId: fallback.id, shareBps: TOTAL_BPS }] : [];
+}
+
+/**
+ * Replace an asset's ownership rows. Caller validates the shares; this only
+ * checks the persons exist, since a share pointing at a deleted person would
+ * quietly vanish from every personal total.
+ */
+export async function replaceAssetOwners(
+  manager: EntityManager,
+  assetId: number,
+  owners: ShareInput[],
+): Promise<{ error: string } | null> {
+  const personIds = owners.map((o) => o.personId);
+  const found = await manager.getRepository(PersonEntity).findBy({ id: In(personIds) });
+  if (found.length !== personIds.length) {
+    return { error: "Personne introuvable." };
+  }
+  const repo = manager.getRepository(AssetOwnerEntity);
+  await repo.delete({ assetId });
+  await repo.save(owners.map((o) => repo.create({ assetId, ...o })));
+  return null;
+}
+
+export type PersonNetWorth = {
+  personId: number;
+  personName: string;
+  assetsCents: number;
+  liabilitiesCents: number;
+  netCents: number;
+};
+
+export type NetWorthBreakdown = {
+  household: NetWorth;
+  byPerson: PersonNetWorth[];
+  /** Signed net value belonging to no identified person. */
+  unattributedNetCents: number;
+};
+
+/**
+ * Net worth split by household member.
+ *
+ * The household total uses whole values; each person gets their share. Summing
+ * the personal nets therefore reproduces the household net (give or take a
+ * cent of rounding on indivisible splits), rather than double-counting a
+ * jointly-owned house the way an unweighted per-user query would.
+ */
+export async function getNetWorthByPerson(): Promise<NetWorthBreakdown> {
+  const ds = await getDataSource();
+  const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.is_active = true");
+  applyOwnedScope(qb, "a", await getScope());
+  const assets = await qb.getMany();
+
+  const [owners, persons] = await Promise.all([
+    listAssetOwners(assets.map((a) => a.id)),
+    ds.getRepository(PersonEntity).find({ order: { name: "ASC" } }),
+  ]);
+
+  const personById = new Map(persons.map((p) => [p.id, p]));
+  const personByUserId = new Map(
+    persons.filter((p) => p.userId != null).map((p) => [p.userId as number, p]),
+  );
+
+  const totals = new Map<number, { assets: number; liabilities: number }>();
+  let unattributedNetCents = 0;
+
+  for (const a of assets) {
+    const shares = effectiveOwners(a, owners.get(a.id), personByUserId);
+    const sign = a.kind === "asset" ? 1 : -1;
+    if (shares.length === 0) {
+      unattributedNetCents += sign * a.valueCents;
+      continue;
+    }
+    for (const s of shares) {
+      const slice = applyShare(a.valueCents, s.shareBps);
+      const acc = totals.get(s.personId) ?? { assets: 0, liabilities: 0 };
+      if (a.kind === "asset") acc.assets += slice;
+      else acc.liabilities += slice;
+      totals.set(s.personId, acc);
+    }
+  }
+
+  const byPerson: PersonNetWorth[] = [...totals.entries()]
+    .map(([personId, t]) => ({
+      personId,
+      personName: personById.get(personId)?.name ?? "—",
+      assetsCents: t.assets,
+      liabilitiesCents: t.liabilities,
+      netCents: t.assets - t.liabilities,
+    }))
+    .sort((x, y) => y.netCents - x.netCents);
+
+  return { household: await getNetWorth(), byPerson, unattributedNetCents };
 }
 
 export type NetWorthPoint = { date: string; netCents: number };

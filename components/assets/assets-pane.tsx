@@ -10,16 +10,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatCents } from "@/lib/format";
 import { VisibilityToggle } from "@/components/visibility-toggle";
-import { AssetForm, ASSET_TYPE_LABELS } from "./asset-form";
+import { AssetForm, ASSET_TYPE_LABELS, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
+import { formatBps, type ShareInput } from "@/lib/shares";
 import type { Asset } from "@/lib/db/entities";
 
 export function AssetsPane({
   assets,
   accounts,
+  persons = [],
+  ownersByAsset = {},
+  mePersonId = null,
 }: {
   assets: Asset[];
   accounts: { id: number; name: string }[];
+  persons?: FormPerson[];
+  ownersByAsset?: Record<number, ShareInput[]>;
+  mePersonId?: number | null;
 }) {
   const router = useRouter();
   const [formOpen, setFormOpen] = useState(false);
@@ -42,6 +49,20 @@ export function AssetsPane({
     router.refresh();
   }
 
+  /**
+   * "Alex 60 % · Camille 40 %", or nothing at all for a solo household or an
+   * asset left on the implicit default — no point repeating "100 % à moi" on
+   * every row.
+   */
+  function shareLabel(assetId: number): string | null {
+    if (persons.length < 2) return null;
+    const shares = ownersByAsset[assetId];
+    if (!shares || shares.length === 0) return null;
+    return shares
+      .map((s) => `${persons.find((p) => p.id === s.personId)?.name ?? "—"} ${formatBps(s.shareBps)}`)
+      .join(" · ");
+  }
+
   function renderSection(title: string, list: Asset[]) {
     return (
       <div className="space-y-2">
@@ -62,6 +83,11 @@ export function AssetsPane({
                           <span className="truncate font-medium">{a.name}</span>
                           <Badge variant="secondary">{ASSET_TYPE_LABELS[a.type]}</Badge>
                         </div>
+                        {shareLabel(a.id) && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {shareLabel(a.id)}
+                          </p>
+                        )}
                       </div>
                       <span
                         className={cn(
@@ -123,6 +149,9 @@ export function AssetsPane({
         onOpenChange={setFormOpen}
         asset={editing}
         accounts={accounts}
+        persons={persons}
+        owners={editing ? (ownersByAsset[editing.id] ?? []) : []}
+        mePersonId={mePersonId}
       />
     </div>
   );

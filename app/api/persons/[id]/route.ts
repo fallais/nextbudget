@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { PersonEntity, ContributionEntity } from "@/lib/db/entities";
 import { isUserLinkTaken } from "@/lib/db/household";
-import { personInputSchema } from "@/lib/validation";
+import { personInputSchema, patchSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function PATCH(
     return NextResponse.json({ error: "ID invalide" }, { status: 400 });
   }
   const body = await request.json();
-  const parsed = personInputSchema.partial().safeParse(body);
+  const parsed = patchSchema(personInputSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }

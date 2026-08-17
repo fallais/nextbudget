@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { RuleEntity } from "@/lib/db/entities";
-import { ruleInputSchema } from "@/lib/validation";
+import { ruleInputSchema, patchSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function PATCH(
     return NextResponse.json({ error: "ID invalide" }, { status: 400 });
   }
   const body = await request.json();
-  const parsed = ruleInputSchema.partial().safeParse(body);
+  const parsed = patchSchema(ruleInputSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }

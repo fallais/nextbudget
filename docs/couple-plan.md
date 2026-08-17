@@ -179,21 +179,46 @@ mortgage link too.
   Keeps every existing row correct without a data migration, and keeps solo mode
   working untouched.
 
-- [ ] `lib/db/entities.ts:383,449` — `AssetOwnerEntity`, `assets.linked_asset_id`,
+- [x] `lib/db/entities.ts:383,449` — `AssetOwnerEntity`, `assets.linked_asset_id`,
       add to `ALL_ENTITIES`
-- [ ] `lib/db/assets.ts:32-60,69` — share-aware net worth + history,
-      `getNetWorthByPerson()`
-- [ ] `lib/validation.ts:138` — `assetInputSchema` gains
-      `owners: [{personId, shareBps}]`
-- [ ] `app/api/assets/route.ts:23`, `[id]/route.ts` — write owner rows
-      transactionally with the asset
-- [ ] `components/assets/asset-form.tsx` — share picker, three presets:
-      **Commun 50/50** · **À moi** · **Personnalisé…**; the mortgage checkbox
-      defaults the loan's shares from the house's
-- [ ] `components/assets/assets-pane.tsx` — show the share on each row
-- [ ] `app/(dashboard)/patrimoine/page.tsx` — per-person cards alongside the
+- [x] `lib/shares.ts` *(new)* — pure share maths, DB-free so it is unit-testable
+- [x] `lib/db/assets.ts` — `getNetWorthByPerson()`, `listAssetOwners()`,
+      `effectiveOwners()` (the legacy fallback), `replaceAssetOwners()`
+- [x] `lib/validation.ts` — `assetInputSchema` gains
+      `owners: [{personId, shareBps}]` and `linkedAssetId`
+- [x] `app/api/assets/route.ts`, `[id]/route.ts` — write owner rows
+      transactionally with the asset; DELETE cascades ownership rows and clears
+      inbound `linked_asset_id`
+- [x] `components/assets/asset-form.tsx` — share picker, three presets:
+      **Commun, à parts égales** · **À moi** · **Personnalisé…**; the mortgage
+      checkbox links the loan to the property and copies its shares
+- [x] `components/assets/assets-pane.tsx` — show the share on each row
+- [x] `app/(dashboard)/patrimoine/page.tsx` — per-person cards alongside the
       household total
-- [ ] tests — sum-to-10000, per-person net worth, legacy asset with no owner rows
+- [x] tests — sum-to-10000, rounding, even splits, formatting (18 assertions)
+
+Verified against the running app with a house at 50/50 and a 310 000 € mortgage
+at 50/50: household net −40 000 €, each person −20 000 €, summing back to the
+household total instead of double-counting. With a personal flat and a legacy
+asset added: household 145 000 € = Camille 160 000 € + Propriétaire −15 000 €,
+the legacy asset (no ownership rows) correctly falling back to its `owner_id`.
+
+### `.partial()` was silently resetting fields on every PATCH
+
+Found by this phase, but pre-existing and **not** limited to assets. Zod 4 keeps
+`.default()` on a key made optional by `.partial()`, so a PATCH body that omits
+a field still parses to that field's default — and the route writes it. Sending
+`{ owners: [...] }` to `/api/assets/1` reset the house's type to "other" and its
+value to 0 (observed, then repaired).
+
+All seven `*InputSchema.partial()` call sites were affected: assets, accounts,
+persons, categories, rules, contributions, fixed expenses. Any partial PATCH
+would quietly reset `tolerancePct`, `isActive`, `currency`, `visibility`, `kind`
+and friends. The UI never tripped it because every form posts a complete body.
+
+Fixed with `patchSchema()` in `lib/validation.ts`, which unwraps `ZodDefault`
+before making keys optional, applied at all seven sites, with regression tests
+in `lib/validation.test.ts`.
 
 **Accepted limitation:** shares are not versioned. Buying out a partner mid-loan
 would retroactively rewrite history, since `asset_valuations` is already a time

@@ -175,9 +175,35 @@ export interface Asset {
   startDate: string | null;
   endDate: string | null;
   accountId: number | null;
+  /** The asset this liability finances (a mortgage → the house it bought). */
+  linkedAssetId: number | null;
   isActive: boolean;
   notes: string | null;
   createdAt: Date;
+}
+
+/**
+ * Fractional ownership of an asset or liability by a household member.
+ *
+ * Shares are in basis points (10000 = 100%), matching `interestRateBps`.
+ * Ownership is deliberately *not* the same axis as `visibility`: a share says
+ * how much of a thing is yours, visibility says whether the other person can
+ * see it exists at all. "I own 100%, my partner can see it" is a real and
+ * common configuration.
+ *
+ * Nor is it the same as who *pays* for it: a house owned 50/50 can be funded
+ * 70/30 through the joint account. That second fact lives in `contributions`
+ * and `fixed_expenses`.
+ *
+ * An asset with no rows here reads as wholly owned by `assets.owner_id`, which
+ * is what keeps every pre-existing row and every solo install correct without
+ * a data migration.
+ */
+export interface AssetOwner {
+  id: number;
+  assetId: number;
+  personId: number;
+  shareBps: number;
 }
 
 export interface AssetValuation {
@@ -434,10 +460,29 @@ export const AssetEntity = new EntitySchema<Asset>({
     startDate: { name: "start_date", type: "text", nullable: true },
     endDate: { name: "end_date", type: "text", nullable: true },
     accountId: { name: "account_id", type: Number, nullable: true },
+    linkedAssetId: { name: "linked_asset_id", type: Number, nullable: true },
     isActive: { name: "is_active", type: Boolean, default: true },
     notes: { type: "text", nullable: true },
     createdAt,
   },
+});
+
+export const AssetOwnerEntity = new EntitySchema<AssetOwner>({
+  name: "asset_owners",
+  columns: {
+    id,
+    assetId: { name: "asset_id", type: Number },
+    personId: { name: "person_id", type: Number },
+    shareBps: { name: "share_bps", type: Number },
+  },
+  indices: [
+    { name: "asset_owners_asset_idx", columns: ["assetId"] },
+    {
+      name: "asset_owners_asset_person_uniq",
+      columns: ["assetId", "personId"],
+      unique: true,
+    },
+  ],
 });
 
 export const AssetValuationEntity = new EntitySchema<AssetValuation>({
@@ -481,6 +526,7 @@ export const ALL_ENTITIES = [
   FixedExpenseEntity,
   BudgetEntity,
   AssetEntity,
+  AssetOwnerEntity,
   AssetValuationEntity,
   ImportEntity,
 ];

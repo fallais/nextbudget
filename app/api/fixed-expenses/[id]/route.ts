@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getDataSource } from "@/lib/db/client";
 import { FixedExpenseEntity } from "@/lib/db/entities";
-import { fixedExpenseInputSchema } from "@/lib/validation";
+import { fixedExpenseInputSchema, patchSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function PATCH(
     return NextResponse.json({ error: "ID invalide" }, { status: 400 });
   }
   const body = await request.json();
-  const parsed = fixedExpenseInputSchema.partial().safeParse(body);
+  const parsed = patchSchema(fixedExpenseInputSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }

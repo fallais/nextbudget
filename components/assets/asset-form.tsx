@@ -24,7 +24,25 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseAmountToCents } from "@/lib/format";
+import {
+  TOTAL_BPS,
+  evenShares,
+  formatBps,
+  shareErrorMessage,
+  validateShares,
+  type ShareInput,
+} from "@/lib/shares";
 import type { Asset } from "@/lib/db/entities";
+
+export type FormPerson = { id: number; name: string };
+
+/**
+ * How ownership is expressed in the form. The two presets cover almost every
+ * real case; "custom" exists for the unequal split (one partner put in a
+ * bigger deposit), which is common enough that a 50/50-only model would be
+ * wrong the first time someone buys together.
+ */
+type ShareMode = "shared" | "mine" | "custom";
 
 export const ASSET_TYPE_LABELS: Record<Asset["type"], string> = {
   real_estate: "Immobilier",
@@ -47,16 +65,43 @@ const centsToInput = (c: number | null | undefined) =>
 const toBps = (s: string) => (s ? Math.round(Number(s.replace(",", ".")) * 100) : null);
 const toCents = (s: string) => (s ? Math.abs(parseAmountToCents(s)) : null);
 
+/** Work out which preset an existing set of shares corresponds to. */
+function modeForOwners(
+  owners: ShareInput[],
+  persons: FormPerson[],
+  mePersonId: number | null,
+): ShareMode {
+  if (owners.length === 0) return "mine";
+  if (
+    owners.length === 1 &&
+    owners[0].shareBps === TOTAL_BPS &&
+    owners[0].personId === mePersonId
+  ) {
+    return "mine";
+  }
+  const even = evenShares(persons.map((p) => p.id));
+  const sameSet =
+    owners.length === even.length &&
+    even.every((e) => owners.some((o) => o.personId === e.personId && o.shareBps === e.shareBps));
+  return sameSet ? "shared" : "custom";
+}
+
 export function AssetForm({
   open,
   onOpenChange,
   asset,
   accounts,
+  persons = [],
+  owners = [],
+  mePersonId = null,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   asset?: Asset | null;
   accounts: { id: number; name: string }[];
+  persons?: FormPerson[];
+  owners?: ShareInput[];
+  mePersonId?: number | null;
 }) {
   const router = useRouter();
   const editing = !!asset;
@@ -76,6 +121,42 @@ export function AssetForm({
   const [addCredit, setAddCredit] = useState(false);
   const [creditName, setCreditName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Ownership. Only surfaced once the household has more than one member —
+  // a solo install keeps the old implicit "it's all mine" behaviour.
+  const showShares = persons.length > 1;
+  const [shareMode, setShareMode] = useState<ShareMode>(() =>
+    modeForOwners(owners, persons, mePersonId),
+  );
+  // Percentages as typed, keyed by person id, e.g. { 1: "60", 2: "40" }.
+  const [customPct, setCustomPct] = useState<Record<number, string>>(() => {
+    const initial = owners.length > 0 ? owners : evenShares(persons.map((p) => p.id));
+    return Object.fromEntries(
+      persons.map((p) => {
+        const bps = initial.find((o) => o.personId === p.id)?.shareBps ?? 0;
+        return [p.id, String(bps / 100).replace(".", ",")];
+      }),
+    );
+  });
+
+  function ownersPayload(): ShareInput[] | undefined {
+    if (!showShares) return undefined;
+    if (shareMode === "shared") return evenShares(persons.map((p) => p.id));
+    if (shareMode === "mine") {
+      return mePersonId != null ? [{ personId: mePersonId, shareBps: TOTAL_BPS }] : undefined;
+    }
+    return persons
+      .map((p) => ({
+        personId: p.id,
+        shareBps: Math.round(Number((customPct[p.id] ?? "0").replace(",", ".")) * 100),
+      }))
+      .filter((o) => Number.isFinite(o.shareBps) && o.shareBps > 0);
+  }
+
+  const customTotalBps = persons.reduce(
+    (sum, p) => sum + Math.round(Number((customPct[p.id] ?? "0").replace(",", ".")) * 100 || 0),
+    0,
+  );
 
   // Base UI's <SelectValue/> shows the raw value unless the root gets an items map.
   const kindItems: Record<string, string> = { asset: "Actif", liability: "Passif" };
@@ -129,6 +210,15 @@ export function AssetForm({
       toast.error("Montant invalide");
       return;
     }
+    const owners = ownersPayload();
+    if (owners) {
+      const invalid = validateShares(owners);
+      if (invalid) {
+        toast.error(shareErrorMessage(invalid));
+        return;
+      }
+    }
+
     const body: Record<string, unknown> = {
       name,
       kind,
@@ -136,6 +226,7 @@ export function AssetForm({
       valueCents,
       accountId: accountId === "none" ? null : Number(accountId),
       notes: notes || null,
+      ...(owners ? { owners } : {}),
     };
     if (isLoan) {
       body.principalCents = toCents(principal);
@@ -161,6 +252,7 @@ export function AssetForm({
       // Real-estate → optionally create the associated mortgage as a liability.
       if (offerCredit && addCredit) {
         const principalCents = toCents(principal);
+        const created = (await res.json().catch(() => null)) as { id?: number } | null;
         await fetch("/api/assets", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -174,6 +266,11 @@ export function AssetForm({
             termMonths: term ? Number(term) : null,
             monthlyPaymentCents: toCents(monthly),
             startDate: startDate || null,
+            // The loan is tied to the property it funds, and by default is
+            // owned in the same proportions. Both are editable afterwards:
+            // a 50/50 house can be paid for by an unequally split loan.
+            linkedAssetId: created?.id ?? null,
+            ...(owners ? { owners } : {}),
           }),
         });
       }
@@ -264,6 +361,83 @@ export function AssetForm({
                   {loanFields}
                 </div>
               )}
+            </div>
+          )}
+
+          {showShares && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <div className="space-y-2">
+                <Label>Propriété</Label>
+                <Select
+                  value={shareMode}
+                  items={{
+                    shared: "Commun, à parts égales",
+                    mine: "À moi",
+                    custom: "Personnalisé…",
+                  }}
+                  onValueChange={(v) => v && setShareMode(v as ShareMode)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="shared">Commun, à parts égales</SelectItem>
+                    <SelectItem value="mine">À moi</SelectItem>
+                    <SelectItem value="custom">Personnalisé…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {shareMode === "shared" && (
+                <p className="text-xs text-muted-foreground">
+                  {evenShares(persons.map((p) => p.id))
+                    .map((s) => {
+                      const who = persons.find((p) => p.id === s.personId);
+                      return `${who?.name ?? "—"} ${formatBps(s.shareBps)}`;
+                    })
+                    .join(" · ")}
+                </p>
+              )}
+
+              {shareMode === "mine" && mePersonId == null && (
+                <p className="text-xs text-destructive">
+                  Aucune personne ne correspond à votre compte. Rattachez-la depuis
+                  la page Apports pour utiliser cette option.
+                </p>
+              )}
+
+              {shareMode === "custom" && (
+                <div className="space-y-2">
+                  {persons.map((p) => (
+                    <div key={p.id} className="flex items-center gap-2">
+                      <span className="flex-1 truncate text-sm">{p.name}</span>
+                      <Input
+                        inputMode="decimal"
+                        className="w-20"
+                        value={customPct[p.id] ?? ""}
+                        onChange={(e) =>
+                          setCustomPct((c) => ({ ...c, [p.id]: e.target.value }))
+                        }
+                        aria-label={`Quote-part de ${p.name} en pourcent`}
+                      />
+                      <span className="text-xs text-muted-foreground">%</span>
+                    </div>
+                  ))}
+                  <p
+                    className={
+                      customTotalBps === TOTAL_BPS
+                        ? "text-xs text-muted-foreground"
+                        : "text-xs text-destructive"
+                    }
+                  >
+                    Total : {formatBps(customTotalBps)}
+                    {customTotalBps === TOTAL_BPS ? "" : " — doit faire 100 %"}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Qui possède ce bien, et dans quelle proportion. Indépendant de
+                qui le paie et de qui peut le voir.
+              </p>
             </div>
           )}
 

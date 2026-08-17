@@ -1,5 +1,28 @@
 import { z } from "zod";
 
+/**
+ * The schema for a PATCH body: every field optional, and **defaults removed**.
+ *
+ * `.partial()` on its own is not enough. Zod keeps `.default()` on a key even
+ * once it is optional, so a PATCH that omits a field still materialises that
+ * field's default — and the route then writes it, silently resetting stored
+ * values. Sending `{ owners: [...] }` to an asset would reset its type to
+ * "other" and its value to 0. Unwrap the defaults before making keys optional.
+ */
+export function patchSchema<T extends z.ZodRawShape>(
+  schema: z.ZodObject<T>,
+): z.ZodType<Partial<z.infer<z.ZodObject<T>>>> {
+  const shape = Object.fromEntries(
+    Object.entries(schema.shape).map(([key, value]) => [
+      key,
+      value instanceof z.ZodDefault ? value.def.innerType : value,
+    ]),
+  );
+  return z.object(shape).partial() as unknown as z.ZodType<
+    Partial<z.infer<z.ZodObject<T>>>
+  >;
+}
+
 export const matchTypeSchema = z.enum(["contains", "equals", "starts_with", "regex"]);
 export const amountConditionSchema = z.enum(["any", "positive", "negative"]);
 
@@ -18,7 +41,7 @@ export const accountInputSchema = z.object({
   ownerId: z.number().int().positive().nullable().optional(),
 });
 
-export const accountUpdateSchema = accountInputSchema.partial();
+export const accountUpdateSchema = patchSchema(accountInputSchema);
 
 export const categoryInputSchema = z.object({
   name: z.string().trim().min(1).max(64),
@@ -153,6 +176,17 @@ export const assetTypeSchema = z.enum([
   "other",
 ]);
 
+/**
+ * Ownership shares. Omitted entirely ⇒ leave ownership as it is (and a brand
+ * new asset falls back to "wholly the creator's"). Present ⇒ replaces the set,
+ * and must total 100% — checked in the route via `validateShares`, which
+ * returns a French message.
+ */
+export const assetOwnerSchema = z.object({
+  personId: z.number().int().positive(),
+  shareBps: z.number().int().min(1).max(10000),
+});
+
 export const assetInputSchema = z.object({
   name: z.string().trim().min(1).max(120),
   kind: assetKindSchema,
@@ -166,11 +200,13 @@ export const assetInputSchema = z.object({
   startDate: z.string().date().nullish(),
   endDate: z.string().date().nullish(),
   accountId: z.number().int().positive().nullish(),
+  linkedAssetId: z.number().int().positive().nullish(),
   isActive: z.boolean().default(true),
   notes: z.string().max(1000).nullish(),
+  owners: z.array(assetOwnerSchema).optional(),
 });
 
-export const assetUpdateSchema = assetInputSchema.partial();
+export const assetUpdateSchema = patchSchema(assetInputSchema);
 
 export const assetValuationSchema = z.object({
   date: z.string().date(),

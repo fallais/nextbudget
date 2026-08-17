@@ -7,7 +7,7 @@ import {
   TransactionEntity,
   FixedExpenseEntity,
 } from "@/lib/db/entities";
-import { categoryInputSchema } from "@/lib/validation";
+import { categoryInputSchema, patchSchema } from "@/lib/validation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,7 +22,7 @@ export async function PATCH(
     return NextResponse.json({ error: "ID invalide" }, { status: 400 });
   }
   const body = await request.json();
-  const parsed = categoryInputSchema.partial().safeParse(body);
+  const parsed = patchSchema(categoryInputSchema).safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: parsed.error.message }, { status: 400 });
   }
