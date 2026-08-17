@@ -116,6 +116,7 @@ export function RuleForm({ open, onOpenChange, categoryId, rule }: Props) {
               <Label htmlFor="rule-type">Type de correspondance</Label>
               <Select
                 value={matchType}
+                items={MATCH_LABELS}
                 onValueChange={(v) => setMatchType(v as Rule["matchType"])}
               >
                 <SelectTrigger id="rule-type">
@@ -150,6 +151,7 @@ export function RuleForm({ open, onOpenChange, categoryId, rule }: Props) {
               <Label htmlFor="rule-amount">S'applique à</Label>
               <Select
                 value={amountCondition}
+                items={AMOUNT_LABELS}
                 onValueChange={(v) =>
                   v && setAmountCondition(v as Rule["amountCondition"])
                 }

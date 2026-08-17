@@ -158,6 +158,7 @@ export function ContributionForm({
                 <Label htmlFor="c-type">Type</Label>
                 <Select
                   value={matchType}
+                  items={{ contains: "contient", starts_with: "commence par", regex: "regex" }}
                   onValueChange={(v) => v && setMatchType(v as MatchType)}
                 >
                   <SelectTrigger id="c-type" className="w-32">

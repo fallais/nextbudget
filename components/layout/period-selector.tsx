@@ -30,7 +30,7 @@ export function PeriodSelector({ defaultPeriod = "month" }: { defaultPeriod?: Pe
   }
 
   return (
-    <Select value={current} onValueChange={handleChange}>
+    <Select value={current} items={PERIOD_LABELS} onValueChange={handleChange}>
       <SelectTrigger className="w-[200px]" aria-label="Période">
         <SelectValue />
       </SelectTrigger>

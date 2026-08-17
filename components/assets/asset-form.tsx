@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { parseAmountToCents } from "@/lib/format";
 import type { Asset } from "@/lib/db/entities";
 
@@ -35,8 +36,16 @@ export const ASSET_TYPE_LABELS: Record<Asset["type"], string> = {
   other: "Autre",
 };
 
+// Types valid for each nature — a liability can't be "Immobilier", etc.
+const ASSET_TYPES: Asset["type"][] = ["real_estate", "vehicle", "savings", "investment", "other"];
+const LIABILITY_TYPES: Asset["type"][] = ["mortgage", "loan", "other"];
+const typesFor = (k: Asset["kind"]) => (k === "asset" ? ASSET_TYPES : LIABILITY_TYPES);
+const defaultTypeFor = (k: Asset["kind"]): Asset["type"] => (k === "asset" ? "savings" : "mortgage");
+
 const centsToInput = (c: number | null | undefined) =>
   c == null ? "" : (c / 100).toFixed(2).replace(".", ",");
+const toBps = (s: string) => (s ? Math.round(Number(s.replace(",", ".")) * 100) : null);
+const toCents = (s: string) => (s ? Math.abs(parseAmountToCents(s)) : null);
 
 export function AssetForm({
   open,
@@ -64,9 +73,52 @@ export function AssetForm({
   const [startDate, setStartDate] = useState(asset?.startDate ?? "");
   const [accountId, setAccountId] = useState<string>(asset?.accountId ? String(asset.accountId) : "none");
   const [notes, setNotes] = useState(asset?.notes ?? "");
+  const [addCredit, setAddCredit] = useState(false);
+  const [creditName, setCreditName] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const isLoan = type === "loan" || type === "mortgage";
+  // Base UI's <SelectValue/> shows the raw value unless the root gets an items map.
+  const kindItems: Record<string, string> = { asset: "Actif", liability: "Passif" };
+  const accountItems: Record<string, string> = {
+    none: "Aucun",
+    ...Object.fromEntries(accounts.map((a) => [String(a.id), a.name])),
+  };
+
+  // A liability of type loan/mortgage carries the loan fields directly.
+  const isLoan = kind === "liability" && (type === "loan" || type === "mortgage");
+  // When adding real estate, offer to also record the mortgage that funds it.
+  const offerCredit = !editing && kind === "asset" && type === "real_estate";
+
+  function changeKind(k: Asset["kind"]) {
+    setKind(k);
+    if (!typesFor(k).includes(type)) setType(defaultTypeFor(k));
+    if (k !== "asset") setAddCredit(false);
+  }
+
+  const loanFields = (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="space-y-2">
+        <Label htmlFor="asset-principal">Capital emprunté (€)</Label>
+        <Input id="asset-principal" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="0,00" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-rate">Taux annuel (%)</Label>
+        <Input id="asset-rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1,90" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-term">Durée (mois)</Label>
+        <Input id="asset-term" inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="240" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-monthly">Mensualité (€)</Label>
+        <Input id="asset-monthly" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="auto" />
+      </div>
+      <div className="col-span-2 space-y-2">
+        <Label htmlFor="asset-start">Date de début</Label>
+        <Input id="asset-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+      </div>
+    </div>
+  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -86,10 +138,10 @@ export function AssetForm({
       notes: notes || null,
     };
     if (isLoan) {
-      body.principalCents = principal ? Math.abs(parseAmountToCents(principal)) : null;
-      body.interestRateBps = rate ? Math.round(Number(rate.replace(",", ".")) * 100) : null;
+      body.principalCents = toCents(principal);
+      body.interestRateBps = toBps(rate);
       body.termMonths = term ? Number(term) : null;
-      body.monthlyPaymentCents = monthly ? Math.abs(parseAmountToCents(monthly)) : null;
+      body.monthlyPaymentCents = toCents(monthly);
       body.startDate = startDate || null;
     }
 
@@ -105,7 +157,28 @@ export function AssetForm({
         toast.error(data.error ?? "Échec de l'enregistrement");
         return;
       }
-      toast.success(editing ? "Modifié" : "Ajouté");
+
+      // Real-estate → optionally create the associated mortgage as a liability.
+      if (offerCredit && addCredit) {
+        const principalCents = toCents(principal);
+        await fetch("/api/assets", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: creditName.trim() || `Crédit ${name}`,
+            kind: "liability",
+            type: "mortgage",
+            valueCents: principalCents ?? 0, // outstanding balance ≈ capital initially
+            principalCents,
+            interestRateBps: toBps(rate),
+            termMonths: term ? Number(term) : null,
+            monthlyPaymentCents: toCents(monthly),
+            startDate: startDate || null,
+          }),
+        });
+      }
+
+      toast.success(editing ? "Modifié" : addCredit ? "Bien et crédit ajoutés" : "Ajouté");
       onOpenChange(false);
       router.refresh();
     } finally {
@@ -126,7 +199,7 @@ export function AssetForm({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label>Nature</Label>
-              <Select value={kind} onValueChange={(v) => v && setKind(v as Asset["kind"])}>
+              <Select value={kind} items={kindItems} onValueChange={(v) => v && changeKind(v as Asset["kind"])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="asset">Actif</SelectItem>
@@ -136,10 +209,10 @@ export function AssetForm({
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
-              <Select value={type} onValueChange={(v) => v && setType(v as Asset["type"])}>
+              <Select value={type} items={ASSET_TYPE_LABELS} onValueChange={(v) => v && setType(v as Asset["type"])}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(ASSET_TYPE_LABELS) as Asset["type"][]).map((t) => (
+                  {typesFor(kind).map((t) => (
                     <SelectItem key={t} value={t}>{ASSET_TYPE_LABELS[t]}</SelectItem>
                   ))}
                 </SelectContent>
@@ -167,35 +240,37 @@ export function AssetForm({
           {isLoan && (
             <div className="space-y-3 rounded-md border bg-muted/30 p-3">
               <p className="text-xs font-medium text-muted-foreground">Détails du prêt</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="asset-principal">Capital emprunté (€)</Label>
-                  <Input id="asset-principal" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="0,00" />
+              {loanFields}
+            </div>
+          )}
+
+          {offerCredit && (
+            <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <Checkbox checked={addCredit} onCheckedChange={(v) => setAddCredit(v === true)} />
+                Ajouter le crédit immobilier associé
+              </label>
+              {addCredit && (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="credit-name">Nom du crédit</Label>
+                    <Input
+                      id="credit-name"
+                      value={creditName}
+                      onChange={(e) => setCreditName(e.target.value)}
+                      placeholder={name ? `Crédit ${name}` : "Crédit immobilier"}
+                    />
+                  </div>
+                  {loanFields}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="asset-rate">Taux annuel (%)</Label>
-                  <Input id="asset-rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1,90" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="asset-term">Durée (mois)</Label>
-                  <Input id="asset-term" inputMode="numeric" value={term} onChange={(e) => setTerm(e.target.value)} placeholder="240" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="asset-monthly">Mensualité (€)</Label>
-                  <Input id="asset-monthly" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="auto" />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label htmlFor="asset-start">Date de début</Label>
-                  <Input id="asset-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-                </div>
-              </div>
+              )}
             </div>
           )}
 
           {accounts.length > 0 && (
             <div className="space-y-2">
               <Label>Compte lié (optionnel)</Label>
-              <Select value={accountId} onValueChange={(v) => v && setAccountId(v)}>
+              <Select value={accountId} items={accountItems} onValueChange={(v) => v && setAccountId(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Aucun</SelectItem>

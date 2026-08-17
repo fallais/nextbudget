@@ -130,6 +130,7 @@ export function BudgetForm({ open, onOpenChange, category, current }: Props) {
               <Label htmlFor="budget-period">Période</Label>
               <Select
                 value={period}
+                items={{ monthly: "Par mois", weekly: "Par semaine (lundi → dimanche)" }}
                 onValueChange={(v) => v && setPeriod(v as "weekly" | "monthly")}
               >
                 <SelectTrigger id="budget-period">

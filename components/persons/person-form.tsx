@@ -153,6 +153,7 @@ export function PersonForm({ open, onOpenChange, person }: Props) {
                 />
                 <Select
                   value={matchType}
+                  items={{ contains: "contient", starts_with: "commence par", regex: "regex" }}
                   onValueChange={(v) => v && setMatchType(v as MatchType)}
                 >
                   <SelectTrigger className="w-32">

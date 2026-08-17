@@ -127,7 +127,7 @@ export function FixedExpenseForm({ open, onOpenChange, fixedExpense, categories 
               </div>
               <div className="space-y-2">
                 <Label htmlFor="fx-cat">Catégorie</Label>
-                <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
+                <Select value={categoryId} items={Object.fromEntries(categories.map((c) => [String(c.id), c.name]))} onValueChange={(v) => v && setCategoryId(v)}>
                   <SelectTrigger id="fx-cat">
                     <SelectValue placeholder="Choisir…" />
                   </SelectTrigger>
@@ -193,6 +193,7 @@ export function FixedExpenseForm({ open, onOpenChange, fixedExpense, categories 
                 <Label htmlFor="fx-mtype">Type</Label>
                 <Select
                   value={matchType}
+                  items={{ contains: "contient", starts_with: "commence par", regex: "regex" }}
                   onValueChange={(v) => v && setMatchType(v as typeof matchType)}
                 >
                   <SelectTrigger id="fx-mtype" className="w-32">
