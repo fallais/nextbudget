@@ -16,6 +16,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const rawAccountId = formData.get("accountId");
+    let accountId: number | null = null;
+    if (typeof rawAccountId === "string" && rawAccountId.trim() !== "") {
+      const parsed = Number.parseInt(rawAccountId, 10);
+      if (!Number.isFinite(parsed)) {
+        return NextResponse.json({ error: "Compte invalide" }, { status: 400 });
+      }
+      accountId = parsed;
+    }
+
     const uploads: UploadedFile[] = await Promise.all(
       entries.map(async (file) => ({
         filename: file.name,
@@ -23,7 +33,7 @@ export async function POST(request: NextRequest) {
       })),
     );
 
-    const result = await ingestUploads(uploads);
+    const result = await ingestUploads(uploads, accountId);
     return NextResponse.json(result);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

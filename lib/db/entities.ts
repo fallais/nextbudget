@@ -38,10 +38,22 @@ export interface Setting {
   value: unknown | null;
 }
 
+/**
+ * `personal` — one member's own account. `joint` — the household's common
+ * account, the one contributions are paid into.
+ *
+ * Deliberately not derived from `visibility`: joint-ness is a fact about the
+ * bank account itself, whereas visibility is about who may look at it. A
+ * personal account can be shared (my partner can see my spending) without
+ * becoming the common pot.
+ */
+export type AccountKind = "personal" | "joint";
+
 export interface Account {
   id: number;
   ownerId: number | null;
   visibility: Visibility;
+  kind: AccountKind;
   name: string;
   bank: string | null;
   iban: string | null;
@@ -238,6 +250,7 @@ export const AccountEntity = new EntitySchema<Account>({
   columns: {
     id,
     ...owner,
+    kind: { type: "text", default: "personal" },
     name: { type: "text" },
     bank: { type: "text", nullable: true },
     iban: { type: "text", nullable: true },
@@ -285,7 +298,7 @@ export const TransactionEntity = new EntitySchema<Transaction>({
     normalizedDescription: { name: "normalized_description", type: "text" },
     amountCents: { name: "amount_cents", type: "bigint", transformer: bigintNumber },
     currency: { type: "text", default: "EUR" },
-    hash: { type: "text", unique: true },
+    hash: { type: "text" },
     sourceFile: { name: "source_file", type: "text", nullable: true },
     raw: { type: "jsonb", nullable: true },
     createdAt,
@@ -294,6 +307,15 @@ export const TransactionEntity = new EntitySchema<Transaction>({
     { name: "transactions_date_idx", columns: ["date"] },
     { name: "transactions_category_idx", columns: ["categoryId"] },
     { name: "transactions_account_idx", columns: ["accountId"] },
+    // Dedup is per account, not global. The hash stays a pure content
+    // fingerprint — two people can genuinely pay the same merchant the same
+    // amount on the same day from different accounts, and a global unique
+    // index would silently drop the second one on import.
+    {
+      name: "transactions_account_hash_uniq",
+      columns: ["accountId", "hash"],
+      unique: true,
+    },
   ],
 });
 

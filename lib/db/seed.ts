@@ -117,6 +117,10 @@ export async function backfillOwnership(ds: DataSource): Promise<void> {
   // 4. Attribute existing ownable rows to the owner (visibility already
   //    defaults to 'shared'). Only fills NULL owner_id, so re-runs are no-ops.
   await ds.getRepository(AccountEntity).update({ ownerId: IsNull() }, { ownerId });
+  // Accounts predating the personal/joint distinction are personal: an install
+  // cannot know which one is the common pot, and guessing wrong would silently
+  // change what the Apports page matches against.
+  await ds.getRepository(AccountEntity).update({ kind: IsNull() }, { kind: "personal" });
   await ds.getRepository(RuleEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(ContributionEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(FixedExpenseEntity).update({ ownerId: IsNull() }, { ownerId });

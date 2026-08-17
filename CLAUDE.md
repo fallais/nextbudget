@@ -18,9 +18,11 @@ npm run db:migrate   # connect, synchronize schema from entities, seed defaults 
   via a column transformer); format only at the UI edge (`lib/format.ts`).
 - All `app/api/**/route.ts` must `export const runtime = 'nodejs'` (TypeORM/pg).
 - French locale for dates/currency: `1 234,56 €`, `15 mai 2026`, `15/05/2026`.
-- Transaction dedup hash: `sha256(date|amountCents|normalizedDescription)`; the
-  `transactions.hash` unique index enforces it. Ingest treats Postgres error
-  `23505` as a duplicate.
+- Transaction dedup hash: `sha256(date|amountCents|normalizedDescription)` — a
+  pure content fingerprint. Uniqueness is **per account**, enforced by the
+  composite `transactions_account_hash_uniq (account_id, hash)` index: two people
+  can genuinely pay the same merchant the same amount on the same day from
+  different accounts. Ingest treats Postgres error `23505` as a duplicate.
 - DB connection is `DATABASE_URL` (e.g. `postgres://banquejs:banquejs@localhost:5432/banquejs`).
 - Import is a browser upload: the Import page POSTs files to `/api/ingest` as
   `multipart/form-data`; parsed in-memory. Accepted: `.csv`, `.tsv`, `.txt`.

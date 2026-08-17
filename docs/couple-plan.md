@@ -107,17 +107,41 @@ matching. Today a salary landing in a personal account can match a contribution
 pattern, because matching runs over every transaction in scope
 (`lib/db/contributions.ts:72-78`).
 
-- [ ] `lib/db/entities.ts:236` — `AccountEntity` + `kind`
-- [ ] `lib/validation.ts` — `accountInputSchema`
-- [ ] `app/api/accounts/route.ts` — add `POST`
-- [ ] `app/api/accounts/[id]/route.ts` *(new)* — `PATCH` / `DELETE`
-- [ ] `lib/ingest/index.ts:44-51,182` — accept an `accountId`; default lookup
+- [x] `lib/db/entities.ts:236` — `AccountEntity` + `kind`
+- [x] `lib/validation.ts` — `accountInputSchema`
+- [x] `app/api/accounts/route.ts` — add `POST`
+- [x] `app/api/accounts/[id]/route.ts` *(new)* — `PATCH` / `DELETE`
+- [x] `lib/ingest/index.ts:44-51,182` — accept an `accountId`; default lookup
       becomes fallback only
-- [ ] `app/api/ingest/route.ts` — read `accountId` from the multipart form
-- [ ] `components/import/import-button.tsx` — account selector
-- [ ] `app/(dashboard)/comptes/page.tsx` + `components/accounts/` *(new)*
-- [ ] `components/layout/sidebar.tsx` — nav entry
-- [ ] `lib/db/seed.ts` — backfill existing account → `kind='personal'`
+- [x] `app/api/ingest/route.ts` — read `accountId` from the multipart form
+- [x] `components/import/import-button.tsx` — account selector, defaulting to the
+      common account rather than whichever sorts first alphabetically
+- [x] `app/(dashboard)/comptes/page.tsx` + `components/accounts/` *(new)*
+- [x] `components/layout/sidebar.tsx` — nav entry
+- [x] `lib/db/seed.ts` — backfill existing account → `kind='personal'`
+- [x] **dedup scope fix — see below**
+
+### Dedup was global; per-account import made that a bug
+
+Not foreseen when this plan was written. `transactions.hash` is
+`sha256(date|amountCents|normalizedDescription)` and carried a **globally**
+unique index. Verified against the running app: importing the same statement
+into a second account reported `rowsNew: 0, rowsDuplicate: 3` and inserted
+nothing.
+
+Two ways that bites once a household has more than one account:
+
+1. Both partners pay 12,99 € to the same merchant on the same day — whoever is
+   imported second silently loses the line.
+2. A statement imported into the wrong account cannot be re-imported into the
+   right one.
+
+Fixed by scoping uniqueness rather than changing the hash: dropped
+`unique: true` from the column and added a composite
+`transactions_account_hash_uniq (account_id, hash)`. The hash stays a pure
+content fingerprint, and **no rehashing or data migration is needed** — existing
+rows keep their hashes and stay unique within their account. `CLAUDE.md` updated
+to match, since it documented the old behaviour.
 
 **Risk:** no DB-level FKs, so `DELETE` on an account with transactions would
 orphan them silently. Block deletion when `count(transactions) > 0` and say so in

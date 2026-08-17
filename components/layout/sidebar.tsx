@@ -27,6 +27,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { label: "Tableau de bord", href: "/", icon: LayoutDashboard },
+  { label: "Comptes", href: "/comptes", icon: Wallet },
   { label: "Transactions", href: "/transactions", icon: Receipt },
   { label: "Budgets", href: "/budgets", icon: Target },
   { label: "Frais fixes", href: "/frais-fixes", icon: CalendarClock },

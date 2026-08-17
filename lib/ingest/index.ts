@@ -41,13 +41,28 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
+/**
+ * Fallback when the caller names no account: the oldest one, or a fresh
+ * "Compte courant" on an empty install. Only a fallback — with more than one
+ * account the caller is expected to say which, otherwise every statement
+ * would pile into whichever account happens to be first.
+ */
 async function getOrCreateDefaultAccount(): Promise<number> {
   const ds = await getDataSource();
   const accRepo = ds.getRepository(AccountEntity);
-  const existing = await accRepo.find({ take: 1 });
+  const existing = await accRepo.find({ order: { id: "ASC" }, take: 1 });
   if (existing.length > 0) return existing[0].id;
   const created = await accRepo.save(accRepo.create({ name: "Compte courant" }));
   return created.id;
+}
+
+/** Resolve the requested account, falling back to the default. */
+async function resolveAccount(requestedId?: number | null): Promise<number> {
+  if (requestedId == null) return getOrCreateDefaultAccount();
+  const ds = await getDataSource();
+  const found = await ds.getRepository(AccountEntity).findOne({ where: { id: requestedId } });
+  if (!found) throw new Error(`Compte introuvable (id ${requestedId})`);
+  return found.id;
 }
 
 async function ingestOne(file: UploadedFile, accountId: number): Promise<IngestFileResult> {
@@ -178,8 +193,11 @@ async function ingestOne(file: UploadedFile, accountId: number): Promise<IngestF
   }
 }
 
-export async function ingestUploads(files: UploadedFile[]): Promise<IngestRunResult> {
-  const accountId = await getOrCreateDefaultAccount();
+export async function ingestUploads(
+  files: UploadedFile[],
+  targetAccountId?: number | null,
+): Promise<IngestRunResult> {
+  const accountId = await resolveAccount(targetAccountId);
   const results: IngestFileResult[] = [];
   for (const f of files) {
     results.push(await ingestOne(f, accountId));

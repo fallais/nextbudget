@@ -5,6 +5,21 @@ export const amountConditionSchema = z.enum(["any", "positive", "negative"]);
 
 export const budgetPeriodSchema = z.enum(["weekly", "monthly"]);
 
+export const visibilitySchema = z.enum(["private", "shared"]);
+export const accountKindSchema = z.enum(["personal", "joint"]);
+
+export const accountInputSchema = z.object({
+  name: z.string().trim().min(1).max(80),
+  kind: accountKindSchema.default("personal"),
+  bank: z.string().trim().max(80).nullable().optional(),
+  iban: z.string().trim().max(34).nullable().optional(),
+  currency: z.string().trim().length(3).default("EUR"),
+  visibility: visibilitySchema.default("shared"),
+  ownerId: z.number().int().positive().nullable().optional(),
+});
+
+export const accountUpdateSchema = accountInputSchema.partial();
+
 export const categoryInputSchema = z.object({
   name: z.string().trim().min(1).max(64),
   color: z
