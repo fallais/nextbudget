@@ -237,15 +237,23 @@ can be funded 70/30 through the joint account; that second fact already lives in
 There is no settings page today (`/settings` 404s); the sidebar auth prompt is the
 only config surface.
 
-- [ ] `app/(dashboard)/parametres/page.tsx` *(new)* — **Foyer** (members),
+- [x] `app/(dashboard)/parametres/page.tsx` *(new)* — **Foyer** (members),
       **Confidentialité** (single privacy switch, reusing
       `components/auth/enable-auth-dialog.tsx`), **Comptes** shortcut
-- [ ] `settings.household` → `solo` | `couple`, written like `authMode`
-      (`app/api/auth/setup/route.ts:36` — `settings.key` is the PK, `save` upserts)
-- [ ] first-run wizard: *Solo ou couple ? → noms → comptes → privé ou partagé ?*
-- [ ] `scripts/auth-reset.ts` + `npm run auth:reset` — reset the owner password /
-      drop back to `open`. Enforcing auth and forgetting the password is currently
-      an unrecoverable lockout. A legitimate ops tool, not a throwaway script.
+- [x] `lib/db/settings.ts` + `app/api/settings/route.ts` *(new)* —
+      `settings.household` → `solo` | `couple`, written like `authMode`
+      (`settings.key` is the PK, `save` upserts). PATCH is owner-only.
+- [x] `components/settings/household-wizard.tsx` — one pass over the setup:
+      name the second person, create the common account, switch to couple mode
+- [x] `components/layout/sidebar.tsx` — nav entry
+- [x] `scripts/auth-reset.ts` + `npm run auth:reset` — reset the owner password /
+      drop back to `open`. Enforcing auth and forgetting the password was an
+      unrecoverable lockout. A legitimate ops tool, not a throwaway script.
+
+The privacy control is deliberately presented as one choice with honest labels
+("Tout partagé (sans connexion)" vs "Chacun son espace (connexion requise)")
+rather than as two independent toggles, since visibility without a login is
+meaningless — `getCurrentUser()` just returns the owner in open mode.
 
 ---
 

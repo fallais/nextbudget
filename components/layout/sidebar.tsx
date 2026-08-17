@@ -14,6 +14,7 @@ import {
   CalendarClock,
   Users2,
   Landmark,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ const NAV: NavItem[] = [
   { label: "Apports", href: "/apports", icon: Users2 },
   { label: "Catégories", href: "/categories", icon: FolderTree },
   { label: "Importer", href: "/import", icon: Upload },
+  { label: "Paramètres", href: "/parametres", icon: Settings },
 ];
 
 export function Sidebar({
