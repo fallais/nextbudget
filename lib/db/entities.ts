@@ -172,6 +172,10 @@ export interface Asset {
   interestRateBps: number | null;
   termMonths: number | null;
   monthlyPaymentCents: number | null;
+  /** Assurance emprunteur, per month. Often a fifth of a French mortgage's cost. */
+  insuranceMonthlyCents: number | null;
+  /** One-off costs: frais de dossier, garantie, courtier. */
+  feesCents: number | null;
   startDate: string | null;
   endDate: string | null;
   accountId: number | null;
@@ -453,6 +457,18 @@ export const AssetEntity = new EntitySchema<Asset>({
     termMonths: { name: "term_months", type: Number, nullable: true },
     monthlyPaymentCents: {
       name: "monthly_payment_cents",
+      type: "bigint",
+      nullable: true,
+      transformer: bigintNumber,
+    },
+    insuranceMonthlyCents: {
+      name: "insurance_monthly_cents",
+      type: "bigint",
+      nullable: true,
+      transformer: bigintNumber,
+    },
+    feesCents: {
+      name: "fees_cents",
       type: "bigint",
       nullable: true,
       transformer: bigintNumber,

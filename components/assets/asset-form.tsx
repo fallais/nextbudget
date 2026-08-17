@@ -115,6 +115,8 @@ export function AssetForm({
   );
   const [term, setTerm] = useState(asset?.termMonths != null ? String(asset.termMonths) : "");
   const [monthly, setMonthly] = useState(centsToInput(asset?.monthlyPaymentCents));
+  const [insurance, setInsurance] = useState(centsToInput(asset?.insuranceMonthlyCents));
+  const [fees, setFees] = useState(centsToInput(asset?.feesCents));
   const [startDate, setStartDate] = useState(asset?.startDate ?? "");
   const [accountId, setAccountId] = useState<string>(asset?.accountId ? String(asset.accountId) : "none");
   const [notes, setNotes] = useState(asset?.notes ?? "");
@@ -194,10 +196,23 @@ export function AssetForm({
         <Label htmlFor="asset-monthly">Mensualité (€)</Label>
         <Input id="asset-monthly" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="auto" />
       </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-insurance">Assurance (€/mois)</Label>
+        <Input id="asset-insurance" inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} placeholder="0,00" />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-fees">Frais de dossier (€)</Label>
+        <Input id="asset-fees" inputMode="decimal" value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0,00" />
+      </div>
       <div className="col-span-2 space-y-2">
         <Label htmlFor="asset-start">Date de début</Label>
         <Input id="asset-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
       </div>
+      <p className="col-span-2 text-xs text-muted-foreground">
+        L&apos;assurance et les frais (dossier, garantie, courtier) comptent dans le
+        coût du crédit — sur un prêt immobilier, l&apos;assurance en représente
+        souvent une bonne part.
+      </p>
     </div>
   );
 
@@ -233,6 +248,8 @@ export function AssetForm({
       body.interestRateBps = toBps(rate);
       body.termMonths = term ? Number(term) : null;
       body.monthlyPaymentCents = toCents(monthly);
+      body.insuranceMonthlyCents = toCents(insurance);
+      body.feesCents = toCents(fees);
       body.startDate = startDate || null;
     }
 
@@ -265,6 +282,8 @@ export function AssetForm({
             interestRateBps: toBps(rate),
             termMonths: term ? Number(term) : null,
             monthlyPaymentCents: toCents(monthly),
+            insuranceMonthlyCents: toCents(insurance),
+            feesCents: toCents(fees),
             startDate: startDate || null,
             // The loan is tied to the property it funds, and by default is
             // owned in the same proportions. Both are editable afterwards:

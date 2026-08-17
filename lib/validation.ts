@@ -197,6 +197,8 @@ export const assetInputSchema = z.object({
   interestRateBps: z.number().int().min(0).max(100000).nullish(),
   termMonths: z.number().int().min(1).max(1200).nullish(),
   monthlyPaymentCents: z.number().int().min(0).nullish(),
+  insuranceMonthlyCents: z.number().int().min(0).nullish(),
+  feesCents: z.number().int().min(0).nullish(),
   startDate: z.string().date().nullish(),
   endDate: z.string().date().nullish(),
   accountId: z.number().int().positive().nullish(),

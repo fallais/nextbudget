@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { monthlyPaymentCents, amortizationSchedule } from "./amortization";
+import { monthlyPaymentCents, amortizationSchedule, summarizeLoan } from "./amortization";
 
 describe("monthlyPaymentCents", () => {
   it("computes a standard fixed-rate payment", () => {
@@ -36,5 +36,71 @@ describe("amortizationSchedule", () => {
     });
     expect(rows.map((r) => r.date)).toEqual(["2026-02-15", "2026-03-15", "2026-04-15"]);
     expect(rows[2].balanceCents).toBe(0);
+  });
+});
+
+describe("summarizeLoan", () => {
+  // 200 000 € at 1.90% over 240 months, 25 €/month insurance, 1 500 € of fees.
+  const loan = {
+    principalCents: 20_000_000,
+    interestRateBps: 190,
+    termMonths: 240,
+    insuranceMonthlyCents: 2_500,
+    feesCents: 150_000,
+    startDate: "2020-01-10",
+  };
+
+  it("counts insurance and fees in the cost of borrowing, not just interest", () => {
+    const s = summarizeLoan(loan)!;
+    expect(s.totalInsuranceCents).toBe(2_500 * 240); // 6 000 €
+    expect(s.feesCents).toBe(150_000);
+    expect(s.totalCostCents).toBe(
+      s.totalInterestCents + s.totalInsuranceCents + s.feesCents,
+    );
+    // Insurance + fees are a real share of the total, not a rounding detail.
+    expect(s.totalCostCents).toBeGreaterThan(s.totalInterestCents);
+    expect(s.totalPaidCents).toBe(loan.principalCents + s.totalCostCents);
+  });
+
+  it("separates the loan payment from what actually leaves the account", () => {
+    const s = summarizeLoan(loan)!;
+    expect(s.monthlyTotalCents).toBe(s.monthlyPaymentCents + 2_500);
+  });
+
+  it("reports progress against a date", () => {
+    // Five years in: 60 of 240 instalments paid.
+    const s = summarizeLoan(loan, "2025-01-15")!;
+    expect(s.progress?.paidCount).toBe(60);
+    expect(s.progress?.remainingCount).toBe(180);
+    expect(s.progress?.nextDate).toBe("2025-02-10");
+    // Capital repaid plus capital outstanding is the whole loan.
+    expect(
+      s.progress!.principalPaidCents + s.progress!.principalRemainingCents,
+    ).toBe(loan.principalCents);
+    // Early in a mortgage, interest paid is a large share of what you've paid.
+    expect(s.progress!.interestPaidCents).toBeGreaterThan(0);
+  });
+
+  it("has no progress before the first instalment or without a start date", () => {
+    expect(summarizeLoan(loan, "2019-06-01")!.progress?.paidCount).toBe(0);
+    expect(summarizeLoan({ ...loan, startDate: null }, "2025-01-15")!.progress).toBeNull();
+    expect(summarizeLoan(loan)!.progress).toBeNull();
+  });
+
+  it("treats a loan with no insurance or fees as interest-only cost", () => {
+    const s = summarizeLoan({
+      principalCents: 12_000,
+      interestRateBps: 0,
+      termMonths: 12,
+    })!;
+    expect(s.totalInterestCents).toBe(0);
+    expect(s.totalCostCents).toBe(0);
+    expect(s.totalPaidCents).toBe(12_000);
+    expect(s.monthlyTotalCents).toBe(s.monthlyPaymentCents);
+  });
+
+  it("returns null when the loan is not described well enough to compute", () => {
+    expect(summarizeLoan({ principalCents: 0, interestRateBps: 190, termMonths: 240 })).toBeNull();
+    expect(summarizeLoan({ principalCents: 1000, interestRateBps: 190, termMonths: 0 })).toBeNull();
   });
 });
