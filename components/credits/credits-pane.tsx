@@ -8,13 +8,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@shared/utils";
 import { formatCents, formatDateShort } from "@shared/format";
 import { AssetForm, ASSET_TYPE_LABELS, type FormPerson } from "@/components/assets/asset-form";
@@ -22,8 +15,6 @@ import { AmortizationDetail } from "@/components/assets/amortization-detail";
 import type { AssetRow } from "@domain/entities";
 import type { AssetOwnerInput } from "@domain/repositories";
 import type { CreditListItem } from "@application/credits";
-
-const NO_LINK = "none";
 
 export function CreditsPane({
   credits,
@@ -49,7 +40,6 @@ export function CreditsPane({
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AssetRow | null>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
-  const [linking, setLinking] = useState<number | null>(null);
 
   function openForm(credit: AssetRow | null) {
     setEditing(credit);
@@ -65,32 +55,6 @@ export function CreditsPane({
     }
     toast.success("Supprimé");
     router.refresh();
-  }
-
-  /**
-   * Attach the loan to what it paid for, or detach it. The column already
-   * exists (`assets.linked_asset_id`) and the asset form fills it when a
-   * property and its mortgage are created together — this is what makes it
-   * changeable afterwards, since a loan outlives the way it was first entered.
-   */
-  async function setLink(credit: AssetRow, value: string) {
-    setLinking(credit.id);
-    try {
-      const res = await fetch(`/api/assets/${credit.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ linkedAssetId: value === NO_LINK ? null : Number(value) }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        toast.error(body?.error ?? "Échec de la modification");
-        return;
-      }
-      toast.success(value === NO_LINK ? "Lien retiré" : "Crédit rattaché");
-      router.refresh();
-    } finally {
-      setLinking(null);
-    }
   }
 
   if (credits.length === 0) {
@@ -121,6 +85,7 @@ export function CreditsPane({
           mePersonId={mePersonId}
           defaultKind="liability"
           lockKind
+          linkableAssets={linkableAssets}
         />
       </>
     );
@@ -209,38 +174,29 @@ export function CreditsPane({
                 </div>
               </div>
 
-              {/* What the loan paid for. */}
+              {/* What the loan paid for — read-only. Changing what a credit
+                  finances is editing the credit, so it belongs in the edit
+                  dialog with the rest of its fields, not inline on a list. */}
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 {linkedAsset ? (
-                  <Link2 className="size-4 shrink-0 text-muted-foreground" />
+                  <>
+                    <Link2 className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="text-muted-foreground">Finance</span>
+                    <span className="font-medium">{linkedAsset.name}</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                      valorisé {formatCents(linkedAsset.valueCents)} ·{" "}
+                      <Link href="/patrimoine" className="text-primary hover:underline">
+                        voir dans le patrimoine
+                      </Link>
+                    </span>
+                  </>
                 ) : (
-                  <Unlink className="size-4 shrink-0 text-muted-foreground" />
-                )}
-                <span className="text-muted-foreground">Finance</span>
-                <Select
-                  value={linkedAsset ? String(linkedAsset.id) : NO_LINK}
-                  onValueChange={(v) => v && setLink(credit, v)}
-                  disabled={linking === credit.id}
-                >
-                  <SelectTrigger className="h-8 w-[15rem]">
-                    <SelectValue placeholder="Aucun bien" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_LINK}>Aucun bien</SelectItem>
-                    {linkableAssets.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {linkedAsset && (
-                  <span className="text-xs text-muted-foreground tabular-nums">
-                    valorisé {formatCents(linkedAsset.valueCents)} ·{" "}
-                    <Link href="/patrimoine" className="text-primary hover:underline">
-                      voir dans le patrimoine
-                    </Link>
-                  </span>
+                  <>
+                    <Unlink className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="text-muted-foreground">
+                      Rattaché à aucun bien
+                    </span>
+                  </>
                 )}
               </div>
 

@@ -24,6 +24,7 @@ export const AssetEntity = new EntitySchema<AssetRow>({
       transformer: bigintNumber,
     },
     interestRateBps: { name: "interest_rate_bps", type: Number, nullable: true },
+    taegBps: { name: "taeg_bps", type: Number, nullable: true },
     termMonths: { name: "term_months", type: Number, nullable: true },
     monthlyPaymentCents: {
       name: "monthly_payment_cents",

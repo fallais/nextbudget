@@ -71,34 +71,6 @@ npm run lint         # eslint
 npm run test         # vitest unit tests
 ```
 
-## How it works
-
-- Amounts are stored as **signed integer cents** (`bigint`) and formatted only at
-  the UI edge.
-- The schema is defined as **TypeORM entities** (`lib/db/entities.ts`) and applied
-  via `synchronize` — there are no migration files to manage.
-- Imports are parsed by a small **parser registry** (`lib/ingest/`); adding support
-  for a new bank format is a single file — see `CLAUDE.md` → *Adding a new bank parser*.
-- Categorization rules live in `lib/categorize/`; the default categories and
-  merchant patterns are a single YAML file, `lib/categorize/categories.yaml`,
-  seeded into the database at migrate time and editable from the Rules page.
-- All `app/api/**/route.ts` handlers run on the Node.js runtime.
-
-## Roadmap
-
-NextBudget fills a gap among self-hosted finance tools: first-class
-**couples/household** support, **optional built-in** auth, and a **French/EU-first**
-experience, in one local-first app.
-
-**Shipped (v0.1):** multi-user / couples with per-row shared-vs-private visibility;
-optional built-in auth (open by default, per-user passwords); assets & liabilities
-→ **net worth** with loan amortization.
-
-**Next:**
-- AI-assisted categorization (`lib/categorize/llm.ts` is a stub today).
-- EU bank sync (CSV/upload only for now).
-- OIDC / SSO as an auth option.
-
 ## Contributing
 
 Contributions are welcome — see [`CONTRIBUTING.md`](./CONTRIBUTING.md). Adding

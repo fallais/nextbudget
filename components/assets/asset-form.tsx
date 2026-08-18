@@ -31,8 +31,14 @@ import {
   type OwnerShareRow,
 } from "@domain/value-objects/share";
 import { isDomainError } from "@domain/errors";
-import { deferralMonthsBetween, summarizeLoan } from "@domain/services/amortization";
+import {
+  deferralMonthsBetween,
+  impliedTaegBps,
+  monthlyPaymentCents,
+  summarizeLoan,
+} from "@domain/services/amortization";
 import { formatCents } from "@shared/format";
+import { cn } from "@shared/utils";
 import type { AssetRow } from "@domain/entities";
 import type { AssetOwnerInput } from "@domain/repositories";
 
@@ -104,6 +110,7 @@ export function AssetForm({
   mePersonId = null,
   defaultKind = "asset",
   lockKind = false,
+  linkableAssets = [],
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -120,6 +127,8 @@ export function AssetForm({
    * creating an asset from the wrong screen.
    */
   lockKind?: boolean;
+  /** Assets a loan can be attached to. Enables the "Finance" picker. */
+  linkableAssets?: { id: number; name: string }[];
 }) {
   const router = useRouter();
   const editing = !!asset;
@@ -131,11 +140,17 @@ export function AssetForm({
   const [rate, setRate] = useState(
     asset?.interestRateBps != null ? (asset.interestRateBps / 100).toString().replace(".", ",") : "",
   );
+  const [taeg, setTaeg] = useState(
+    asset?.taegBps != null ? (asset.taegBps / 100).toString().replace(".", ",") : "",
+  );
   const [term, setTerm] = useState(asset?.termMonths != null ? String(asset.termMonths) : "");
   const [monthly, setMonthly] = useState(centsToInput(asset?.monthlyPaymentCents));
   const [insurance, setInsurance] = useState(centsToInput(asset?.insuranceMonthlyCents));
   const [fees, setFees] = useState(centsToInput(asset?.feesCents));
   const [signatureDate, setSignatureDate] = useState(asset?.signatureDate ?? "");
+  const [linkedAssetId, setLinkedAssetId] = useState<string>(
+    asset?.linkedAssetId ? String(asset.linkedAssetId) : "none",
+  );
   const [startDate, setStartDate] = useState(asset?.startDate ?? "");
   /** Per-borrower premiums as typed, keyed by person id: { 1: "18,40" }. */
   const [borrowerInsurance, setBorrowerInsurance] = useState<Record<number, string>>(() =>
@@ -205,6 +220,10 @@ export function AssetForm({
     none: "Aucun",
     ...Object.fromEntries(accounts.map((a) => [String(a.id), a.name])),
   };
+  const linkedAssetItems: Record<string, string> = {
+    none: "Aucun bien",
+    ...Object.fromEntries(linkableAssets.map((a) => [String(a.id), a.name])),
+  };
 
   // A liability of type loan/mortgage carries the loan fields directly.
   const isLoan = kind === "liability" && (type === "loan" || type === "mortgage");
@@ -252,6 +271,51 @@ export function AssetForm({
   );
   const deferralMonths = deferralMonthsBetween(signatureDate || null, startDate || null);
 
+  /**
+   * What capital, rate and term imply, shown beside the mensualité field.
+   *
+   * The usual entry error is typing the TAEG into the rate box: it silently
+   * inflates every instalment, and without this you would only notice much
+   * later, comparing the schedule against a bank statement.
+   */
+  const computedPaymentCents: number | null = (() => {
+    const p = toCents(principal);
+    const b = toBps(rate);
+    const n = term ? Number(term) : null;
+    if (!isLoan || p == null || b == null || !n) return null;
+    return monthlyPaymentCents(p, b, n);
+  })();
+
+  /**
+   * Compare the TAEG on the offer against the one these terms imply.
+   *
+   * A quarter of a point of tolerance: the TAEG is rounded on the offer, and
+   * lenders differ slightly on which ancillary costs they fold in. Beyond that
+   * the numbers genuinely disagree and something was mistyped — most often the
+   * TAEG sitting in the taux nominal field.
+   */
+  const taegCheck: { ok: boolean; impliedLabel: string } | null = (() => {
+    const stated = toBps(taeg);
+    const p = toCents(principal);
+    const b = toBps(rate);
+    const n = term ? Number(term) : null;
+    if (!isLoan || stated == null || p == null || b == null || !n) return null;
+
+    const implied = impliedTaegBps({
+      principalCents: p,
+      interestRateBps: b,
+      termMonths: n,
+      monthlyPaymentCents: toCents(monthly),
+      insuranceMonthlyCents: splitInsurance ? perBorrowerTotalCents : toCents(insurance),
+      feesCents: toCents(fees),
+    });
+    if (implied == null) return null;
+    return {
+      ok: Math.abs(implied - stated) <= 25,
+      impliedLabel: `${(implied / 100).toFixed(2).replace(".", ",")} %`,
+    };
+  })();
+
   function changeKind(k: AssetRow["kind"]) {
     setKind(k);
     if (!typesFor(k).includes(type)) setType(defaultTypeFor(k));
@@ -265,8 +329,28 @@ export function AssetForm({
         <Input id="asset-principal" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="0,00" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="asset-rate">Taux annuel (%)</Label>
-        <Input id="asset-rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1,90" />
+        <Label htmlFor="asset-rate">Taux nominal (%)</Label>
+        <Input id="asset-rate" inputMode="decimal" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="1,31" />
+        {/* The TAEG is the nominal rate plus insurance and fees, so entering it
+            here would double-count them and overstate every instalment. */}
+        <p className="text-xs text-muted-foreground">
+          Pas le TAEG — celui-ci inclut déjà assurance et frais.
+        </p>
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-taeg">TAEG (%)</Label>
+        <Input id="asset-taeg" inputMode="decimal" value={taeg} onChange={(e) => setTaeg(e.target.value)} placeholder="1,66" />
+        {/* Purely a cross-check. The TAEG never feeds the schedule — it already
+            contains the insurance and fees, so amortizing with it would count
+            them twice. Comparing it against what the terms imply is what
+            catches the two rates being swapped. */}
+        {taegCheck && (
+          <p className={cn("text-xs", taegCheck.ok ? "text-muted-foreground" : "text-amber-700 dark:text-amber-500")}>
+            {taegCheck.ok
+              ? `Cohérent avec vos conditions (${taegCheck.impliedLabel} calculé).`
+              : `Vos conditions impliquent ${taegCheck.impliedLabel} — vérifiez le taux nominal, l'assurance ou les frais.`}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label htmlFor="asset-term">Durée (mois)</Label>
@@ -275,6 +359,20 @@ export function AssetForm({
       <div className="space-y-2">
         <Label htmlFor="asset-monthly">Mensualité (€)</Label>
         <Input id="asset-monthly" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="auto" />
+        {/* Shown live so a mismatch with the contract is caught at entry
+            rather than discovered later in the schedule — the usual cause is
+            the TAEG typed into the rate field. */}
+        {computedPaymentCents !== null && (
+          <p className="text-xs text-muted-foreground">
+            Calculée : {formatCents(computedPaymentCents)}
+            {toCents(monthly) != null && toCents(monthly) !== computedPaymentCents && (
+              <span className="text-amber-700 dark:text-amber-500">
+                {" "}
+                — ne correspond pas à votre saisie
+              </span>
+            )}
+          </p>
+        )}
       </div>
       {/* One premium for the whole loan. When the loan is shared, the
           per-borrower fields below take over — see `perBorrowerInsurance`. */}
@@ -301,6 +399,32 @@ export function AssetForm({
         <Label htmlFor="asset-start">1re échéance</Label>
         <Input id="asset-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
       </div>
+      {linkableAssets.length > 0 && (
+        <div className="col-span-2 space-y-2">
+          <Label>Finance</Label>
+          {/* `items` is required: Base UI's <SelectValue/> renders the raw
+              value — the bare id — unless the root is given the label map. */}
+          <Select
+            value={linkedAssetId}
+            items={linkedAssetItems}
+            onValueChange={(v) => v && setLinkedAssetId(v)}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Aucun bien</SelectItem>
+              {linkableAssets.map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Le bien que ce prêt a financé — la maison pour un crédit immobilier.
+          </p>
+        </div>
+      )}
+
       {deferralMonths !== null && (
         <p className="col-span-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
           Crédit différé : {deferralMonths} mois entre la signature et la
@@ -385,6 +509,7 @@ export function AssetForm({
     if (isLoan) {
       body.principalCents = toCents(principal);
       body.interestRateBps = toBps(rate);
+      body.taegBps = toBps(taeg);
       body.termMonths = term ? Number(term) : null;
       body.monthlyPaymentCents = toCents(monthly);
       // A split loan carries its premiums per borrower instead; keeping a
@@ -393,6 +518,7 @@ export function AssetForm({
       body.feesCents = toCents(fees);
       body.signatureDate = signatureDate || null;
       body.startDate = startDate || null;
+      body.linkedAssetId = linkedAssetId === "none" ? null : Number(linkedAssetId);
     }
 
     setLoading(true);

@@ -198,3 +198,47 @@ export function deferralMonthsBetween(
   const months = (ty - sy) * 12 + (tm - sm);
   return months > 0 ? months : null;
 }
+
+/**
+ * The TAEG implied by a loan's own terms, in basis points.
+ *
+ * The taux nominal drives the amortization; the TAEG is what the offer
+ * advertises, and it folds in the assurance emprunteur and the one-off fees.
+ * Borrowers remember the TAEG — it is the bold number on the offer — so it is
+ * the one they reach for when asked to "type the rate", which silently inflates
+ * every instalment. Computing it here lets the app compare what was entered
+ * against what the terms actually imply and say so.
+ *
+ * Method: the rate that discounts the real cash flows to zero. The borrower
+ * receives the capital less any upfront fees, then pays the instalment plus
+ * insurance every month. France quotes the TAEG as an equivalent annual rate,
+ * so the monthly solution is compounded, not multiplied by twelve.
+ *
+ * Null when the loan is not described well enough to compute.
+ */
+export function impliedTaegBps(loan: LoanInput): number | null {
+  const schedule = amortizationSchedule(loan);
+  if (schedule.length === 0) return null;
+
+  const insurance = Math.max(0, loan.insuranceMonthlyCents ?? 0);
+  const fees = Math.max(0, loan.feesCents ?? 0);
+  // What actually lands in the borrower's account on day one.
+  const advanced = loan.principalCents - fees;
+  if (advanced <= 0) return null;
+
+  const flows = schedule.map((row) => row.paymentCents + insurance);
+  const npv = (monthly: number): number =>
+    flows.reduce((sum, cf, k) => sum + cf / Math.pow(1 + monthly, k + 1), 0) - advanced;
+
+  // NPV falls monotonically as the rate rises, so bisection is safe here.
+  let lo = 0;
+  let hi = 1; // 100%/month — far above any real consumer loan
+  if (npv(lo) < 0) return 0; // payments never even repay the capital
+  for (let i = 0; i < 200; i++) {
+    const mid = (lo + hi) / 2;
+    if (npv(mid) > 0) lo = mid;
+    else hi = mid;
+  }
+  const monthly = (lo + hi) / 2;
+  return Math.round((Math.pow(1 + monthly, 12) - 1) * 10000);
+}

@@ -5,6 +5,7 @@ import {
   summarizeLoan,
   insuranceMonthlyFrom,
   deferralMonthsBetween,
+  impliedTaegBps,
 } from "./amortization";
 
 describe("monthlyPaymentCents", () => {
@@ -154,5 +155,45 @@ describe("deferralMonthsBetween", () => {
 
   it("refuses a first instalment that precedes the signature", () => {
     expect(deferralMonthsBetween("2026-01-05", "2024-03-15")).toBeNull();
+  });
+});
+
+describe("impliedTaegBps", () => {
+  // Round, invented figures: 200 000 € at a taux nominal of 1,50% over 240
+  // months, insured at 30 €/month.
+  const loan = {
+    principalCents: 200_000_00,
+    interestRateBps: 150,
+    termMonths: 240,
+    insuranceMonthlyCents: 30_00,
+  };
+
+  it("is above the nominal rate, because insurance and fees are the difference", () => {
+    expect(impliedTaegBps(loan)!).toBeGreaterThan(loan.interestRateBps);
+  });
+
+  it("rises again once upfront fees are added", () => {
+    const withoutFees = impliedTaegBps(loan)!;
+    const withFees = impliedTaegBps({ ...loan, feesCents: 2_000_00 })!;
+    expect(withFees).toBeGreaterThan(withoutFees);
+  });
+
+  it("stays close to the nominal rate when there is no insurance and no fee", () => {
+    const bare = { principalCents: 200_000_00, interestRateBps: 190, termMonths: 240 };
+    // Equivalent-annual compounding of the monthly rate puts it a touch above
+    // the quoted nominal, which is exactly what the French definition does.
+    const taeg = impliedTaegBps(bare)!;
+    expect(taeg).toBeGreaterThanOrEqual(190);
+    expect(taeg).toBeLessThan(196);
+  });
+
+  it("rises with the insurance premium", () => {
+    const low = impliedTaegBps({ ...loan, insuranceMonthlyCents: 10_00 })!;
+    const high = impliedTaegBps({ ...loan, insuranceMonthlyCents: 80_00 })!;
+    expect(high).toBeGreaterThan(low);
+  });
+
+  it("returns null for a loan it cannot describe", () => {
+    expect(impliedTaegBps({ principalCents: 0, interestRateBps: 150, termMonths: 240 })).toBeNull();
   });
 });

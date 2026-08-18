@@ -13,6 +13,7 @@ const house: NewAsset = {
   currency: "EUR",
   principalCents: null,
   interestRateBps: null,
+  taegBps: null,
   termMonths: null,
   monthlyPaymentCents: null,
   insuranceMonthlyCents: null,
@@ -55,7 +56,7 @@ describe("Asset behaviour", () => {
   const asset = Asset.create(house);
   const loan = Asset.create({
     ...house,
-    name: "Crédit maison",
+    name: "Prêt immobilier",
     kind: "liability",
     type: "mortgage",
     valueCents: 310_000_00,
@@ -101,10 +102,10 @@ describe("Asset identity", () => {
 });
 
 describe("Asset.outstandingCents", () => {
-  /** 310 000 € at 1,90 % over 240 months, first instalment 2020-06. */
+  /** Invented terms: 310 000 € at 1,90 % over 240 months, first instalment 2020-06. */
   const mortgage: NewAsset = {
     ...house,
-    name: "Crédit maison",
+    name: "Prêt immobilier",
     kind: "liability",
     type: "mortgage",
     // Deliberately wrong: the stored column is the stale hand-typed figure

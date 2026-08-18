@@ -18,7 +18,17 @@ export interface AssetRow {
   valueCents: number;
   currency: string;
   principalCents: number | null;
+  /** Taux nominal (débiteur): what the amortization schedule is built on. */
   interestRateBps: number | null;
+  /**
+   * TAEG as printed on the offer, when the borrower recorded it.
+   *
+   * Never used to compute anything — it is the headline rate, already
+   * including insurance and fees, so amortizing with it would double-count
+   * them. Stored so the app can check it against the TAEG its own terms imply
+   * and catch the common mix-up of the two.
+   */
+  taegBps: number | null;
   termMonths: number | null;
   monthlyPaymentCents: number | null;
   /** Assurance emprunteur, per month. Often a fifth of a French mortgage's cost. */
