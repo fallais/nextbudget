@@ -123,70 +123,10 @@ export function AmortizationDetail({
 
   return (
     <Flex vertical gap={12}>
-      <Row gutter={[16, 12]}>
-        {/* The échéance leads, because that is the figure printed on the offer;
-            the premium is shown beside it rather than silently added in. */}
-        <Col xs={12} sm={6}>
-          <Stat
-            label="Échéance"
-            value={formatCents(summary.monthlyPaymentCents)}
-            hint={
-              summary.totalInsuranceCents > 0
-                ? `+ ${formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)} d'assurance`
-                : "hors assurance"
-            }
-          />
-        </Col>
-        <Col xs={12} sm={6}>
-          <Stat
-            label="Coût du crédit"
-            value={formatCents(summary.totalCostCents)}
-            hint={costBreakdown(summary)}
-          />
-        </Col>
-        <Col xs={12} sm={6}>
-          <Stat
-            label="Total remboursé"
-            value={formatCents(summary.totalPaidCents)}
-            hint={`pour ${formatCents(asset.principalCents)} empruntés`}
-          />
-        </Col>
-        <Col xs={12} sm={6}>
-          <Stat
-            label="Fin"
-            value={summary.endDate ? formatDateShort(summary.endDate) : `${summary.termMonths} mois`}
-            hint={`${summary.termMonths} mensualités`}
-          />
-        </Col>
-      </Row>
-
-      {progress && (
-        <Flex vertical gap={4}>
-          <Flex justify="space-between" wrap gap={8}>
-            <Text style={{ fontSize: 12 }} strong>
-              {progress.paidCount} / {summary.termMonths} échéances payées
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-              {formatCents(progress.principalRemainingCents)} de capital restant
-            </Text>
-          </Flex>
-          <Progress
-            percent={Math.min(100, Math.max(0, paidPct ?? 0))}
-            showInfo={false}
-            size={["100%", 6]}
-            strokeColor={STATUS.good}
-            aria-label="Capital remboursé"
-          />
-          <Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-            {formatCents(progress.principalPaidCents)} de capital remboursé ·{" "}
-            {formatCents(progress.interestPaidCents)} d&apos;intérêts déjà payés
-            {progress.nextDate && ` · prochaine échéance ${formatDateShort(progress.nextDate)}`}
-          </Text>
-        </Flex>
-      )}
-
-      {/* The stored balance is typed by hand; the schedule knows what it should
-          be by now. Say so rather than letting net worth quietly drift. */}
+      {/* Deliberately only the schedule and the one thing it alone can say —
+          that the stored balance has drifted from it. The échéance, the cost
+          breakdown and the progress are already at the top of the page; a
+          second copy here was just noise. */}
       {staleBalance && progress && (
         <Alert
           type="warning"
@@ -196,11 +136,18 @@ export function AmortizationDetail({
         />
       )}
 
-      <div>
-        <Button type="link" size="small" style={{ paddingInline: 0 }} onClick={() => setOpen((o) => !o)}>
-          {open ? "Masquer l'échéancier" : `Voir l'échéancier (${schedule.length} lignes)`}
-        </Button>
-      </div>
+      {!defaultOpen && (
+        <div>
+          <Button
+            type="link"
+            size="small"
+            style={{ paddingInline: 0 }}
+            onClick={() => setOpen((o) => !o)}
+          >
+            {open ? "Masquer l'échéancier" : `Voir l'échéancier (${schedule.length} lignes)`}
+          </Button>
+        </div>
+      )}
 
       {open && (
         <Table

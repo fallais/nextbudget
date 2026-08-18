@@ -3,15 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { App, Breadcrumb, Button, Card, Flex, Popconfirm, Typography } from "antd";
+import { App, Button, Card, Flex, Popconfirm } from "antd";
+import { PageHeader } from "@/components/layout/page-header";
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { AssetForm, type FormPerson } from "@/components/assets/asset-form";
 import { AmortizationDetail } from "@/components/assets/amortization-detail";
 import { CreditCard } from "./credit-card";
 import type { AssetOwnerInput } from "@domain/repositories";
 import type { CreditListItem } from "@application/credits";
-
-const { Title } = Typography;
 
 /** One credit in full: the summary card, then its schedule and cost. */
 export function CreditDetail({
@@ -46,15 +45,10 @@ export function CreditDetail({
 
   return (
     <Flex vertical gap={16}>
-      <Breadcrumb
-        items={[{ title: <Link href="/credits">Crédits</Link> }, { title: item.credit.name }]}
-      />
-
-      <Flex justify="space-between" align="center" wrap gap={12}>
-        <Title level={3} style={{ margin: 0 }}>
-          {item.credit.name}
-        </Title>
-        <Flex gap={8}>
+      <PageHeader
+        crumbs={[{ label: "Crédits", href: "/credits" }, { label: item.credit.name }]}
+        actions={
+          <Flex gap={8}>
           <Button icon={<EditOutlined />} onClick={() => setOpen(true)}>
             Modifier
           </Button>
@@ -68,14 +62,15 @@ export function CreditDetail({
               Supprimer
             </Button>
           </Popconfirm>
-        </Flex>
-      </Flex>
+          </Flex>
+        }
+      />
 
       {/* The same card as the list, minus its own collapse — the schedule is
           expanded below instead, which is the point of coming here. */}
       <CreditCard item={item} />
 
-      <Card title="Échéancier et coût">
+      <Card title="Échéancier">
         <AmortizationDetail asset={item.credit} defaultOpen />
       </Card>
 

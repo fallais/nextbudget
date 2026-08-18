@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { Button, Card, Col, Empty, Flex, Row, Statistic, Typography } from "antd";
+import { PageHeader } from "@/components/layout/page-header";
 import { PlusOutlined } from "@ant-design/icons";
 import { MONEY } from "@shared/palette";
 import { formatCents, formatDateShort } from "@shared/format";
 import { CreditRow } from "./credit-row";
 import type { CreditListItem, CreditsTotals } from "@application/credits";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /**
  * Credits, seen as loans rather than as negative net worth.
@@ -34,22 +35,17 @@ export function CreditsView({
 
   return (
     <Flex vertical gap={16}>
-      <Flex justify="space-between" align="flex-start" wrap gap={12}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            Crédits
-          </Title>
-          <Text type="secondary">
-            Ce qu&apos;il reste à rembourser, ce que cela coûte vraiment, et ce que vous
-            possédez déjà des biens financés.
-          </Text>
-        </div>
-        <Link href="/credits/nouveau">
-          <Button type="primary" icon={<PlusOutlined />}>
-            Ajouter un crédit
-          </Button>
-        </Link>
-      </Flex>
+      <PageHeader
+        crumbs={[{ label: "Crédits" }]}
+        description="Ce qu'il reste à rembourser, ce que cela coûte vraiment, et ce que vous possédez déjà des biens financés."
+        actions={
+          <Link href="/credits/nouveau">
+            <Button type="primary" icon={<PlusOutlined />}>
+              Ajouter un crédit
+            </Button>
+          </Link>
+        }
+      />
 
       {totals.count > 0 && (
         <Row gutter={[16, 16]}>

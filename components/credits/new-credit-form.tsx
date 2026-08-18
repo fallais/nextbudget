@@ -2,10 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Breadcrumb, Button, Card, Flex, Typography } from "antd";
+import { Button, Card, Flex } from "antd";
+import { PageHeader } from "@/components/layout/page-header";
 import { AssetFormBody, type FormPerson } from "@/components/assets/asset-form";
-
-const { Title, Text } = Typography;
 
 export function NewCreditForm({
   accounts,
@@ -22,18 +21,10 @@ export function NewCreditForm({
 
   return (
     <Flex vertical gap={16} style={{ maxWidth: 720 }}>
-      <Breadcrumb
-        items={[{ title: <Link href="/credits">Crédits</Link> }, { title: "Nouveau" }]}
+      <PageHeader
+        crumbs={[{ label: "Crédits", href: "/credits" }, { label: "Nouveau crédit" }]}
+        description="Reprenez les chiffres de votre offre de prêt. L'échéance et le TAEG sont recalculés au fur et à mesure pour vérifier la saisie."
       />
-      <div>
-        <Title level={3} style={{ margin: 0 }}>
-          Nouveau crédit
-        </Title>
-        <Text type="secondary">
-          Reprenez les chiffres de votre offre de prêt. L&apos;échéance et le TAEG sont
-          recalculés au fur et à mesure pour vérifier la saisie.
-        </Text>
-      </div>
 
       <Card>
         <AssetFormBody
