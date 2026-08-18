@@ -73,7 +73,7 @@ export function CreditDetail({
 
       {/* The same card as the list, minus its own collapse — the schedule is
           expanded below instead, which is the point of coming here. */}
-      <CreditCard item={item} hideSchedule />
+      <CreditCard item={item} />
 
       <Card title="Échéancier et coût">
         <AmortizationDetail asset={item.credit} defaultOpen />

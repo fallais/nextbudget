@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { Button, Card, Col, Empty, Flex, Row, Statistic, Typography } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
-import { AssetForm, type FormPerson } from "@/components/assets/asset-form";
 import { MONEY } from "@shared/palette";
 import { formatCents, formatDateShort } from "@shared/format";
-import { CreditCard } from "./credit-card";
+import { CreditRow } from "./credit-row";
 import type { CreditListItem, CreditsTotals } from "@application/credits";
 
 const { Title, Text } = Typography;
@@ -22,19 +21,10 @@ const { Title, Text } = Typography;
 export function CreditsView({
   credits,
   totals,
-  persons,
-  accounts,
-  linkableAssets,
-  mePersonId,
 }: {
   credits: CreditListItem[];
   totals: CreditsTotals;
-  persons: FormPerson[];
-  accounts: { id: number; name: string }[];
-  linkableAssets: { id: number; name: string }[];
-  mePersonId: number | null;
 }) {
-  const [adding, setAdding] = useState(false);
   // The date the household stops paying anything at all.
   const lastEnd = credits
     .map((c) => c.summary?.endDate)
@@ -54,9 +44,11 @@ export function CreditsView({
             possédez déjà des biens financés.
           </Text>
         </div>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setAdding(true)}>
-          Ajouter un crédit
-        </Button>
+        <Link href="/credits/nouveau">
+          <Button type="primary" icon={<PlusOutlined />}>
+            Ajouter un crédit
+          </Button>
+        </Link>
       </Flex>
 
       {totals.count > 0 && (
@@ -116,21 +108,10 @@ export function CreditsView({
       ) : (
         <Flex vertical gap={16}>
           {credits.map((item) => (
-            <CreditCard key={item.credit.id} item={item} />
+            <CreditRow key={item.credit.id} item={item} />
           ))}
         </Flex>
       )}
-
-      <AssetForm
-        open={adding}
-        onOpenChange={setAdding}
-        accounts={accounts}
-        persons={persons}
-        mePersonId={mePersonId}
-        defaultKind="liability"
-        lockKind
-        linkableAssets={linkableAssets}
-      />
     </Flex>
   );
 }

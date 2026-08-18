@@ -26,6 +26,7 @@ import {
 } from "@domain/services/amortization";
 import { Ownership, TOTAL_BPS, type OwnerShareRow } from "@domain/value-objects/share";
 import { formatCents } from "@shared/format";
+import type { FormInstance } from "antd";
 import type { AssetRow } from "@domain/entities";
 import type { AssetOwnerInput } from "@domain/repositories";
 
@@ -88,9 +89,7 @@ type Values = {
  * the TAEG is the number borrowers remember and putting it in the nominal
  * field silently inflates every instalment.
  */
-export function AssetForm({
-  open,
-  onOpenChange,
+export function AssetFormBody({
   asset,
   accounts,
   persons = [],
@@ -99,9 +98,10 @@ export function AssetForm({
   defaultKind = "asset",
   lockKind = false,
   linkableAssets = [],
+  onDone,
+  footer,
+  formRef,
 }: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
   asset?: AssetRow | null;
   accounts: { id: number; name: string }[];
   persons?: FormPerson[];
@@ -110,6 +110,11 @@ export function AssetForm({
   defaultKind?: "asset" | "liability";
   lockKind?: boolean;
   linkableAssets?: { id: number; name: string }[];
+  /** Called after a successful save. The modal closes; the page navigates. */
+  onDone?: () => void;
+  /** Rendered at the bottom of the form when it is a page rather than a modal. */
+  footer?: (submitting: boolean) => React.ReactNode;
+  formRef?: (form: FormInstance<Values>) => void;
 }) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -273,25 +278,17 @@ export function AssetForm({
         return;
       }
       message.success(editing ? "Modifié" : "Ajouté");
-      onOpenChange(false);
+      onDone?.();
       router.refresh();
     } finally {
       setSaving(false);
     }
   }
 
+  formRef?.(form);
+
   return (
-    <Modal
-      open={open}
-      title={`${editing ? "Modifier" : "Ajouter"} ${lockKind ? "un crédit" : "un élément"}`}
-      onCancel={() => onOpenChange(false)}
-      onOk={() => form.submit()}
-      confirmLoading={saving}
-      okText="Enregistrer"
-      cancelText="Annuler"
-      width={640}
-      destroyOnHidden
-    >
+    <>
       <Form
         form={form}
         layout="vertical"
@@ -534,7 +531,49 @@ export function AssetForm({
         <Form.Item name="notes" label="Notes">
           <Input.TextArea rows={2} />
         </Form.Item>
+
+        {footer?.(saving)}
       </Form>
+    </>
+  );
+}
+
+/**
+ * The same form in a dialog, for editing from a list without losing your place.
+ * Creating goes to a page instead — a loan has twenty fields and a modal is the
+ * wrong container for that much thinking.
+ */
+export function AssetForm({
+  open,
+  onOpenChange,
+  ...props
+}: Parameters<typeof AssetFormBody>[0] & {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  const [form, setForm] = useState<FormInstance<Values> | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  return (
+    <Modal
+      open={open}
+      title={`${props.asset ? "Modifier" : "Ajouter"} ${props.lockKind ? "un crédit" : "un élément"}`}
+      onCancel={() => onOpenChange(false)}
+      onOk={() => form?.submit()}
+      confirmLoading={saving}
+      okText="Enregistrer"
+      cancelText="Annuler"
+      width={640}
+      destroyOnHidden
+    >
+      <AssetFormBody
+        {...props}
+        formRef={setForm}
+        onDone={() => {
+          setSaving(false);
+          onOpenChange(false);
+        }}
+      />
     </Modal>
   );
 }
