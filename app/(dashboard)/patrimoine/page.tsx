@@ -5,7 +5,9 @@ import {
   listAssetOwners,
   listAssets,
 } from "@application/assets";
-import { listMembers } from "@application/household";
+import { getPersonForUser, listMembers } from "@application/household";
+import { getCurrentUser } from "@application/auth";
+import { listAllAccounts } from "@application/queries";
 import type { OwnerShareRow } from "@domain/value-objects/share";
 import { PatrimoineView } from "@/components/assets/patrimoine-view";
 
@@ -13,12 +15,15 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function PatrimoinePage() {
-  const [assets, netWorth, history, members] = await Promise.all([
+  const [assets, netWorth, history, members, accounts, me] = await Promise.all([
     listAssets(),
     getNetWorth(),
     getNetWorthHistory(),
     listMembers(),
+    listAllAccounts(),
+    getCurrentUser(),
   ]);
+  const mePerson = me ? await getPersonForUser(me.id) : null;
 
   const persons = members.map((m) => ({ id: m.person.id, name: m.person.name }));
   // A per-person split only means something with more than one member.
@@ -41,6 +46,8 @@ export default async function PatrimoinePage() {
       breakdown={breakdown}
       ownersByAsset={ownersByAsset}
       persons={persons}
+      accounts={accounts.map((a) => ({ id: a.id, name: a.name }))}
+      mePersonId={mePerson?.id ?? null}
     />
   );
 }

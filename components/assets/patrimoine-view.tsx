@@ -1,7 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useTheme } from "next-themes";
-import { Card, Col, Empty, Flex, Row, Statistic, Table, Tag, Typography, theme } from "antd";
+import { App, Button, Card, Col, Empty, Flex, Popconfirm, Row, Statistic, Table, Tag, Typography, theme } from "antd";
+import { DeleteOutlined, EditOutlined, PlusOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { AssetForm, type FormPerson } from "./asset-form";
 import type { ColumnsType } from "antd/es/table";
 import {
   Area,
@@ -45,14 +49,38 @@ export function PatrimoineView({
   breakdown,
   ownersByAsset,
   persons,
+  accounts,
+  mePersonId,
 }: {
   assets: AssetRow[];
   netWorth: NetWorth;
   history: NetWorthPoint[];
   breakdown: NetWorthBreakdown | null;
   ownersByAsset: Record<number, OwnerShareRow[]>;
-  persons: { id: number; name: string }[];
+  persons: FormPerson[];
+  accounts: { id: number; name: string }[];
+  mePersonId: number | null;
 }) {
+  const router = useRouter();
+  const { message } = App.useApp();
+  const [editing, setEditing] = useState<AssetRow | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+
+  function openForm(a: AssetRow | null) {
+    setEditing(a);
+    setFormOpen(true);
+  }
+
+  async function remove(a: AssetRow) {
+    const res = await fetch(`/api/assets/${a.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      message.error("Échec de la suppression");
+      return;
+    }
+    message.success("Supprimé");
+    router.refresh();
+  }
+
   const { resolvedTheme } = useTheme();
   const mode = resolvedTheme === "dark" ? "dark" : "light";
   const { token } = theme.useToken();
@@ -107,6 +135,30 @@ export function PatrimoineView({
         </Text>
       ),
     },
+    {
+      title: "",
+      width: 80,
+      align: "right",
+      render: (_, a) => (
+        <Flex gap={2} justify="flex-end">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => openForm(a)}
+            aria-label={`Modifier ${a.name}`}
+          />
+          <Popconfirm
+            title={`Supprimer « ${a.name} » ?`}
+            okText="Supprimer"
+            cancelText="Annuler"
+            onConfirm={() => remove(a)}
+          >
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="Supprimer" />
+          </Popconfirm>
+        </Flex>
+      ),
+    },
   ];
 
   const section = (title: string, kind: "asset" | "liability") => {
@@ -121,12 +173,17 @@ export function PatrimoineView({
 
   return (
     <Flex vertical gap={16}>
-      <div>
-        <Title level={3} style={{ margin: 0 }}>
-          Patrimoine
-        </Title>
-        <Text type="secondary">Vos actifs et passifs, et votre valeur nette.</Text>
-      </div>
+      <Flex justify="space-between" align="flex-start" wrap gap={12}>
+        <div>
+          <Title level={3} style={{ margin: 0 }}>
+            Patrimoine
+          </Title>
+          <Text type="secondary">Vos actifs et passifs, et votre valeur nette.</Text>
+        </div>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => openForm(null)}>
+          Ajouter
+        </Button>
+      </Flex>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
@@ -240,6 +297,18 @@ export function PatrimoineView({
 
       {section("Actifs", "asset")}
       {section("Passifs", "liability")}
+
+      <AssetForm
+        key={editing?.id ?? "new"}
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        asset={editing}
+        accounts={accounts}
+        persons={persons}
+        owners={editing ? (ownersByAsset[editing.id] ?? []) : []}
+        mePersonId={mePersonId}
+        linkableAssets={assets.filter((a) => a.kind === "asset").map((a) => ({ id: a.id, name: a.name }))}
+      />
     </Flex>
   );
 }

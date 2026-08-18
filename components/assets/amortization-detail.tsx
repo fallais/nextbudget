@@ -47,8 +47,14 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-export function AmortizationDetail({ asset }: { asset: AssetRow }) {
-  const [open, setOpen] = useState(false);
+export function AmortizationDetail({
+  asset,
+  defaultOpen = false,
+}: {
+  asset: AssetRow;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
 
   if (asset.principalCents == null || asset.interestRateBps == null || !asset.termMonths) {
     return (
