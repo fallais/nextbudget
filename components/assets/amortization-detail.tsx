@@ -1,14 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { Alert, Button, Col, Flex, Progress, Row, Table, Typography } from "antd";
+import type { ColumnsType } from "antd/es/table";
 import {
   amortizationSchedule,
   summarizeLoan,
+  type AmortizationRow,
   type LoanSummary,
 } from "@domain/services/amortization";
+import { STATUS } from "@shared/palette";
 import { formatCents, formatDateShort } from "@shared/format";
-import { Button } from "@/components/ui/button";
 import type { AssetRow } from "@domain/entities";
+
+const { Text } = Typography;
 
 /** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
 function todayIso(): string {
@@ -26,11 +31,19 @@ function costBreakdown(s: LoanSummary): string {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="space-y-0.5">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <p className="font-medium tabular-nums">{value}</p>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <Flex vertical gap={1}>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {label}
+      </Text>
+      <Text strong style={{ fontVariantNumeric: "tabular-nums" }}>
+        {value}
+      </Text>
+      {hint && (
+        <Text type="secondary" style={{ fontSize: 11 }}>
+          {hint}
+        </Text>
+      )}
+    </Flex>
   );
 }
 
@@ -39,9 +52,9 @@ export function AmortizationDetail({ asset }: { asset: AssetRow }) {
 
   if (asset.principalCents == null || asset.interestRateBps == null || !asset.termMonths) {
     return (
-      <p className="text-xs text-muted-foreground">
+      <Text type="secondary" style={{ fontSize: 12 }}>
         Renseignez capital, taux et durée pour voir l&apos;échéancier.
-      </p>
+      </Text>
     );
   }
 
@@ -57,7 +70,11 @@ export function AmortizationDetail({ asset }: { asset: AssetRow }) {
   const schedule = amortizationSchedule(loan);
   const summary = summarizeLoan(loan, todayIso());
   if (schedule.length === 0 || !summary) {
-    return <p className="text-xs text-muted-foreground">Échéancier indisponible.</p>;
+    return (
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        Échéancier indisponible.
+      </Text>
+    );
   }
 
   const { progress } = summary;
@@ -70,106 +87,126 @@ export function AmortizationDetail({ asset }: { asset: AssetRow }) {
     Math.abs(asset.valueCents - progress.principalRemainingCents) >
       Math.max(10_000, asset.principalCents * 0.01);
 
+  const columns: ColumnsType<AmortizationRow> = [
+    { title: "#", dataIndex: "index", width: 56 },
+    {
+      title: "Date",
+      dataIndex: "date",
+      width: 110,
+      render: (d: string | null) => (d ? formatDateShort(d) : "—"),
+    },
+    {
+      title: "Capital",
+      dataIndex: "principalCents",
+      align: "right",
+      render: (c: number) => formatCents(c),
+    },
+    {
+      title: "Intérêts",
+      dataIndex: "interestCents",
+      align: "right",
+      render: (c: number) => formatCents(c),
+    },
+    {
+      title: "Restant",
+      dataIndex: "balanceCents",
+      align: "right",
+      render: (c: number) => formatCents(c),
+    },
+  ];
+
   return (
-    <div className="space-y-3 text-sm">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <Flex vertical gap={12}>
+      <Row gutter={[16, 12]}>
         {/* The échéance leads, because that is the figure printed on the offer;
             the premium is shown beside it rather than silently added in. */}
-        <Stat
-          label="Échéance"
-          value={formatCents(summary.monthlyPaymentCents)}
-          hint={
-            summary.totalInsuranceCents > 0
-              ? `+ ${formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)} d'assurance = ${formatCents(summary.monthlyTotalCents)}`
-              : "hors assurance"
-          }
-        />
-        <Stat
-          label="Coût du crédit"
-          value={formatCents(summary.totalCostCents)}
-          hint={costBreakdown(summary)}
-        />
-        <Stat
-          label="Total remboursé"
-          value={formatCents(summary.totalPaidCents)}
-          hint={`pour ${formatCents(asset.principalCents)} empruntés`}
-        />
-        <Stat
-          label="Fin"
-          value={summary.endDate ? formatDateShort(summary.endDate) : `${summary.termMonths} mois`}
-          hint={`${summary.termMonths} mensualités`}
-        />
-      </div>
+        <Col xs={12} sm={6}>
+          <Stat
+            label="Échéance"
+            value={formatCents(summary.monthlyPaymentCents)}
+            hint={
+              summary.totalInsuranceCents > 0
+                ? `+ ${formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)} d'assurance`
+                : "hors assurance"
+            }
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <Stat
+            label="Coût du crédit"
+            value={formatCents(summary.totalCostCents)}
+            hint={costBreakdown(summary)}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <Stat
+            label="Total remboursé"
+            value={formatCents(summary.totalPaidCents)}
+            hint={`pour ${formatCents(asset.principalCents)} empruntés`}
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <Stat
+            label="Fin"
+            value={summary.endDate ? formatDateShort(summary.endDate) : `${summary.termMonths} mois`}
+            hint={`${summary.termMonths} mensualités`}
+          />
+        </Col>
+      </Row>
 
       {progress && (
-        <div className="space-y-1.5 rounded-md border bg-muted/30 p-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
-            <span className="font-medium">
+        <Flex vertical gap={4}>
+          <Flex justify="space-between" wrap gap={8}>
+            <Text style={{ fontSize: 12 }} strong>
               {progress.paidCount} / {summary.termMonths} échéances payées
-            </span>
-            <span className="text-muted-foreground tabular-nums">
+            </Text>
+            <Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
               {formatCents(progress.principalRemainingCents)} de capital restant
-            </span>
-          </div>
-          <div
-            className="h-1.5 overflow-hidden rounded-full bg-muted"
-            role="progressbar"
-            aria-valuenow={paidPct ?? 0}
-            aria-valuemin={0}
-            aria-valuemax={100}
+            </Text>
+          </Flex>
+          <Progress
+            percent={Math.min(100, Math.max(0, paidPct ?? 0))}
+            showInfo={false}
+            size={["100%", 6]}
+            strokeColor={STATUS.good}
             aria-label="Capital remboursé"
-          >
-            <div
-              className="h-full rounded-full bg-emerald-600 dark:bg-emerald-500"
-              style={{ width: `${Math.min(100, Math.max(0, paidPct ?? 0))}%` }}
-            />
-          </div>
-          <p className="text-xs text-muted-foreground tabular-nums">
+          />
+          <Text type="secondary" style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
             {formatCents(progress.principalPaidCents)} de capital remboursé ·{" "}
             {formatCents(progress.interestPaidCents)} d&apos;intérêts déjà payés
-            {progress.nextDate ? ` · prochaine échéance ${formatDateShort(progress.nextDate)}` : ""}
-          </p>
-          {/* The balance shown in Patrimoine is typed by hand; the schedule
-              knows what it should be by now. Point out a stale figure rather
-              than letting the net worth quietly drift. */}
-          {staleBalance && (
-            <p className="text-xs text-amber-700 dark:text-amber-500">
-              Le solde saisi ({formatCents(asset.valueCents)}) diffère de
-              l&apos;échéancier ({formatCents(progress.principalRemainingCents)}).
-              Mettez-le à jour pour une valeur nette juste.
-            </p>
-          )}
-        </div>
+            {progress.nextDate && ` · prochaine échéance ${formatDateShort(progress.nextDate)}`}
+          </Text>
+        </Flex>
       )}
-      <Button variant="ghost" size="sm" onClick={() => setOpen((o) => !o)}>
-        {open ? "Masquer l'échéancier" : "Voir l'échéancier"}
-      </Button>
+
+      {/* The stored balance is typed by hand; the schedule knows what it should
+          be by now. Say so rather than letting net worth quietly drift. */}
+      {staleBalance && progress && (
+        <Alert
+          type="warning"
+          showIcon
+          message={`Le solde saisi (${formatCents(asset.valueCents)}) diffère de l'échéancier (${formatCents(progress.principalRemainingCents)}).`}
+          description="Mettez-le à jour pour une valeur nette juste."
+        />
+      )}
+
+      <div>
+        <Button type="link" size="small" style={{ paddingInline: 0 }} onClick={() => setOpen((o) => !o)}>
+          {open ? "Masquer l'échéancier" : `Voir l'échéancier (${schedule.length} lignes)`}
+        </Button>
+      </div>
+
       {open && (
-        <div className="max-h-64 overflow-auto rounded-md border">
-          <table className="w-full text-xs tabular-nums">
-            <thead className="sticky top-0 bg-muted/80 text-muted-foreground">
-              <tr>
-                <th className="px-2 py-1 text-left">#</th>
-                <th className="px-2 py-1 text-left">Date</th>
-                <th className="px-2 py-1 text-right">Capital</th>
-                <th className="px-2 py-1 text-right">Intérêts</th>
-                <th className="px-2 py-1 text-right">Restant</th>
-              </tr>
-            </thead>
-            <tbody>
-              {schedule.map((r) => (
-                <tr key={r.index} className="border-t">
-                  <td className="px-2 py-1">{r.index}</td>
-                  <td className="px-2 py-1">{r.date ? formatDateShort(r.date) : "—"}</td>
-                  <td className="px-2 py-1 text-right">{formatCents(r.principalCents)}</td>
-                  <td className="px-2 py-1 text-right">{formatCents(r.interestCents)}</td>
-                  <td className="px-2 py-1 text-right">{formatCents(r.balanceCents)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          rowKey="index"
+          size="small"
+          columns={columns}
+          dataSource={schedule}
+          pagination={false}
+          // Hundreds of instalments: scroll the body rather than the page.
+          scroll={{ y: 260 }}
+        />
       )}
-    </div>
+    </Flex>
   );
 }
