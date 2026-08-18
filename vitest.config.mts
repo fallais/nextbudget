@@ -18,6 +18,11 @@ export default {
       "@infrastructure": path.resolve(root, "libs/infrastructure"),
       "@shared": path.resolve(root, "libs/shared"),
       "@": root,
+      // `server-only` throws on import outside a Server Component, which is the
+      // whole point of it — but it also means anything importing it is
+      // untestable. Stub it so the repositories can be unit-tested; the real
+      // guard still applies in `next build`, which is where it matters.
+      "server-only": path.resolve(root, "libs/shared/testing/server-only-stub.ts"),
     },
   },
   test: {

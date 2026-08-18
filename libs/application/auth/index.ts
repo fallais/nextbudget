@@ -1,6 +1,6 @@
 import "server-only";
-import { getDataSource } from "@infrastructure/db/client";
-import { SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import type { UserRow } from "@domain/entities";
 import { getSessionUser } from "@infrastructure/auth/session";
 
@@ -42,4 +42,28 @@ export async function getCurrentUser(): Promise<UserRow | null> {
   const mode = await getAuthMode();
   if (mode === "open") return getOwner();
   return getSessionUser();
+}
+
+/**
+ * Switch the household from `open` to `enforced` auth.
+ *
+ * Both writes belong together: setting the mode without storing the owner's
+ * password would lock everyone out of an install that now demands a login
+ * nobody can satisfy. The caller creates the session afterwards so the owner
+ * who just enabled it stays signed in.
+ */
+export async function enableEnforcedAuth(
+  ownerId: number,
+  passwordHash: string,
+  email?: string,
+): Promise<void> {
+  const ds = await getDataSource();
+  await ds.transaction(async (manager) => {
+    await manager.getRepository(UserEntity).update(ownerId, {
+      passwordHash,
+      ...(email ? { email } : {}),
+    });
+    // settings.key is the PK → save upserts.
+    await manager.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
+  });
 }

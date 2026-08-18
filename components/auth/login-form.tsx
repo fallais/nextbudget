@@ -45,7 +45,7 @@ export function LoginForm() {
     <div className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle className="text-xl">BanqueJS</CardTitle>
+          <CardTitle className="text-xl">NextBudget</CardTitle>
           <CardDescription>Connectez-vous pour accéder à votre tableau de bord.</CardDescription>
         </CardHeader>
         <CardContent>

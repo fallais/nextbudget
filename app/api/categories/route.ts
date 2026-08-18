@@ -1,37 +1,22 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { CategoryEntity } from "@infrastructure/db/schemas";
+import { categories } from "@infrastructure/persistence/repositories";
 import { categoryInputSchema } from "@application/contracts/validation";
+import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const ds = await getDataSource();
-  const rows = await ds.getRepository(CategoryEntity).find({ order: { name: "ASC" } });
-  return NextResponse.json(rows);
+  const all = await categories.findAll();
+  return NextResponse.json(all.map((c) => c.toRow()));
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = categoryInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  try {
-    const ds = await getDataSource();
-    const repo = ds.getRepository(CategoryEntity);
-    const created = await repo.save(repo.create({ ...parsed.data, isDefault: false }));
-    return NextResponse.json(created, { status: 201 });
-  } catch (err) {
-    const e = err as { code?: string; message?: string };
-    const message = e.message ?? String(err);
-    if (e.code === "23505" || message.toLowerCase().includes("unique")) {
-      return NextResponse.json(
-        { error: "Une catégorie avec ce nom existe déjà" },
-        { status: 409 },
-      );
-    }
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  const parsed = categoryInputSchema.safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const created = await categories.create({ ...parsed.data, isDefault: false });
+    return NextResponse.json(created.toRow(), { status: 201 });
+  }, "Une catégorie avec ce nom existe déjà");
 }

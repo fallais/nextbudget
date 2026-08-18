@@ -12,8 +12,10 @@ jobs:
     permissions:
       contents: read
       packages: write
+      # Trivy's image findings are uploaded as SARIF below.
+      security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: docker/setup-buildx-action@v3
 
@@ -33,7 +35,8 @@ jobs:
             type=semver,pattern={{version}}
             type=raw,value=latest,enable=${{ github.ref == format('refs/heads/{0}', 'main') }}
 
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
@@ -41,3 +44,22 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Scan what was actually published, not just the source tree: the base
+      # image (node:24-bookworm-slim) carries OS packages the repo never
+      # mentions, and that is what self-hosters end up running.
+      - name: Scan the published image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ghcr.io/${{ github.repository }}@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-image.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: "0"
+
+      - name: Upload to the Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image

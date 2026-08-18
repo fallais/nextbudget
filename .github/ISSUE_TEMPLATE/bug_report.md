@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a problem with BanqueJS
+about: Report a problem with NextBudget
 title: "[Bug] "
 labels: bug
 ---
@@ -24,7 +24,7 @@ What you expected to happen.
 - Deployment: [Docker / local dev]
 - Node version (if local): [e.g. 20.x]
 - Browser: [e.g. Firefox 126]
-- BanqueJS version / commit: [e.g. v0.1.0 or commit SHA]
+- NextBudget version / commit: [e.g. v0.1.0 or commit SHA]
 
 ## Logs / screenshots
 Paste relevant logs or screenshots (redact any personal data).

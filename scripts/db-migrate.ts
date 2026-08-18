@@ -1,13 +1,24 @@
 import "reflect-metadata";
 import { type DataSource, IsNull } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { AccountEntity, CategoryEntity, ContributionEntity, FixedExpenseEntity, PersonEntity, RuleEntity, SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { AccountEntity, CategoryEntity, ContributionEntity, FixedExpenseEntity, PersonEntity, RuleEntity, SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import { loadDefaultCategories } from "@infrastructure/categorize/defaults";
+
+/**
+ * `npm run db:migrate` — bring a database up to date, then seed defaults.
+ *
+ * There are no migration files: `synchronize: true` derives the schema from
+ * `@infrastructure/persistence/schemas`, so connecting is the migration. Everything
+ * after that is additive seeding, which is why this is safe to re-run.
+ *
+ * A standalone `tsx` entrypoint like `auth-reset.ts`, so it does not read
+ * `.env.local` (Next loads that, not node) — pass `DATABASE_URL=… npm run …`.
+ */
 
 const DEFAULT_CATEGORY_COLOR = "#94a3b8";
 const DEFAULT_CATEGORY_ICON = "HelpCircle";
 
-export async function runSeed(ds: DataSource): Promise<{
+async function runSeed(ds: DataSource): Promise<{
   createdCategories: number;
   createdRules: number;
 }> {
@@ -18,7 +29,7 @@ export async function runSeed(ds: DataSource): Promise<{
   let createdCats = 0;
   let createdRules = 0;
 
-  // Defaults live in lib/categorize/categories.yaml. Seeding is additive: it
+  // Defaults live in libs/infrastructure/categorize/categories.yaml. Seeding is additive: it
   // only creates what is missing, so edits made on the Rules page survive a
   // re-run and the DB stays the single source of truth for the engine.
   for (const cat of loadDefaultCategories()) {
@@ -67,7 +78,7 @@ export async function runSeed(ds: DataSource): Promise<{
  * Auth/ownership foundation. Idempotent; safe to re-run. Keeps existing
  * single-user data working with everything shared and no login.
  */
-export async function backfillOwnership(ds: DataSource): Promise<void> {
+async function backfillOwnership(ds: DataSource): Promise<void> {
   const userRepo = ds.getRepository(UserEntity);
   const settingRepo = ds.getRepository(SettingEntity);
 
@@ -125,11 +136,7 @@ async function main() {
   await ds.destroy();
 }
 
-// Only run as CLI when invoked directly
-const invokedDirectly = process.argv[1] && process.argv[1].endsWith("seed.ts");
-if (invokedDirectly) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-}
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

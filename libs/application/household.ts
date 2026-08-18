@@ -1,8 +1,9 @@
 import "server-only";
 import { In } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { PersonEntity, UserEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { PersonEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import type { PersonRow, UserRow } from "@domain/entities";
+import { contributions, persons } from "@infrastructure/persistence/repositories";
 
 /**
  * The household: who lives here, and which of them can log in.
@@ -54,4 +55,22 @@ export async function isUserLinkTaken(userId: number, exceptPersonId?: number): 
   const ds = await getDataSource();
   const existing = await ds.getRepository(PersonEntity).findOne({ where: { userId } });
   return !!existing && existing.id !== exceptPersonId;
+}
+
+/**
+ * Remove a household member, and with them the contributions they own.
+ *
+ * A person is an aggregate root: contributions are recorded against them and
+ * mean nothing once the person is gone. Deleting the person alone would leave
+ * rows keyed to a missing `person_id` — the schema has no FK to stop that, so
+ * the cascade is here.
+ *
+ * Resolves `false` when no such person exists.
+ */
+export async function deletePerson(personId: number): Promise<boolean> {
+  const person = await persons.findById(personId);
+  if (!person) return false;
+
+  await contributions.deleteByPerson(personId);
+  return persons.delete(personId);
 }

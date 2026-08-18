@@ -1,5 +1,4 @@
-import { getDataSource } from "@infrastructure/db/client";
-import { CategoryEntity, RuleEntity } from "@infrastructure/db/schemas";
+import { categories as categoryRepo, rules as ruleRepo } from "@infrastructure/persistence/repositories";
 import type { RuleRow } from "@domain/entities";
 import { CategoriesPane } from "@/components/categories/categories-pane";
 import { RecategorizeButton } from "@/components/categories/recategorize-button";
@@ -8,15 +7,18 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
-  const ds = await getDataSource();
-  const [categories, rules] = await Promise.all([
-    ds.getRepository(CategoryEntity).find({ order: { name: "ASC" } }),
-    ds.getRepository(RuleEntity).find({ order: { priority: "ASC" } }),
+  const [categoryEntities, ruleEntities] = await Promise.all([
+    categoryRepo.findAll(),
+    ruleRepo.findAll(),
   ]);
 
+  // Class instances cannot cross into a Client Component, so hand the pane rows.
+  const categories = categoryEntities.map((c) => c.toRow());
+
   const rulesByCategory: Record<number, RuleRow[]> = {};
-  for (const r of rules) {
-    (rulesByCategory[r.categoryId] ??= []).push(r);
+  for (const rule of ruleEntities) {
+    const row = rule.toRow();
+    (rulesByCategory[row.categoryId] ??= []).push(row);
   }
 
   return (

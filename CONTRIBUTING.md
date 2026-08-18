@@ -1,6 +1,6 @@
-# Contributing to BanqueJS
+# Contributing to NextBudget
 
-Thanks for your interest in improving BanqueJS! This project is local-first
+Thanks for your interest in improving NextBudget! This project is local-first
 personal finance software — small, focused, and privacy-respecting.
 
 ## Ground rules
@@ -18,9 +18,9 @@ Requires Node.js 20+ and a reachable PostgreSQL.
 
 ```bash
 # Throwaway dev Postgres:
-docker run -d --name banquejs-db -e POSTGRES_USER=banquejs \
-  -e POSTGRES_PASSWORD=banquejs -e POSTGRES_DB=banquejs -p 5432:5432 postgres:16-alpine
-export DATABASE_URL=postgres://banquejs:banquejs@localhost:5432/banquejs
+docker run -d --name nextbudget-db -e POSTGRES_USER=nextbudget \
+  -e POSTGRES_PASSWORD=nextbudget -e POSTGRES_DB=nextbudget -p 5432:5432 postgres:16-alpine
+export DATABASE_URL=postgres://nextbudget:nextbudget@localhost:5432/nextbudget
 
 npm install
 npm run db:migrate   # synchronize schema from entities + seed

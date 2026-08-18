@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea for BanqueJS
+about: Suggest an idea for NextBudget
 title: "[Feature] "
 labels: enhancement
 ---

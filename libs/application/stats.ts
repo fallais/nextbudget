@@ -1,7 +1,7 @@
 import "server-only";
 import type { SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { TransactionEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { TransactionEntity } from "@infrastructure/persistence/schemas";
 import type { TransactionRow } from "@domain/entities";
 import { getScope, visibleAccountIds, applyAccountScope } from "@application/scope";
 import { periodToRange, previousPeriodRange, type PeriodKey } from "@domain/value-objects/period";

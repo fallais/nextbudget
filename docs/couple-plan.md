@@ -85,7 +85,7 @@ set, never read.
 
 **Note:** `npm run db:migrate` does not read `.env.local` — that file is loaded by
 Next, not by the standalone `tsx` script. Run it as
-`DATABASE_URL=postgres://banquejs:banquejs@localhost:5432/banquejs npm run db:migrate`.
+`DATABASE_URL=postgres://nextbudget:nextbudget@localhost:5432/nextbudget npm run db:migrate`.
 
 The seed step matters: without it a solo user has zero person rows until they
 visit `/apports`, and Phase C's share picker would have nobody to assign to.

@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BanqueJS",
+  title: "NextBudget",
   description: "Tableau de bord personnel pour suivre vos comptes bancaires",
 };
 

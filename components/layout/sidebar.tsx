@@ -9,11 +9,11 @@ import {
   FolderTree,
   Upload,
   ChevronLeft,
-  Wallet,
   Target,
   CalendarClock,
   Users2,
   Landmark,
+  Banknote,
   Settings,
 } from "lucide-react";
 import { cn } from "@shared/utils";
@@ -28,13 +28,19 @@ type NavItem = {
   icon: typeof LayoutDashboard;
 };
 
+/**
+ * Day-to-day money first, then what you own and owe, then the things you set up
+ * once. Accounts are not here on purpose: creating and naming a bank account is
+ * configuration, so it lives as a tab under Paramètres rather than as a
+ * destination you visit while looking at your money.
+ */
 const NAV: NavItem[] = [
   { label: "Tableau de bord", href: "/", icon: LayoutDashboard },
-  { label: "Comptes", href: "/comptes", icon: Wallet },
   { label: "Transactions", href: "/transactions", icon: Receipt },
   { label: "Budgets", href: "/budgets", icon: Target },
   { label: "Frais fixes", href: "/frais-fixes", icon: CalendarClock },
   { label: "Patrimoine", href: "/patrimoine", icon: Landmark },
+  { label: "Crédits", href: "/credits", icon: Banknote },
   { label: "Apports", href: "/apports", icon: Users2 },
   { label: "Catégories", href: "/categories", icon: FolderTree },
   { label: "Importer", href: "/import", icon: Upload },
@@ -66,12 +72,12 @@ export function Sidebar({
         )}
       >
         {!collapsed && (
-          <Link href="/" aria-label="BanqueJS">
+          <Link href="/" aria-label="NextBudget">
             <LogoLockup />
           </Link>
         )}
         {collapsed && (
-          <Link href="/" aria-label="BanqueJS">
+          <Link href="/" aria-label="NextBudget">
             <LogoMark className="size-6 text-brand" />
           </Link>
         )}

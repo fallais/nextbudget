@@ -1,9 +1,9 @@
-# BanqueJS
+# NextBudget
 
 **Local-first personal finance dashboard for individuals and couples.**
 Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastructure you control.
 
-> ⚠️ **Status: early / pre-1.0.** BanqueJS is the open-source evolution of a private
+> ⚠️ **Status: early / pre-1.0.** NextBudget is the open-source evolution of a private
 > finance dashboard. The UI is in **French**; the code is in English. Multi-user,
 > optional auth, and assets/net-worth features are on the [roadmap](#roadmap).
 
@@ -34,7 +34,7 @@ No external services, no telemetry — self-host with Docker Compose (app + Post
 
 ## Quickstart (Docker Compose)
 
-The published image lives at `ghcr.io/banquejs/banquejs`. `docker-compose.yaml`
+The published image lives at `ghcr.io/fallais/nextbudget`. `docker-compose.yaml`
 brings up the app together with a Postgres database.
 
 ```bash
@@ -53,10 +53,10 @@ Requires Node.js 20+ and a reachable PostgreSQL.
 
 ```bash
 # A throwaway Postgres for development:
-docker run -d --name banquejs-db -e POSTGRES_USER=banquejs \
-  -e POSTGRES_PASSWORD=banquejs -e POSTGRES_DB=banquejs -p 5432:5432 postgres:16-alpine
+docker run -d --name nextbudget-db -e POSTGRES_USER=nextbudget \
+  -e POSTGRES_PASSWORD=nextbudget -e POSTGRES_DB=nextbudget -p 5432:5432 postgres:16-alpine
 
-export DATABASE_URL=postgres://banquejs:banquejs@localhost:5432/banquejs
+export DATABASE_URL=postgres://nextbudget:nextbudget@localhost:5432/nextbudget
 npm install
 npm run db:migrate   # synchronize schema from entities + seed (idempotent)
 npm run dev          # http://localhost:3000
@@ -86,7 +86,7 @@ npm run test         # vitest unit tests
 
 ## Roadmap
 
-BanqueJS fills a gap among self-hosted finance tools: first-class
+NextBudget fills a gap among self-hosted finance tools: first-class
 **couples/household** support, **optional built-in** auth, and a **French/EU-first**
 experience, in one local-first app.
 
@@ -107,7 +107,7 @@ merchant patterns is as easy as adding a line to
 
 ## License
 
-BanqueJS is free software, licensed under the **GNU Affero General Public License
+NextBudget is free software, licensed under the **GNU Affero General Public License
 v3.0** (AGPLv3) — see [`LICENSE`](./LICENSE).
 
 In short: you may use, study, modify, and redistribute it (including commercially),

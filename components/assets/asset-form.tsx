@@ -31,7 +31,10 @@ import {
   type OwnerShareRow,
 } from "@domain/value-objects/share";
 import { isDomainError } from "@domain/errors";
+import { deferralMonthsBetween, summarizeLoan } from "@domain/services/amortization";
+import { formatCents } from "@shared/format";
 import type { AssetRow } from "@domain/entities";
+import type { AssetOwnerInput } from "@domain/repositories";
 
 export type FormPerson = { id: number; name: string };
 
@@ -58,6 +61,12 @@ const ASSET_TYPES: AssetRow["type"][] = ["real_estate", "vehicle", "savings", "i
 const LIABILITY_TYPES: AssetRow["type"][] = ["mortgage", "loan", "other"];
 const typesFor = (k: AssetRow["kind"]) => (k === "asset" ? ASSET_TYPES : LIABILITY_TYPES);
 const defaultTypeFor = (k: AssetRow["kind"]): AssetRow["type"] => (k === "asset" ? "savings" : "mortgage");
+
+/** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 const centsToInput = (c: number | null | undefined) =>
   c == null ? "" : (c / 100).toFixed(2).replace(".", ",");
@@ -93,19 +102,29 @@ export function AssetForm({
   persons = [],
   owners = [],
   mePersonId = null,
+  defaultKind = "asset",
+  lockKind = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   asset?: AssetRow | null;
   accounts: { id: number; name: string }[];
   persons?: FormPerson[];
-  owners?: OwnerShareRow[];
+  owners?: AssetOwnerInput[];
   mePersonId?: number | null;
+  /** What a *new* entry starts as. The Credits page opens straight on a loan. */
+  defaultKind?: AssetRow["kind"];
+  /**
+   * Hide the actif/passif choice. On the Credits page there is nothing to
+   * choose: a credit is a liability, and offering the alternative only invites
+   * creating an asset from the wrong screen.
+   */
+  lockKind?: boolean;
 }) {
   const router = useRouter();
   const editing = !!asset;
-  const [kind, setKind] = useState<AssetRow["kind"]>(asset?.kind ?? "asset");
-  const [type, setType] = useState<AssetRow["type"]>(asset?.type ?? "savings");
+  const [kind, setKind] = useState<AssetRow["kind"]>(asset?.kind ?? defaultKind);
+  const [type, setType] = useState<AssetRow["type"]>(asset?.type ?? defaultTypeFor(defaultKind));
   const [name, setName] = useState(asset?.name ?? "");
   const [value, setValue] = useState(centsToInput(asset?.valueCents));
   const [principal, setPrincipal] = useState(centsToInput(asset?.principalCents));
@@ -116,7 +135,16 @@ export function AssetForm({
   const [monthly, setMonthly] = useState(centsToInput(asset?.monthlyPaymentCents));
   const [insurance, setInsurance] = useState(centsToInput(asset?.insuranceMonthlyCents));
   const [fees, setFees] = useState(centsToInput(asset?.feesCents));
+  const [signatureDate, setSignatureDate] = useState(asset?.signatureDate ?? "");
   const [startDate, setStartDate] = useState(asset?.startDate ?? "");
+  /** Per-borrower premiums as typed, keyed by person id: { 1: "18,40" }. */
+  const [borrowerInsurance, setBorrowerInsurance] = useState<Record<number, string>>(() =>
+    Object.fromEntries(
+      owners
+        .filter((o) => o.insuranceMonthlyCents != null)
+        .map((o) => [o.personId, centsToInput(o.insuranceMonthlyCents)]),
+    ),
+  );
   const [accountId, setAccountId] = useState<string>(asset?.accountId ? String(asset.accountId) : "none");
   const [notes, setNotes] = useState(asset?.notes ?? "");
   const [addCredit, setAddCredit] = useState(false);
@@ -141,18 +169,29 @@ export function AssetForm({
     );
   });
 
-  function ownersPayload(): OwnerShareRow[] | undefined {
+  function ownersPayload(): AssetOwnerInput[] | undefined {
     if (!showShares) return undefined;
-    if (shareMode === "shared") return Ownership.even(persons.map((p) => p.id)).toRows();
-    if (shareMode === "mine") {
-      return mePersonId != null ? [{ personId: mePersonId, shareBps: TOTAL_BPS }] : undefined;
-    }
-    return persons
-      .map((p) => ({
-        personId: p.id,
-        shareBps: Math.round(Number((customPct[p.id] ?? "0").replace(",", ".")) * 100),
-      }))
-      .filter((o) => Number.isFinite(o.shareBps) && o.shareBps > 0);
+    const shares: OwnerShareRow[] | undefined =
+      shareMode === "shared"
+        ? Ownership.even(persons.map((p) => p.id)).toRows()
+        : shareMode === "mine"
+          ? mePersonId != null
+            ? [{ personId: mePersonId, shareBps: TOTAL_BPS }]
+            : undefined
+          : persons
+              .map((p) => ({
+                personId: p.id,
+                shareBps: Math.round(Number((customPct[p.id] ?? "0").replace(",", ".")) * 100),
+              }))
+              .filter((o) => Number.isFinite(o.shareBps) && o.shareBps > 0);
+
+    if (!shares) return undefined;
+    // Each borrower's own premium rides along with their share. Left null when
+    // the loan is not split per head, so the loan-level figure keeps applying.
+    return shares.map((s) => ({
+      ...s,
+      insuranceMonthlyCents: splitInsurance ? (toCents(borrowerInsurance[s.personId] ?? "") ?? null) : null,
+    }));
   }
 
   const customTotalBps = persons.reduce(
@@ -171,6 +210,47 @@ export function AssetForm({
   const isLoan = kind === "liability" && (type === "loan" || type === "mortgage");
   // When adding real estate, offer to also record the mortgage that funds it.
   const offerCredit = !editing && kind === "asset" && type === "real_estate";
+
+  /**
+   * The outstanding balance of a dated loan is not an opinion — the schedule
+   * says exactly how much capital each instalment has retired. Once capital,
+   * rate, term and start date are in, the field stops being editable and shows
+   * the derived figure instead, because a hand-typed balance is wrong from the
+   * month after it is entered and drags net worth with it.
+   */
+  const derivedBalanceCents: number | null = (() => {
+    if (!isLoan) return null;
+    const principalCents = toCents(principal);
+    const rateBps = toBps(rate);
+    const months = term ? Number(term) : null;
+    if (principalCents == null || rateBps == null || !months || !startDate) return null;
+    const summary = summarizeLoan(
+      {
+        principalCents,
+        interestRateBps: rateBps,
+        termMonths: months,
+        monthlyPaymentCents: toCents(monthly),
+        insuranceMonthlyCents: toCents(insurance),
+        feesCents: toCents(fees),
+        startDate,
+      },
+      todayIso(),
+    );
+    return summary?.progress?.principalRemainingCents ?? principalCents;
+  })();
+  const balanceIsDerived = derivedBalanceCents !== null;
+
+  /**
+   * A shared loan gets one premium per borrower rather than a single figure.
+   * Assurance emprunteur is quoted per head — different ages, different health,
+   * different quotités — so one number could not say whose it is.
+   */
+  const splitInsurance = isLoan && persons.length > 1;
+  const perBorrowerTotalCents = persons.reduce(
+    (total, p) => total + (toCents(borrowerInsurance[p.id] ?? "") ?? 0),
+    0,
+  );
+  const deferralMonths = deferralMonthsBetween(signatureDate || null, startDate || null);
 
   function changeKind(k: AssetRow["kind"]) {
     setKind(k);
@@ -196,18 +276,69 @@ export function AssetForm({
         <Label htmlFor="asset-monthly">Mensualité (€)</Label>
         <Input id="asset-monthly" inputMode="decimal" value={monthly} onChange={(e) => setMonthly(e.target.value)} placeholder="auto" />
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="asset-insurance">Assurance (€/mois)</Label>
-        <Input id="asset-insurance" inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} placeholder="0,00" />
-      </div>
+      {/* One premium for the whole loan. When the loan is shared, the
+          per-borrower fields below take over — see `perBorrowerInsurance`. */}
+      {!splitInsurance && (
+        <div className="space-y-2">
+          <Label htmlFor="asset-insurance">Assurance (€/mois)</Label>
+          <Input id="asset-insurance" inputMode="decimal" value={insurance} onChange={(e) => setInsurance(e.target.value)} placeholder="0,00" />
+        </div>
+      )}
       <div className="space-y-2">
         <Label htmlFor="asset-fees">Frais de dossier (€)</Label>
         <Input id="asset-fees" inputMode="decimal" value={fees} onChange={(e) => setFees(e.target.value)} placeholder="0,00" />
       </div>
-      <div className="col-span-2 space-y-2">
-        <Label htmlFor="asset-start">Date de début</Label>
+      <div className="space-y-2">
+        <Label htmlFor="asset-signature">Date de signature</Label>
+        <Input
+          id="asset-signature"
+          type="date"
+          value={signatureDate}
+          onChange={(e) => setSignatureDate(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="asset-start">1re échéance</Label>
         <Input id="asset-start" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
       </div>
+      {deferralMonths !== null && (
+        <p className="col-span-2 rounded-md border bg-muted/30 p-2 text-xs text-muted-foreground">
+          Crédit différé : {deferralMonths} mois entre la signature et la
+          première échéance. L&apos;échéancier démarre à la première échéance ;
+          les intérêts intercalaires de la période de différé ne sont pas encore
+          comptés dans le coût.
+        </p>
+      )}
+
+      {/* Assurance emprunteur is priced per borrower — different ages, different
+          quotités — so a couple's loan normally carries two different premiums. */}
+      {splitInsurance && (
+        <div className="col-span-2 space-y-2">
+          <Label>Assurance emprunteur (€/mois, par personne)</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {persons.map((p) => (
+              <div key={p.id} className="space-y-1">
+                <Label htmlFor={`ins-${p.id}`} className="text-xs font-normal text-muted-foreground">
+                  {p.name}
+                </Label>
+                <Input
+                  id={`ins-${p.id}`}
+                  inputMode="decimal"
+                  value={borrowerInsurance[p.id] ?? ""}
+                  onChange={(e) =>
+                    setBorrowerInsurance((prev) => ({ ...prev, [p.id]: e.target.value }))
+                  }
+                  placeholder="0,00"
+                />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Total {formatCents(perBorrowerTotalCents)} par mois.
+          </p>
+        </div>
+      )}
+
       <p className="col-span-2 text-xs text-muted-foreground">
         L&apos;assurance et les frais (dossier, garantie, courtier) comptent dans le
         coût du crédit — sur un prêt immobilier, l&apos;assurance en représente
@@ -219,11 +350,17 @@ export function AssetForm({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     let valueCents: number;
-    try {
-      valueCents = Math.abs(parseAmountToCents(value || "0"));
-    } catch {
-      toast.error("Montant invalide");
-      return;
+    if (balanceIsDerived) {
+      // The schedule is the source of truth; the stored column is a snapshot
+      // the server re-derives on every read anyway.
+      valueCents = derivedBalanceCents as number;
+    } else {
+      try {
+        valueCents = Math.abs(parseAmountToCents(value || "0"));
+      } catch {
+        toast.error("Montant invalide");
+        return;
+      }
     }
     const owners = ownersPayload();
     if (owners) {
@@ -250,8 +387,11 @@ export function AssetForm({
       body.interestRateBps = toBps(rate);
       body.termMonths = term ? Number(term) : null;
       body.monthlyPaymentCents = toCents(monthly);
-      body.insuranceMonthlyCents = toCents(insurance);
+      // A split loan carries its premiums per borrower instead; keeping a
+      // loan-level figure as well would double the insurance in the totals.
+      body.insuranceMonthlyCents = splitInsurance ? null : toCents(insurance);
       body.feesCents = toCents(fees);
+      body.signatureDate = signatureDate || null;
       body.startDate = startDate || null;
     }
 
@@ -308,23 +448,32 @@ export function AssetForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{editing ? "Modifier" : "Ajouter"} un élément</DialogTitle>
+          <DialogTitle>
+            {editing ? "Modifier" : "Ajouter"} {lockKind ? "un crédit" : "un élément"}
+          </DialogTitle>
           <DialogDescription>
-            Un actif (épargne, immobilier…) ou un passif (crédit, prêt).
+            {lockKind
+              ? "Un emprunt : prêt immobilier, crédit auto, prêt personnel."
+              : "Un actif (épargne, immobilier…) ou un passif (crédit, prêt)."}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Nature</Label>
-              <Select value={kind} items={kindItems} onValueChange={(v) => v && changeKind(v as AssetRow["kind"])}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="asset">Actif</SelectItem>
-                  <SelectItem value="liability">Passif</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className={lockKind ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
+            {/* Omitted entirely when locked: on the Credits page the nature is
+                the page itself, and offering "Actif" would let you create one
+                from the wrong screen. */}
+            {!lockKind && (
+              <div className="space-y-2">
+                <Label>Nature</Label>
+                <Select value={kind} items={kindItems} onValueChange={(v) => v && changeKind(v as AssetRow["kind"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="asset">Actif</SelectItem>
+                    <SelectItem value="liability">Passif</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Type</Label>
               <Select value={type} items={ASSET_TYPE_LABELS} onValueChange={(v) => v && setType(v as AssetRow["type"])}>
@@ -341,19 +490,38 @@ export function AssetForm({
             <Label htmlFor="asset-name">Nom</Label>
             <Input id="asset-name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="asset-value">
-              {kind === "liability" ? "Solde restant dû (€)" : "Valeur (€)"}
-            </Label>
-            <Input
-              id="asset-value"
-              inputMode="decimal"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="0,00"
-              required
-            />
-          </div>
+          {balanceIsDerived ? (
+            <div className="space-y-1.5">
+              <Label>Solde restant dû</Label>
+              <p className="text-lg font-semibold tabular-nums">
+                {formatCents(derivedBalanceCents as number)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Calculé depuis l&apos;échéancier — capital, taux, durée et date
+                de début. Il se met à jour tout seul à chaque échéance.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="asset-value">
+                {kind === "liability" ? "Solde restant dû (€)" : "Valeur (€)"}
+              </Label>
+              <Input
+                id="asset-value"
+                inputMode="decimal"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="0,00"
+                required
+              />
+              {isLoan && (
+                <p className="text-xs text-muted-foreground">
+                  Renseignez capital, taux, durée et date de début ci-dessous
+                  pour qu&apos;il soit calculé automatiquement.
+                </p>
+              )}
+            </div>
+          )}
 
           {isLoan && (
             <div className="space-y-3 rounded-md border bg-muted/30 p-3">

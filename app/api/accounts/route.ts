@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { AccountEntity } from "@infrastructure/db/schemas";
+import { accounts } from "@infrastructure/persistence/repositories";
 import { listAllAccounts } from "@application/queries";
 import { accountInputSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
+import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,13 +14,10 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const parsed = accountInputSchema.safeParse(await request.json());
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  const repo = ds.getRepository(AccountEntity);
-  const created = await repo.save(
-    repo.create({
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const created = await accounts.create({
       name: parsed.data.name,
       kind: parsed.data.kind,
       bank: parsed.data.bank ?? null,
@@ -30,7 +27,7 @@ export async function POST(request: Request) {
       // An explicit owner wins; otherwise the account belongs to whoever
       // created it, matching how rules/contributions/assets are stamped.
       ownerId: parsed.data.ownerId ?? (await getCurrentUser())?.id ?? null,
-    }),
-  );
-  return NextResponse.json(created, { status: 201 });
+    });
+    return NextResponse.json(created.toRow(), { status: 201 });
+  });
 }

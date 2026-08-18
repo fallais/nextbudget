@@ -12,7 +12,8 @@ import { formatCents } from "@shared/format";
 import { VisibilityToggle } from "@/components/visibility-toggle";
 import { AssetForm, ASSET_TYPE_LABELS, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
-import { formatBps, type OwnerShareRow } from "@domain/value-objects/share";
+import { formatBps } from "@domain/value-objects/share";
+import type { AssetOwnerInput } from "@domain/repositories";
 import type { AssetRow } from "@domain/entities";
 
 export function AssetsPane({
@@ -25,7 +26,7 @@ export function AssetsPane({
   assets: AssetRow[];
   accounts: { id: number; name: string }[];
   persons?: FormPerson[];
-  ownersByAsset?: Record<number, OwnerShareRow[]>;
+  ownersByAsset?: Record<number, AssetOwnerInput[]>;
   mePersonId?: number | null;
 }) {
   const router = useRouter();

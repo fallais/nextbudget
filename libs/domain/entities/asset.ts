@@ -2,6 +2,7 @@ import { AggregateRoot } from "@domain/ddd";
 import { invariant } from "@domain/errors";
 import { Money } from "@domain/value-objects/money";
 import { Share, TOTAL_BPS } from "@domain/value-objects/share";
+import { deferralMonthsBetween, summarizeLoan } from "@domain/services/amortization";
 
 import type { AssetKind, AssetType, Visibility } from "@domain/enums";
 import { typesFor } from "@domain/enums";
@@ -24,6 +25,16 @@ export interface AssetRow {
   insuranceMonthlyCents: number | null;
   /** One-off costs: frais de dossier, garantie, courtier. */
   feesCents: number | null;
+  /**
+   * When the loan was signed, which is not when it starts being repaid.
+   *
+   * A crédit différé (deferred mortgage, or one released in stages while a
+   * property is built) is signed months before its first instalment falls due.
+   * The schedule is anchored on `startDate` — the first instalment — while this
+   * records the commitment itself.
+   */
+  signatureDate: string | null;
+  /** First instalment. What the amortization schedule is anchored on. */
   startDate: string | null;
   endDate: string | null;
   accountId: number | null;
@@ -121,6 +132,56 @@ export class Asset extends AggregateRoot<AssetRow> {
       this.row.interestRateBps != null &&
       this.row.termMonths != null
     );
+  }
+
+  /** A dated schedule exists, so the balance can be derived rather than typed. */
+  get hasDerivableBalance(): boolean {
+    return this.hasLoanTerms && this.row.startDate != null;
+  }
+
+  /**
+   * Whole months between signing and the first instalment — the différé.
+   *
+   * Null when either date is missing or they fall in the same month, which is
+   * the ordinary case: most loans start repaying straight away and have no
+   * deferral worth naming.
+   */
+  get deferralMonths(): number | null {
+    return deferralMonthsBetween(this.row.signatureDate, this.row.startDate);
+  }
+
+  /**
+   * Capital still owed on `today`.
+   *
+   * For a loan with terms and a start date this is a fact, not an opinion: the
+   * schedule says exactly how much principal each instalment has retired. Asking
+   * the user to keep a `value_cents` figure up to date by hand only produces a
+   * number that is wrong from the month after it is typed, and silently drags
+   * net worth with it.
+   *
+   * Everything else — a debt with no terms, a loan whose start is unknown —
+   * falls back to the stored value, because there is nothing to derive from.
+   */
+  outstandingCents(today: string): number {
+    if (!this.hasDerivableBalance) return this.row.valueCents;
+    const summary = summarizeLoan(
+      {
+        principalCents: this.row.principalCents as number,
+        interestRateBps: this.row.interestRateBps as number,
+        termMonths: this.row.termMonths as number,
+        monthlyPaymentCents: this.row.monthlyPaymentCents,
+        insuranceMonthlyCents: this.row.insuranceMonthlyCents,
+        feesCents: this.row.feesCents,
+        startDate: this.row.startDate,
+      },
+      today,
+    );
+    return summary?.progress?.principalRemainingCents ?? this.row.valueCents;
+  }
+
+  /** The row as it should be read: balance derived where one can be. */
+  toRowAt(today: string): AssetRow {
+    return { ...this.row, valueCents: this.outstandingCents(today) };
   }
 
   /**

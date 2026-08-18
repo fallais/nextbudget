@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Target } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CategoryBadge } from "@/components/categories/category-badge";
 import { formatCents } from "@shared/format";
@@ -7,21 +7,11 @@ import { cn } from "@shared/utils";
 import type { CategoryBudgetStatus } from "@application/budgets";
 
 export function BudgetsPanel({ statuses }: { statuses: CategoryBudgetStatus[] }) {
-  if (statuses.length === 0) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Budgets du mois</CardTitle>
-          <CardDescription>
-            Aucun budget défini.{" "}
-            <Link href="/budgets" className="text-primary hover:underline">
-              En définir un →
-            </Link>
-          </CardDescription>
-        </CardHeader>
-      </Card>
-    );
-  }
+  // Nothing budgeted yet ⇒ no card at all. An empty panel prompting you to set
+  // one up is noise on a dashboard you look at every day; the Budgets page in
+  // the sidebar is where that invitation belongs. The parent widens the
+  // neighbouring panel to fill the row.
+  if (statuses.length === 0) return null;
 
   const top = statuses.slice(0, 5);
 

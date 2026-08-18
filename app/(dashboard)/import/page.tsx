@@ -1,6 +1,4 @@
-import { getDataSource } from "@infrastructure/db/client";
-import { ImportEntity } from "@infrastructure/db/schemas";
-import { listAllAccounts } from "@application/queries";
+import { listAllAccounts, listRecentImports } from "@application/queries";
 import { ImportButton } from "@/components/import/import-button";
 import { ImportsHistory } from "@/components/import/imports-history";
 
@@ -8,11 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function ImportPage() {
-  const ds = await getDataSource();
-  const [history, accounts] = await Promise.all([
-    ds.getRepository(ImportEntity).find({ order: { startedAt: "DESC" }, take: 50 }),
-    listAllAccounts(),
-  ]);
+  const [history, accounts] = await Promise.all([listRecentImports(), listAllAccounts()]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">

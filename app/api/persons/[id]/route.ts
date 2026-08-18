@@ -1,49 +1,34 @@
-import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { PersonEntity, ContributionEntity } from "@infrastructure/db/schemas";
-import { isUserLinkTaken } from "@application/household";
+import { persons } from "@infrastructure/persistence/repositories";
+import { deletePerson, isUserLinkTaken } from "@application/household";
 import { personInputSchema, patchSchema } from "@application/contracts/validation";
+import { badRequest, conflict, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const personId = Number.parseInt(id, 10);
-  if (!Number.isFinite(personId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const body = await request.json();
-  const parsed = patchSchema(personInputSchema).safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const personId = parseId((await context.params).id);
+  if (personId === null) return badRequest("ID invalide");
+
+  const parsed = patchSchema(personInputSchema).safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
   if (parsed.data.userId != null && (await isUserLinkTaken(parsed.data.userId, personId))) {
-    return NextResponse.json(
-      { error: "Ce compte utilisateur est déjà lié à une autre personne" },
-      { status: 409 },
-    );
+    return conflict("Ce compte utilisateur est déjà lié à une autre personne");
   }
-  const ds = await getDataSource();
-  await ds.getRepository(PersonEntity).update(personId, parsed.data);
-  return NextResponse.json({ ok: true });
+
+  return handle(async () => {
+    const updated = await persons.update(personId, parsed.data);
+    return updated ? ok() : notFound("Personne introuvable");
+  });
 }
 
-export async function DELETE(
-  _request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const personId = Number.parseInt(id, 10);
-  if (!Number.isFinite(personId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  // Preserve the old FK cascade: contributions belong to a person.
-  await ds.getRepository(ContributionEntity).delete({ personId });
-  await ds.getRepository(PersonEntity).delete(personId);
-  return NextResponse.json({ ok: true });
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const personId = parseId((await context.params).id);
+  if (personId === null) return badRequest("ID invalide");
+
+  return handle(async () => {
+    const deleted = await deletePerson(personId);
+    return deleted ? ok() : notFound("Personne introuvable");
+  });
 }

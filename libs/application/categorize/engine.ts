@@ -1,6 +1,6 @@
 import { IsNull } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { RuleEntity, TransactionEntity, CategoryEntity, ContributionEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { RuleEntity, TransactionEntity, CategoryEntity, ContributionEntity } from "@infrastructure/persistence/schemas";
 import {
   compileRule,
   compileContributionsAsRules,

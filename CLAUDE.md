@@ -1,4 +1,4 @@
-# BanqueJS
+# NextBudget
 
 Local-first personal finance dashboard. Next.js 15 (App Router) + PostgreSQL (TypeORM).
 UI text is **French**, code/identifiers are **English**.
@@ -26,25 +26,50 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
   composite `transactions_account_hash_uniq (account_id, hash)` index: two people
   can genuinely pay the same merchant the same amount on the same day from
   different accounts. Ingest treats Postgres error `23505` as a duplicate.
-- DB connection is `DATABASE_URL` (e.g. `postgres://banquejs:banquejs@localhost:5432/banquejs`).
+- DB connection is `DATABASE_URL` (e.g. `postgres://nextbudget:nextbudget@localhost:5432/nextbudget`).
 - Import is a browser upload: the Import page POSTs files to `/api/ingest` as
   `multipart/form-data`; parsed in-memory. Accepted: `.csv`, `.tsv`, `.txt`.
 
 ## Data layer (TypeORM)
 - `libs/domain/entities/` — one file per entity: the class (invariants, behaviour)
-  and its `*Row` type. `libs/infrastructure/db/schemas.ts` holds the matching
-  `EntitySchema` definitions (no decorators).
-- `libs/infrastructure/db/client.ts` — lazy, process-global `DataSource` (`getDataSource()`, `repo()`).
-  `synchronize: true` (no migrations); the schema is derived from the entities.
-  The DataSource initializes on first use, never at import → `next build` needs no DB.
-- `libs/infrastructure/db/mappers/` — row ⇄ entity. Reads `reconstitute`, writes
-  go through `create()` so invalid data cannot reach a table.
+  and its `*Row` type. `libs/infrastructure/persistence/schemas/` holds the matching
+  `EntitySchema` definitions (no decorators), one file per table plus shared
+  column fragments in `columns.ts`; `ALL_ENTITIES` in its `index.ts` is what the
+  DataSource is given.
+- `libs/infrastructure/persistence/client.ts` — lazy, process-global `DataSource`
+  (`getDataSource()`, `repo()`). `synchronize: true` (no migrations); the schema is
+  derived from the entities. The DataSource initializes on first use, never at
+  import → `next build` needs no DB.
+- **All persistence goes through a repository.** `libs/domain/repositories/`
+  declares the ports (interfaces only, no TypeORM);
+  `libs/infrastructure/persistence/repositories/` implements them, and its
+  `index.ts` is the composition root exporting one instance per table
+  (`accounts`, `transactions`, …). Nothing in `app/` may call `repo()`,
+  `getDataSource()` or `createQueryBuilder()` — that is the rule the layering
+  rests on.
+- One generic `TypeOrmRepository` serves every table. Reads use `reconstitute`
+  (a stored row was valid when written); **writes go through the entity's
+  `create()`**, and `update()` re-validates the *merged* row, so a partial patch
+  cannot leave a row its invariants would reject. Tables needing more than CRUD
+  extend the port (`TransactionRepository`, `AssetRepository`, `UserRepository`…).
+- Multi-table writes belong in the repository that owns the aggregate and run in
+  `ds.transaction` — see `asset-repository.ts` (asset + ownership shares) and
+  `user-repository.ts` (delete + detach references).
 - Aggregates use the query builder with `getRawMany()`/`getRawOne()`; wrap numeric
   results in `Number(...)`. Month buckets use `substr(date,1,7)` (date is ISO text).
 - `typeorm`/`pg` are in `serverExternalPackages` (next.config.ts) so webpack does
   not bundle their optional drivers.
 - No DB-level FK constraints (scalar FK columns); delete cascades that mattered are
-  reproduced in app code (see category/person DELETE routes).
+  reproduced in the repositories and in use cases (`@application/categories`,
+  `@application/household`, `@application/users`).
+
+## Route handlers
+- Routes parse input, call a use case or repository, and map the result to HTTP.
+  They hold no queries.
+- `app/api/_lib/respond.ts` is the edge: `parseId`, `badRequest`/`notFound`/
+  `conflict`/`ok`, and `handle()`, which maps a thrown `DomainError` to 400 and a
+  Postgres unique violation to 409. Wrap write handlers in `handle()` so an
+  invariant surfaces as its French message, not a 500.
 
 ## Layout — layered, dependencies point inward
 ```
@@ -52,7 +77,7 @@ app/            pages + route handlers   →  may use every layer
 components/     React                    →  @domain (types), @shared
 libs/domain/    entities, VOs, services  →  nothing. No I/O, no imports outward
 libs/application/  use cases             →  @domain, @infrastructure
-libs/infrastructure/  DB, auth, parsers  →  @domain
+libs/infrastructure/  persistence, auth, parsers  →  @domain
 libs/shared/    format, cn, icons        →  nothing
 ```
 Aliases: `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*`
@@ -73,8 +98,13 @@ Aliases: `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*`
   `normalized-description`.
 - `libs/domain/services/` — `amortization` (loan cost + schedule),
   `categorization` (rule compiling and matching).
-- `libs/infrastructure/db/` — `client` (DataSource), `schemas` (EntitySchemas),
-  `mappers` (row ⇄ entity), `seed`, `errors`.
+- `libs/domain/repositories/` — persistence **ports**: interfaces only, no TypeORM,
+  so the dependency points inward and a use case can be tested against a fake.
+- `libs/infrastructure/persistence/` — `client` (DataSource), `schemas/`
+  (EntitySchemas, one per table), `repositories/` (port implementations +
+  composition root), `errors`.
+- `scripts/` — standalone `tsx` entrypoints: `db-migrate.ts` (`npm run db:migrate`,
+  schema sync + additive seed) and `auth-reset.ts` (break-glass).
 - `app/(dashboard)/` — pages (sidebar shell); the layout guards auth via
   `getCurrentUser()`. `app/api/` — route handlers.
 - `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,accounts,settings,ui}/`
@@ -138,7 +168,7 @@ signature-based). Reuse `parseAmountToCents` and `normalizeDescription`.
 ## Deployment (Docker + GHCR)
 
 CI (`.github/workflows/docker.yml`) builds and pushes the image to
-`ghcr.io/${{ github.repository }}` (→ `ghcr.io/banquejs/banquejs`) on every push
+`ghcr.io/${{ github.repository }}` (→ `ghcr.io/fallais/nextbudget`) on every push
 to `main` and any `v*` tag.
 
 **Self-host with Docker Compose** (app + Postgres — see `docker-compose.yaml`):
@@ -156,15 +186,15 @@ docker compose exec app npm run db:migrate    # if entities changed (safe; idemp
 
 **Backup / restore** (standard Postgres):
 ```bash
-docker compose exec db pg_dump -U banquejs banquejs > banquejs.sql
-cat banquejs.sql | docker compose exec -T db psql -U banquejs banquejs
+docker compose exec db pg_dump -U nextbudget nextbudget > nextbudget.sql
+cat nextbudget.sql | docker compose exec -T db psql -U nextbudget nextbudget
 ```
 
 ## DB investigation — no throwaway scripts
 Do **not** create `scripts/foo.ts` for one-shot DB inspection. Use `psql`:
 
 ```bash
-docker compose exec db psql -U banquejs banquejs -c \
+docker compose exec db psql -U nextbudget nextbudget -c \
   "SELECT date, description, amount_cents FROM transactions WHERE date >= '2026-05-01' AND amount_cents > 0 ORDER BY date LIMIT 20;"
 ```
 

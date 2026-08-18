@@ -1,46 +1,30 @@
-import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { CategoryEntity, RuleEntity, BudgetEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { categories } from "@infrastructure/persistence/repositories";
+import { deleteCategory } from "@application/categories";
 import { categoryInputSchema, patchSchema } from "@application/contracts/validation";
+import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const catId = Number.parseInt(id, 10);
-  if (!Number.isFinite(catId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const body = await request.json();
-  const parsed = patchSchema(categoryInputSchema).safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  await ds.getRepository(CategoryEntity).update(catId, parsed.data);
-  return NextResponse.json({ ok: true });
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const catId = parseId((await context.params).id);
+  if (catId === null) return badRequest("ID invalide");
+
+  const parsed = patchSchema(categoryInputSchema).safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const updated = await categories.update(catId, parsed.data);
+    return updated ? ok() : notFound("Catégorie introuvable");
+  }, "Une catégorie avec ce nom existe déjà");
 }
 
-export async function DELETE(
-  _request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const catId = Number.parseInt(id, 10);
-  if (!Number.isFinite(catId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  // Preserve the old FK ON DELETE behaviour (no DB-level FKs with TypeORM here):
-  // rules + budgets cascade; transactions + fixed_expenses set null.
-  await ds.getRepository(RuleEntity).delete({ categoryId: catId });
-  await ds.getRepository(BudgetEntity).delete({ categoryId: catId });
-  await ds.getRepository(TransactionEntity).update({ categoryId: catId }, { categoryId: null });
-  await ds.getRepository(FixedExpenseEntity).update({ categoryId: catId }, { categoryId: null });
-  await ds.getRepository(CategoryEntity).delete(catId);
-  return NextResponse.json({ ok: true });
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const catId = parseId((await context.params).id);
+  if (catId === null) return badRequest("ID invalide");
+
+  return handle(async () => {
+    const deleted = await deleteCategory(catId);
+    return deleted ? ok() : notFound("Catégorie introuvable");
+  });
 }

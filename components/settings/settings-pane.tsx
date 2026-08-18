@@ -2,16 +2,17 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { Lock, Users2, User, ArrowRight, Pencil } from "lucide-react";
+import { Lock, Users2, User, Pencil } from "lucide-react";
 import { toast } from "sonner";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@shared/utils";
 import { EnableAuthDialog } from "@/components/auth/enable-auth-dialog";
+import { AccountsPane, type AccountListItem } from "@/components/accounts/accounts-pane";
 import { HouseholdWizard } from "./household-wizard";
 import type { HouseholdMode } from "@application/settings";
 
@@ -27,20 +28,19 @@ export function SettingsPane({
   household,
   authMode,
   members,
-  accountCount,
-  jointAccountCount,
+  accounts,
   isOwner,
   me,
 }: {
   household: HouseholdMode;
   authMode: "open" | "enforced";
   members: SettingsMember[];
-  accountCount: number;
-  jointAccountCount: number;
+  accounts: AccountListItem[];
   isOwner: boolean;
   me: SettingsMember | null;
 }) {
   const router = useRouter();
+  const jointAccountCount = accounts.filter((a) => a.kind === "joint").length;
   const [authOpen, setAuthOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -68,7 +68,14 @@ export function SettingsPane({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <Tabs defaultValue="foyer" className="gap-6">
+      <TabsList>
+        <TabsTrigger value="foyer">Foyer</TabsTrigger>
+        <TabsTrigger value="comptes">Comptes</TabsTrigger>
+        <TabsTrigger value="confidentialite">Confidentialité</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="foyer" className="flex flex-col gap-8">
       <section className="space-y-3">
         <div>
           <h3 className="text-lg font-semibold">Foyer</h3>
@@ -78,7 +85,9 @@ export function SettingsPane({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {/* Capped: two cards holding a title and one line of text look stretched
+            spread across a wide screen. The lists below do want the width. */}
+        <div className="grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">
           <ModeCard
             icon={<User className="size-4" />}
             title="Solo"
@@ -117,7 +126,20 @@ export function SettingsPane({
           </CardContent>
         </Card>
       </section>
+      </TabsContent>
 
+      <TabsContent value="comptes" className="flex flex-col gap-3">
+        <div>
+          <h3 className="text-lg font-semibold">Comptes</h3>
+          <p className="text-sm text-muted-foreground">
+            Vos comptes bancaires. Chaque personne peut avoir le sien, et le
+            foyer un compte commun sur lequel arrivent les apports.
+          </p>
+        </div>
+        <AccountsPane accounts={accounts} />
+      </TabsContent>
+
+      <TabsContent value="confidentialite" className="flex flex-col gap-8">
       <section className="space-y-3">
         <div>
           <h3 className="text-lg font-semibold">Confidentialité</h3>
@@ -153,26 +175,10 @@ export function SettingsPane({
           </p>
         )}
       </section>
+      </TabsContent>
 
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-lg font-semibold">Comptes</h3>
-          <p className="text-sm text-muted-foreground">
-            {accountCount} compte{accountCount > 1 ? "s" : ""}
-            {jointAccountCount > 0
-              ? `, dont ${jointAccountCount} commun${jointAccountCount > 1 ? "s" : ""}.`
-              : ", aucun compte commun."}
-          </p>
-        </div>
-        <Link
-          href="/comptes"
-          className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
-        >
-          Gérer les comptes
-          <ArrowRight className="ml-2 size-4" />
-        </Link>
-      </section>
-
+      {/* Dialogs sit outside the panels: unmounting one with a tab switch would
+          close it mid-edit. */}
       <EnableAuthDialog open={authOpen} onOpenChange={setAuthOpen} />
       <HouseholdWizard
         open={wizardOpen}
@@ -181,7 +187,7 @@ export function SettingsPane({
         hasJointAccount={jointAccountCount > 0}
         me={me}
       />
-    </div>
+    </Tabs>
   );
 }
 

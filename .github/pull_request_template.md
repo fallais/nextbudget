@@ -1,5 +1,5 @@
 <!--
-Thanks for contributing to BanqueJS!
+Thanks for contributing to NextBudget!
 ⚠️ Make sure no real bank/transaction data or .db files are included in this PR.
 -->
 

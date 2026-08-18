@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { monthlyPaymentCents, amortizationSchedule, summarizeLoan } from "./amortization";
+import {
+  monthlyPaymentCents,
+  amortizationSchedule,
+  summarizeLoan,
+  insuranceMonthlyFrom,
+  deferralMonthsBetween,
+} from "./amortization";
 
 describe("monthlyPaymentCents", () => {
   it("computes a standard fixed-rate payment", () => {
@@ -102,5 +108,51 @@ describe("summarizeLoan", () => {
   it("returns null when the loan is not described well enough to compute", () => {
     expect(summarizeLoan({ principalCents: 0, interestRateBps: 190, termMonths: 240 })).toBeNull();
     expect(summarizeLoan({ principalCents: 1000, interestRateBps: 190, termMonths: 0 })).toBeNull();
+  });
+});
+
+describe("insuranceMonthlyFrom", () => {
+  it("sums the per-borrower premiums when they are stated", () => {
+    // A couple's mortgage: different ages, different quotités, so the two
+    // premiums genuinely differ.
+    expect(insuranceMonthlyFrom(null, [18_40, 24_60])).toBe(43_00);
+  });
+
+  it("ignores the loan-level figure once borrowers have their own", () => {
+    // Otherwise the whole-loan premium would be added on top of the parts and
+    // double the insurance in the cost.
+    expect(insuranceMonthlyFrom(99_00, [18_40, 24_60])).toBe(43_00);
+  });
+
+  it("counts only the borrowers who have a premium recorded", () => {
+    expect(insuranceMonthlyFrom(99_00, [18_40, null])).toBe(18_40);
+  });
+
+  it("falls back to the loan-level figure for a solo borrower", () => {
+    expect(insuranceMonthlyFrom(31_00, [])).toBe(31_00);
+    expect(insuranceMonthlyFrom(31_00, [null, null])).toBe(31_00);
+  });
+
+  it("is zero when nothing is known", () => {
+    expect(insuranceMonthlyFrom(null, [])).toBe(0);
+  });
+});
+
+describe("deferralMonthsBetween", () => {
+  it("counts the months of a crédit différé", () => {
+    expect(deferralMonthsBetween("2024-03-15", "2026-01-05")).toBe(22);
+  });
+
+  it("is null when repayment starts in the signature month", () => {
+    expect(deferralMonthsBetween("2024-03-01", "2024-03-28")).toBeNull();
+  });
+
+  it("is null when a date is missing — nothing to measure between", () => {
+    expect(deferralMonthsBetween(null, "2026-01-05")).toBeNull();
+    expect(deferralMonthsBetween("2024-03-15", null)).toBeNull();
+  });
+
+  it("refuses a first instalment that precedes the signature", () => {
+    expect(deferralMonthsBetween("2026-01-05", "2024-03-15")).toBeNull();
   });
 });

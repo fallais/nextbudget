@@ -1,8 +1,16 @@
 /**
- * The BanqueJS mark: a neoclassical bank façade — pediment, three columns,
- * plinth. Inline rather than an <img> so it inherits `currentColor` and works
- * in both themes; `public/logo.svg` is the fixed-colour lockup for README and
+ * The NextBudget mark: a tirelire — piggy bank body, snout, ear, trotters, and
+ * a coin going into the slot.
+ *
+ * Inline rather than an <img> so it inherits `currentColor` and works in both
+ * themes; `public/logo.svg` is the fixed-colour lockup for the README and
  * anywhere outside the app.
+ *
+ * Drawn on the same 302×302 grid the old mark used, so every existing size
+ * class still frames it correctly. The slot is a hole carved out of the body
+ * with `evenodd` rather than a shape painted over it — painting would need a
+ * background colour, and the mark has to sit on the dark sidebar and a light
+ * page alike.
  */
 export function LogoMark({ className }: { className?: string }) {
   return (
@@ -13,20 +21,22 @@ export function LogoMark({ className }: { className?: string }) {
       aria-hidden="true"
       focusable="false"
     >
+      {/* The coin, dropping in. */}
+      <circle cx="145" cy="40" r="26" />
+      {/* Ear. */}
+      <path d="M92 106 L136 74 L142 118 Z" />
+      {/* Trotters. */}
+      <rect x="64" y="230" width="36" height="42" rx="12" />
+      <rect x="190" y="230" width="36" height="42" rx="12" />
+      {/* Snout. */}
+      <ellipse cx="248" cy="174" rx="32" ry="27" />
+      {/* Body, with the coin slot carved out. */}
       <path
-        d="M151 6 L292 92 H10 Z"
-        stroke="currentColor"
-        strokeWidth="12"
-        strokeLinejoin="round"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M37 172a108 80 0 1 0 216 0a108 80 0 1 0-216 0Z
+           M115 124h60a9 9 0 0 1 0 18h-60a9 9 0 0 1 0-18Z"
       />
-      {[25, 122, 219].map((x) => (
-        <g key={x}>
-          <rect x={x} y="120" width="58" height="18" rx="6" />
-          <rect x={x + 12} y="134" width="34" height="114" rx="4" />
-          <rect x={x} y="242" width="58" height="18" rx="6" />
-        </g>
-      ))}
-      <rect x="0" y="280" width="302" height="22" rx="11" />
     </svg>
   );
 }
@@ -34,14 +44,14 @@ export function LogoMark({ className }: { className?: string }) {
 /**
  * The full lockup: mark left, wordmark right — the same arrangement as
  * `public/logo.svg`, but built from theme tokens so it stays legible on the
- * dark sidebar, where the original navy would disappear.
+ * dark sidebar, where the fixed navy would disappear.
  */
 export function LogoLockup({ className }: { className?: string }) {
   return (
     <span className={`flex items-center gap-2 ${className ?? ""}`}>
       <LogoMark className="size-6 shrink-0 text-brand" />
       <span className="text-[17px] font-bold tracking-tight text-brand">
-        Banque<span className="text-brand-accent">JS</span>
+        Next<span className="text-brand-accent">Budget</span>
       </span>
     </span>
   );

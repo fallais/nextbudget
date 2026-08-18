@@ -1,11 +1,11 @@
 import "server-only";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { getDataSource } from "@infrastructure/db/client";
-import { SessionEntity, UserEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { SessionEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import type { UserRow } from "@domain/entities";
 
-const COOKIE = "banquejs_session";
+const COOKIE = "nextbudget_session";
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 /** Create a session for a user and set the session cookie (route handlers only). */

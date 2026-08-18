@@ -1,7 +1,7 @@
 import "server-only";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, formatISO } from "date-fns";
-import { getDataSource } from "@infrastructure/db/client";
-import { BudgetEntity, CategoryEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { BudgetEntity, CategoryEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/persistence/schemas";
 import type { CategoryRow } from "@domain/entities";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 

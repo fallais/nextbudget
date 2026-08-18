@@ -1,28 +1,30 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { RuleEntity } from "@infrastructure/db/schemas";
+import { rules } from "@infrastructure/persistence/repositories";
 import { ruleInputSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
+import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const ds = await getDataSource();
-  const rows = await ds.getRepository(RuleEntity).find({ order: { priority: "ASC" } });
-  return NextResponse.json(rows);
+  const all = await rules.findAll();
+  return NextResponse.json(all.map((r) => r.toRow()));
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = ruleInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  const repo = ds.getRepository(RuleEntity);
-  const created = await repo.save(
-    repo.create({ ...parsed.data, ownerId: (await getCurrentUser())?.id ?? null }),
-  );
-  return NextResponse.json(created, { status: 201 });
+  const parsed = ruleInputSchema.safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const created = await rules.create({
+      ...parsed.data,
+      ownerId: (await getCurrentUser())?.id ?? null,
+      // Rules are shared config, not per-person data — the scope helpers never
+      // filter them. Previously this rode on the column default; the entity
+      // requires it, so it is stated.
+      visibility: "shared",
+    });
+    return NextResponse.json(created.toRow(), { status: 201 });
+  });
 }

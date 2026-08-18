@@ -1,11 +1,31 @@
 import "server-only";
-import { In, type EntityManager } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, PersonEntity } from "@infrastructure/db/schemas";
+import { In } from "typeorm";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { AssetEntity, AssetOwnerEntity, AssetValuationEntity, PersonEntity } from "@infrastructure/persistence/schemas";
 import type { AssetRow, AssetOwnerRow, PersonRow } from "@domain/entities";
-import { toAsset } from "@infrastructure/db/mappers";
+import { Asset } from "@domain/entities";
 import { getScope, applyOwnedScope } from "@application/scope";
 import { Ownership, Share, type OwnerShareRow } from "@domain/value-objects/share";
+
+/** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
+function todayIso(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Replace the stored balance of every loan with what its schedule says is
+ * still owed today.
+ *
+ * Done here, once, rather than in each consumer: net worth, the patrimoine
+ * list and the credits page all read through these functions, so deriving at
+ * the boundary keeps them consistent by construction. `value_cents` stays in
+ * the table as the figure for debts that have no schedule to derive from.
+ */
+function withDerivedBalances(rows: AssetRow[]): AssetRow[] {
+  const today = todayIso();
+  return rows.map((row) => Asset.reconstitute(row).toRowAt(today));
+}
 
 export async function listAssets(): Promise<AssetRow[]> {
   const ds = await getDataSource();
@@ -15,14 +35,15 @@ export async function listAssets(): Promise<AssetRow[]> {
     .orderBy("a.kind", "ASC")
     .addOrderBy("a.name", "ASC");
   applyOwnedScope(qb, "a", await getScope());
-  return qb.getMany();
+  return withDerivedBalances(await qb.getMany());
 }
 
 export async function getVisibleAsset(id: number): Promise<AssetRow | null> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.id = :id", { id });
   applyOwnedScope(qb, "a", await getScope());
-  return qb.getOne();
+  const row = await qb.getOne();
+  return row ? withDerivedBalances([row])[0] : null;
 }
 
 export type NetWorth = {
@@ -36,13 +57,13 @@ export async function getNetWorth(): Promise<NetWorth> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.is_active = true");
   applyOwnedScope(qb, "a", await getScope());
-  const assets = await qb.getMany();
+  const assets = withDerivedBalances(await qb.getMany());
 
   let assetsCents = 0;
   let liabilitiesCents = 0;
   const byTypeMap = new Map<string, number>();
   for (const row of assets) {
-    const asset = toAsset(row);
+    const asset = Asset.reconstitute(row);
     if (asset.kind === "asset") assetsCents += asset.value.cents;
     else liabilitiesCents += asset.value.cents;
     const key = `${asset.kind}:${asset.type}`;
@@ -100,27 +121,6 @@ export function effectiveOwners(
   return fallback ? Ownership.sole(fallback.id).toRows() : [];
 }
 
-/**
- * Replace an asset's ownership rows. Caller validates the shares; this only
- * checks the persons exist, since a share pointing at a deleted person would
- * quietly vanish from every personal total.
- */
-export async function replaceAssetOwners(
-  manager: EntityManager,
-  assetId: number,
-  owners: OwnerShareRow[],
-): Promise<{ error: string } | null> {
-  const personIds = owners.map((o) => o.personId);
-  const found = await manager.getRepository(PersonEntity).findBy({ id: In(personIds) });
-  if (found.length !== personIds.length) {
-    return { error: "Personne introuvable." };
-  }
-  const repo = manager.getRepository(AssetOwnerEntity);
-  await repo.delete({ assetId });
-  await repo.save(owners.map((o) => repo.create({ assetId, ...o })));
-  return null;
-}
-
 export type PersonNetWorth = {
   personId: number;
   personName: string;
@@ -148,7 +148,7 @@ export async function getNetWorthByPerson(): Promise<NetWorthBreakdown> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.is_active = true");
   applyOwnedScope(qb, "a", await getScope());
-  const assets = await qb.getMany();
+  const assets = withDerivedBalances(await qb.getMany());
 
   const [owners, persons] = await Promise.all([
     listAssetOwners(assets.map((a) => a.id)),
@@ -166,7 +166,7 @@ export async function getNetWorthByPerson(): Promise<NetWorthBreakdown> {
   for (const row of assets) {
     // Through the entity: the sign of a liability and the size of a slice are
     // domain rules, not query-shaping details.
-    const asset = toAsset(row);
+    const asset = Asset.reconstitute(row);
     const shares = effectiveOwners(row, owners.get(row.id), personByUserId);
     if (shares.length === 0) {
       unattributedNetCents += asset.netWorthContribution.cents;

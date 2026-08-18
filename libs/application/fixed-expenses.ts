@@ -1,7 +1,7 @@
 import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
-import { getDataSource } from "@infrastructure/db/client";
-import { FixedExpenseEntity, CategoryEntity, TransactionEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { FixedExpenseEntity, CategoryEntity, TransactionEntity } from "@infrastructure/persistence/schemas";
 import type { FixedExpenseRow, CategoryRow, TransactionRow } from "@domain/entities";
 import { compileRule } from "@domain/services/categorization";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
@@ -151,4 +151,19 @@ export function summarizeFixedExpenses(
     summary.paidTotalCents += s.paidAmountCents;
   }
   return summary;
+}
+
+/**
+ * Fixed expenses visible to the current scope, in the order the UI shows them:
+ * by due day, then name. A no-op filter in open mode.
+ */
+export async function listFixedExpenses(): Promise<FixedExpenseRow[]> {
+  const ds = await getDataSource();
+  const qb = ds
+    .getRepository(FixedExpenseEntity)
+    .createQueryBuilder("f")
+    .orderBy("f.due_day", "ASC")
+    .addOrderBy("f.name", "ASC");
+  applyOwnedScope(qb, "f", await getScope());
+  return qb.getMany();
 }

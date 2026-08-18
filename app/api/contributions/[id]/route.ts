@@ -1,40 +1,29 @@
-import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { ContributionEntity } from "@infrastructure/db/schemas";
+import { contributions } from "@infrastructure/persistence/repositories";
 import { contributionInputSchema, patchSchema } from "@application/contracts/validation";
+import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function PATCH(
-  request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const cId = Number.parseInt(id, 10);
-  if (!Number.isFinite(cId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const body = await request.json();
-  const parsed = patchSchema(contributionInputSchema).safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  await ds.getRepository(ContributionEntity).update(cId, parsed.data);
-  return NextResponse.json({ ok: true });
+export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
+  const contributionId = parseId((await context.params).id);
+  if (contributionId === null) return badRequest("ID invalide");
+
+  const parsed = patchSchema(contributionInputSchema).safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const updated = await contributions.update(contributionId, parsed.data);
+    return updated ? ok() : notFound("Apport introuvable");
+  });
 }
 
-export async function DELETE(
-  _request: Request,
-  context: { params: Promise<{ id: string }> },
-) {
-  const { id } = await context.params;
-  const cId = Number.parseInt(id, 10);
-  if (!Number.isFinite(cId)) {
-    return NextResponse.json({ error: "ID invalide" }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  await ds.getRepository(ContributionEntity).delete(cId);
-  return NextResponse.json({ ok: true });
+export async function DELETE(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const contributionId = parseId((await context.params).id);
+  if (contributionId === null) return badRequest("ID invalide");
+
+  return handle(async () => {
+    const deleted = await contributions.delete(contributionId);
+    return deleted ? ok() : notFound("Apport introuvable");
+  });
 }

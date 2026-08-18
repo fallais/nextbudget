@@ -5,8 +5,8 @@
  * side) and its `*Row` type — the persisted shape, which is also the DTO the
  * UI receives, since class instances cannot cross into a Client Component.
  *
- * The TypeORM mapping lives in `@infrastructure/db/schemas` and the
- * row ⇄ entity translation in `@infrastructure/db/mappers`, so nothing here
+ * The TypeORM mapping lives in `@infrastructure/persistence/schemas` and the
+ * row ⇄ entity translation in `@infrastructure/persistence/repositories`, so nothing here
  * knows how a row is stored.
  */
 

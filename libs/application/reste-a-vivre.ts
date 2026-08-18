@@ -1,7 +1,7 @@
 import "server-only";
 import { startOfMonth, endOfMonth, subMonths, formatISO } from "date-fns";
-import { getDataSource } from "@infrastructure/db/client";
-import { TransactionEntity, CategoryEntity, FixedExpenseEntity, ContributionEntity, BudgetEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { TransactionEntity, CategoryEntity, FixedExpenseEntity, ContributionEntity, BudgetEntity } from "@infrastructure/persistence/schemas";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type ResteAVivreMode = "contributions" | "history";

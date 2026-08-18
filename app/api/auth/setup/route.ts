@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { UserEntity, SettingEntity } from "@infrastructure/db/schemas";
 import { enableAuthSchema } from "@application/contracts/validation";
-import { getCurrentUser, getAuthMode, hashPassword, createSession } from "@application/auth";
+import {
+  createSession,
+  enableEnforcedAuth,
+  getAuthMode,
+  getCurrentUser,
+  hashPassword,
+} from "@application/auth";
+import { badRequest, conflict, handle, ok } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,23 +23,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Réservé au propriétaire" }, { status: 403 });
   }
   if ((await getAuthMode()) === "enforced") {
-    return NextResponse.json({ error: "Authentification déjà activée" }, { status: 409 });
+    return conflict("Authentification déjà activée");
   }
 
-  const body = await request.json();
-  const parsed = enableAuthSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
+  const parsed = enableAuthSchema.safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
 
-  const ds = await getDataSource();
-  await ds.getRepository(UserEntity).update(user.id, {
-    passwordHash: await hashPassword(parsed.data.password),
-    ...(parsed.data.email ? { email: parsed.data.email } : {}),
+  return handle(async () => {
+    await enableEnforcedAuth(
+      user.id,
+      await hashPassword(parsed.data.password),
+      parsed.data.email ?? undefined,
+    );
+    await createSession(user.id);
+    return ok();
   });
-  // settings.key is the PK → save upserts.
-  await ds.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
-
-  await createSession(user.id);
-  return NextResponse.json({ ok: true });
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { AssetValuationEntity } from "@infrastructure/db/schemas";
+import { assets } from "@infrastructure/persistence/repositories";
 import { listAssets } from "@application/assets";
+import { handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,14 +11,13 @@ export const dynamic = "force-dynamic";
  * dated today. Feeds the net-worth-over-time chart.
  */
 export async function POST() {
-  const assets = (await listAssets()).filter((a) => a.isActive);
-  if (assets.length === 0) {
-    return NextResponse.json({ ok: true, recorded: 0 });
-  }
-  const ds = await getDataSource();
-  const date = new Date().toISOString().slice(0, 10);
-  await ds.getRepository(AssetValuationEntity).insert(
-    assets.map((a) => ({ assetId: a.id, date, valueCents: a.valueCents })),
-  );
-  return NextResponse.json({ ok: true, recorded: assets.length });
+  return handle(async () => {
+    const active = (await listAssets()).filter((a) => a.isActive);
+    const date = new Date().toISOString().slice(0, 10);
+
+    await assets.recordValuations(
+      active.map((a) => ({ assetId: a.id, date, valueCents: a.valueCents })),
+    );
+    return NextResponse.json({ ok: true, recorded: active.length });
+  });
 }

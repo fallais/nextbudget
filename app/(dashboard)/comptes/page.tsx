@@ -1,41 +1,13 @@
-import { getDataSource } from "@infrastructure/db/client";
-import { TransactionEntity } from "@infrastructure/db/schemas";
-import { listAllAccounts } from "@application/queries";
-import { AccountsPane, type AccountListItem } from "@/components/accounts/accounts-pane";
+import { redirect } from "next/navigation";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
-
-export default async function ComptesPage() {
-  const accounts = await listAllAccounts();
-
-  // One grouped count rather than a query per account.
-  const ds = await getDataSource();
-  const counts = await ds
-    .getRepository(TransactionEntity)
-    .createQueryBuilder("t")
-    .select("t.account_id", "accountId")
-    .addSelect("COUNT(*)", "count")
-    .groupBy("t.account_id")
-    .getRawMany<{ accountId: number; count: string }>();
-  const byAccount = new Map(counts.map((c) => [Number(c.accountId), Number(c.count)]));
-
-  const rows: AccountListItem[] = accounts.map((a) => ({
-    ...a,
-    txCount: byAccount.get(a.id) ?? 0,
-  }));
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Comptes</h2>
-        <p className="text-sm text-muted-foreground">
-          Vos comptes bancaires. Chaque personne peut avoir le sien, et le foyer
-          un compte commun sur lequel arrivent les apports.
-        </p>
-      </div>
-
-      <AccountsPane accounts={rows} />
-    </div>
-  );
+/**
+ * Accounts moved into Paramètres — creating and naming a bank account is
+ * configuration, not something you visit while looking at your money.
+ *
+ * This route stays as a redirect rather than being deleted: `/comptes` is a
+ * year-old bookmark for existing installs, and a 404 is a worse answer than
+ * the page it moved to.
+ */
+export default function ComptesPage() {
+  redirect("/parametres");
 }

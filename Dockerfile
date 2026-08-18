@@ -24,15 +24,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd -r app && useradd -r -g app -d /app app
 
-# Everything Next needs at runtime + tsx + lib (for `npm run db:migrate`,
-# which also reads the core pattern packs under lib/categorize/packs/).
+# Everything Next needs at runtime, plus what the `tsx` scripts need:
+#   npm run db:migrate  → libs/ (incl. categorize/categories.yaml) + tsconfig.json
+#   npm run auth:reset  → scripts/
+# tsconfig.json is not optional: the scripts import through the `@domain/*`,
+# `@application/*`, `@infrastructure/*` and `@shared/*` aliases, and tsx resolves
+# those from tsconfig `paths`.
 COPY --from=builder --chown=app:app /app/.next             ./.next
 COPY --from=builder --chown=app:app /app/public            ./public
 COPY --from=builder --chown=app:app /app/node_modules      ./node_modules
 COPY --from=builder --chown=app:app /app/package.json      ./package.json
 COPY --from=builder --chown=app:app /app/package-lock.json ./package-lock.json
 COPY --from=builder --chown=app:app /app/next.config.ts    ./next.config.ts
-COPY --from=builder --chown=app:app /app/lib               ./lib
+COPY --from=builder --chown=app:app /app/tsconfig.json     ./tsconfig.json
+COPY --from=builder --chown=app:app /app/libs              ./libs
+COPY --from=builder --chown=app:app /app/scripts           ./scripts
 
 USER app
 EXPOSE 3000

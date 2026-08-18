@@ -1,6 +1,6 @@
 import "reflect-metadata";
-import { getDataSource } from "@infrastructure/db/client";
-import { SettingEntity, UserEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import { hashPassword } from "@infrastructure/auth/password";
 
 /**

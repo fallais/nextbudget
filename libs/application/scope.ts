@@ -1,7 +1,7 @@
 import "server-only";
 import type { ObjectLiteral, SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { AccountEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { AccountEntity } from "@infrastructure/persistence/schemas";
 import { getAuthMode, getCurrentUser } from "@application/auth";
 
 /**

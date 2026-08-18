@@ -57,3 +57,7 @@ next-env.d.ts
 !/data/processed/.gitkeep
 # explicit dump exclusion (already covered by /data/* but spelled out)
 /data/*.dump.sql
+
+# local-only compose overrides (machine-specific volumes/credentials)
+docker-compose.override.yaml
+docker-compose.override.yml

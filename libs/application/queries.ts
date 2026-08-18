@@ -1,8 +1,8 @@
 import "server-only";
 import { Brackets, type SelectQueryBuilder } from "typeorm";
-import { getDataSource } from "@infrastructure/db/client";
-import { TransactionEntity, CategoryEntity, AccountEntity } from "@infrastructure/db/schemas";
-import type { TransactionRow, CategoryRow, AccountRow } from "@domain/entities";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { TransactionEntity, CategoryEntity, AccountEntity, ImportEntity } from "@infrastructure/persistence/schemas";
+import type { TransactionRow, CategoryRow, AccountRow, ImportRow } from "@domain/entities";
 import {
   getScope,
   visibleAccountIds,
@@ -114,4 +114,15 @@ export async function listRecentTransactions(limit = 10): Promise<ListedTransact
     .take(limit)
     .getMany();
   return attachRefs(txs);
+}
+
+/**
+ * Import runs, newest first — the history shown on the Import page.
+ *
+ * Imports have no domain class (nothing enforces an invariant on a log row),
+ * so there is no repository for them and the read stays here.
+ */
+export async function listRecentImports(limit = 50): Promise<ImportRow[]> {
+  const ds = await getDataSource();
+  return ds.getRepository(ImportEntity).find({ order: { startedAt: "DESC" }, take: limit });
 }

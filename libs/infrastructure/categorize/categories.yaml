@@ -1,4 +1,4 @@
-# BanqueJS — default categories and merchant patterns.
+# NextBudget — default categories and merchant patterns.
 #
 # Seeded into the `categories` and `rules` tables by `npm run db:migrate`.
 # Seeding is additive and idempotent: it creates what is missing and never

@@ -185,6 +185,8 @@ export const assetTypeSchema = z.enum([
 export const assetOwnerSchema = z.object({
   personId: z.number().int().positive(),
   shareBps: z.number().int().min(1).max(10000),
+  /** This borrower's assurance emprunteur, per month. Loans only. */
+  insuranceMonthlyCents: z.number().int().min(0).nullish(),
 });
 
 export const assetInputSchema = z.object({
@@ -199,6 +201,7 @@ export const assetInputSchema = z.object({
   monthlyPaymentCents: z.number().int().min(0).nullish(),
   insuranceMonthlyCents: z.number().int().min(0).nullish(),
   feesCents: z.number().int().min(0).nullish(),
+  signatureDate: z.string().date().nullish(),
   startDate: z.string().date().nullish(),
   endDate: z.string().date().nullish(),
   accountId: z.number().int().positive().nullish(),

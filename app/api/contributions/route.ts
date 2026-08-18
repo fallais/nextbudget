@@ -1,29 +1,25 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { ContributionEntity } from "@infrastructure/db/schemas";
+import { contributions } from "@infrastructure/persistence/repositories";
 import { listContributions } from "@application/contributions";
 import { contributionInputSchema } from "@application/contracts/validation";
 import { getCurrentUser } from "@application/auth";
+import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rows = await listContributions();
-  return NextResponse.json(rows);
+  return NextResponse.json(await listContributions());
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = contributionInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
-  const ds = await getDataSource();
-  const repo = ds.getRepository(ContributionEntity);
-  const created = await repo.save(
-    repo.create({
+  const parsed = contributionInputSchema.safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
+  return handle(async () => {
+    const created = await contributions.create({
       ownerId: (await getCurrentUser())?.id ?? null,
+      visibility: "shared",
       personId: parsed.data.personId,
       name: parsed.data.name,
       expectedAmountCents: parsed.data.expectedAmountCents,
@@ -32,7 +28,7 @@ export async function POST(request: Request) {
       tolerancePct: parsed.data.tolerancePct,
       isActive: parsed.data.isActive,
       notes: parsed.data.notes ?? null,
-    }),
-  );
-  return NextResponse.json(created, { status: 201 });
+    });
+    return NextResponse.json(created.toRow(), { status: 201 });
+  });
 }

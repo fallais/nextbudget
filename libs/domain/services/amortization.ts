@@ -161,3 +161,40 @@ export function summarizeLoan(loan: LoanInput, today?: string): LoanSummary | nu
 
   return summary;
 }
+
+/**
+ * The loan's total monthly insurance.
+ *
+ * Assurance emprunteur is priced per borrower, so a couple's mortgage normally
+ * carries two different premiums (different ages, different quotités). When any
+ * per-borrower figure is stated those are the truth and the loan-level number is
+ * ignored — it would otherwise be double-counted against the sum.
+ *
+ * Falls back to the single loan-level figure, which is all a solo borrower ever
+ * needs and all that older rows have.
+ */
+export function insuranceMonthlyFrom(
+  loanLevelCents: number | null | undefined,
+  perBorrowerCents: readonly (number | null | undefined)[] = [],
+): number {
+  const stated = perBorrowerCents.filter((c): c is number => c != null);
+  if (stated.length > 0) return stated.reduce((total, c) => total + c, 0);
+  return loanLevelCents ?? 0;
+}
+
+/**
+ * Whole months between signing a loan and its first instalment — the différé.
+ *
+ * Null when either date is missing or repayment starts in the same month, which
+ * is the ordinary case: most loans amortise straight away.
+ */
+export function deferralMonthsBetween(
+  signatureDate: string | null | undefined,
+  startDate: string | null | undefined,
+): number | null {
+  if (!signatureDate || !startDate || startDate <= signatureDate) return null;
+  const [sy, sm] = signatureDate.split("-").map(Number);
+  const [ty, tm] = startDate.split("-").map(Number);
+  const months = (ty - sy) * 12 + (tm - sm);
+  return months > 0 ? months : null;
+}

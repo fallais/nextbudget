@@ -1,35 +1,28 @@
 import { NextResponse } from "next/server";
-import { getDataSource } from "@infrastructure/db/client";
-import { PersonEntity } from "@infrastructure/db/schemas";
+import { persons } from "@infrastructure/persistence/repositories";
 import { listPersons } from "@application/contributions";
 import { isUserLinkTaken } from "@application/household";
 import { personInputSchema } from "@application/contracts/validation";
+import { badRequest, conflict, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const rows = await listPersons();
-  return NextResponse.json(rows);
+  return NextResponse.json(await listPersons());
 }
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const parsed = personInputSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
-  }
+  const parsed = personInputSchema.safeParse(await request.json());
+  if (!parsed.success) return badRequest(parsed.error.message);
+
   const userId = parsed.data.userId ?? null;
   if (userId != null && (await isUserLinkTaken(userId))) {
-    return NextResponse.json(
-      { error: "Ce compte utilisateur est déjà lié à une autre personne" },
-      { status: 409 },
-    );
+    return conflict("Ce compte utilisateur est déjà lié à une autre personne");
   }
-  const ds = await getDataSource();
-  const repo = ds.getRepository(PersonEntity);
-  const created = await repo.save(
-    repo.create({
+
+  return handle(async () => {
+    const created = await persons.create({
       name: parsed.data.name,
       userId,
       monthlySalaryCents: parsed.data.monthlySalaryCents ?? null,
@@ -37,7 +30,7 @@ export async function POST(request: Request) {
       matchType: parsed.data.matchType ?? "contains",
       tolerancePct: parsed.data.tolerancePct,
       isActive: parsed.data.isActive,
-    }),
-  );
-  return NextResponse.json(created, { status: 201 });
+    });
+    return NextResponse.json(created.toRow(), { status: 201 });
+  });
 }

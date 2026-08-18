@@ -1,7 +1,7 @@
 import "server-only";
 import { startOfMonth, endOfMonth, formatISO } from "date-fns";
-import { getDataSource } from "@infrastructure/db/client";
-import { AccountEntity, ContributionEntity, PersonEntity, TransactionEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { AccountEntity, ContributionEntity, PersonEntity, TransactionEntity } from "@infrastructure/persistence/schemas";
 import type { ContributionRow, PersonRow, TransactionRow } from "@domain/entities";
 import { compileRule } from "@domain/services/categorization";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";

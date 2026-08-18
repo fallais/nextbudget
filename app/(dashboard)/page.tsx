@@ -103,7 +103,16 @@ export default async function DashboardPage({
       <div className="grid grid-cols-1">
         <ApportsPanel perPerson={perPerson} />
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* BudgetsPanel renders nothing when no budget is set, so the row drops
+          to one column and the fixed-expenses panel takes the full width
+          instead of leaving a hole. */}
+      <div
+        className={
+          budgetStatuses.length > 0
+            ? "grid grid-cols-1 gap-4 sm:grid-cols-2"
+            : "grid grid-cols-1 gap-4"
+        }
+      >
         <BudgetsPanel statuses={budgetStatuses} />
         <FixedExpensesPanel statuses={fxStatuses} summary={fxSummary} />
       </div>

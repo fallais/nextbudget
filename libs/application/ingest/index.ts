@@ -1,8 +1,8 @@
 import "server-only";
-import { getDataSource } from "@infrastructure/db/client";
-import { ImportEntity, TransactionEntity, AccountEntity } from "@infrastructure/db/schemas";
+import { getDataSource } from "@infrastructure/persistence/client";
+import { ImportEntity, TransactionEntity, AccountEntity } from "@infrastructure/persistence/schemas";
 import type { NewTransaction } from "@domain/entities";
-import { isUniqueViolation } from "@infrastructure/db/errors";
+import { isUniqueViolation } from "@infrastructure/persistence/errors";
 import { detectParser, runParser } from "@infrastructure/ingest/parsers/registry";
 import { transactionHash } from "@infrastructure/ingest/hash";
 import { loadActiveCompiledRules, matchCategoryId } from "@application/categorize/engine";

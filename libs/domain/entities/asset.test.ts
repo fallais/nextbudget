@@ -17,6 +17,7 @@ const house: NewAsset = {
   monthlyPaymentCents: null,
   insuranceMonthlyCents: null,
   feesCents: null,
+  signatureDate: null,
   startDate: null,
   endDate: null,
   accountId: null,
@@ -96,5 +97,69 @@ describe("Asset identity", () => {
 
   it("treats unsaved assets as equal to nothing", () => {
     expect(Asset.create(house).equals(Asset.create(house))).toBe(false);
+  });
+});
+
+describe("Asset.outstandingCents", () => {
+  /** 310 000 € at 1,90 % over 240 months, first instalment 2020-06. */
+  const mortgage: NewAsset = {
+    ...house,
+    name: "Crédit maison",
+    kind: "liability",
+    type: "mortgage",
+    // Deliberately wrong: the stored column is the stale hand-typed figure
+    // that deriving is meant to replace.
+    valueCents: 999_999_00,
+    principalCents: 310_000_00,
+    interestRateBps: 190,
+    termMonths: 240,
+    startDate: "2020-06-01",
+  };
+
+  const at = (row: NewAsset, today: string) =>
+    Asset.reconstitute({ ...row, id: 1, createdAt: new Date() }).outstandingCents(today);
+
+  it("derives the balance from the schedule, ignoring the stored value", () => {
+    const owed = at(mortgage, "2026-08-18");
+    expect(owed).not.toBe(999_999_00);
+    // Six years into a twenty-year loan: most of the capital is still owed,
+    // but a real dent has been made.
+    expect(owed).toBeGreaterThan(200_000_00);
+    expect(owed).toBeLessThan(250_000_00);
+  });
+
+  it("falls to zero once the term is over", () => {
+    expect(at(mortgage, "2045-01-01")).toBe(0);
+  });
+
+  it("is the full capital before the first instalment", () => {
+    expect(at(mortgage, "2020-01-01")).toBe(310_000_00);
+  });
+
+  it("decreases month after month", () => {
+    expect(at(mortgage, "2026-08-18")).toBeLessThan(at(mortgage, "2025-08-18"));
+  });
+
+  it("keeps the stored value when there is no start date to anchor a schedule", () => {
+    expect(at({ ...mortgage, startDate: null }, "2026-08-18")).toBe(999_999_00);
+  });
+
+  it("keeps the stored value for a debt with no loan terms", () => {
+    const plainDebt: NewAsset = {
+      ...house,
+      name: "Dette familiale",
+      kind: "liability",
+      type: "other",
+      valueCents: 5_000_00,
+      principalCents: null,
+      interestRateBps: null,
+      termMonths: null,
+      startDate: null,
+    };
+    expect(at(plainDebt, "2026-08-18")).toBe(5_000_00);
+  });
+
+  it("leaves plain assets alone", () => {
+    expect(at(house, "2026-08-18")).toBe(270_000_00);
   });
 });
