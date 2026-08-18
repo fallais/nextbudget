@@ -1,49 +1,72 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { CategoryBadge } from "@/components/categories/category-badge";
-import { formatCents, formatDateShort } from "@shared/format";
-import { cn } from "@shared/utils";
+import { Card, Table, Tag, Typography } from "antd";
+import type { ColumnsType } from "antd/es/table";
+import { Money } from "@/components/money";
+import { formatDateShort } from "@shared/format";
 import type { ListedTransaction } from "@application/queries";
 
+const { Text } = Typography;
+
+/**
+ * The last few movements — the "what just happened" read, at the bottom
+ * because it is the least urgent and the most detailed.
+ *
+ * A real table rather than a list: dates and amounts want columns to line up
+ * down the page, which is the whole reason the figures are tabular-nums.
+ */
 export function RecentTransactions({ rows }: { rows: ListedTransaction[] }) {
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
-        Aucune transaction enregistrée. Importez vos relevés pour commencer.
-      </div>
-    );
-  }
+  const columns: ColumnsType<ListedTransaction> = [
+    {
+      title: "Date",
+      dataIndex: "date",
+      width: 96,
+      render: (d: string) => <Text type="secondary">{formatDateShort(d)}</Text>,
+    },
+    {
+      title: "Libellé",
+      dataIndex: "description",
+      ellipsis: true,
+    },
+    {
+      title: "Catégorie",
+      dataIndex: "category",
+      width: 160,
+      render: (_, row) =>
+        row.category ? (
+          <Tag color={row.category.color} style={{ marginInlineEnd: 0 }}>
+            {row.category.name}
+          </Tag>
+        ) : (
+          <Text type="secondary">—</Text>
+        ),
+    },
+    {
+      title: "Montant",
+      dataIndex: "amountCents",
+      align: "right",
+      width: 130,
+      // The column header says what these are, so no arrows here — the sign
+      // alone carries direction in a labelled column.
+      render: (cents: number) => <Money cents={cents} />,
+    },
+  ];
+
   return (
-    <ul className="divide-y rounded-md border bg-card">
-      {rows.map((tx) => (
-        <li key={tx.id} className="flex items-center gap-3 px-4 py-3">
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {formatDateShort(tx.date)}
-          </span>
-          <span className="min-w-0 flex-1 truncate text-sm" title={tx.description}>
-            {tx.description}
-          </span>
-          <CategoryBadge category={tx.category} />
-          <span
-            className={cn(
-              "w-28 text-right text-sm font-medium tabular-nums",
-              tx.amountCents < 0
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-emerald-600 dark:text-emerald-400",
-            )}
-          >
-            {formatCents(tx.amountCents)}
-          </span>
-        </li>
-      ))}
-      <li className="px-4 py-2 text-right">
-        <Link
-          href="/transactions"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          Voir toutes les transactions <ArrowRight className="size-3" />
-        </Link>
-      </li>
-    </ul>
+    <Card
+      title="Dernières transactions"
+      extra={<Link href="/transactions">Tout voir</Link>}
+      styles={{ body: { padding: 0 } }}
+    >
+      <Table
+        rowKey="id"
+        size="small"
+        columns={columns}
+        dataSource={rows}
+        pagination={false}
+        locale={{ emptyText: "Aucune transaction" }}
+      />
+    </Card>
   );
 }

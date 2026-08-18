@@ -1,21 +1,32 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Button, Tooltip } from "antd";
+import { MoonOutlined, SunOutlined } from "@ant-design/icons";
 import { useTheme } from "next-themes";
-import { Button } from "@/components/ui/button";
 
+/**
+ * Light/dark toggle.
+ *
+ * Renders a placeholder until mounted: the resolved theme is unknown on the
+ * server, and showing the wrong icon for one frame is a visible flicker on
+ * every page load.
+ */
 export function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const isDark = theme === "dark";
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const dark = mounted && resolvedTheme === "dark";
+
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      aria-label={isDark ? "Activer le thème clair" : "Activer le thème sombre"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-    >
-      <Sun className="size-5 scale-100 rotate-0 transition-all dark:scale-0 dark:-rotate-90" />
-      <Moon className="absolute size-5 scale-0 rotate-90 transition-all dark:scale-100 dark:rotate-0" />
-    </Button>
+    <Tooltip title={dark ? "Passer en clair" : "Passer en sombre"}>
+      <Button
+        type="text"
+        aria-label={dark ? "Passer en thème clair" : "Passer en thème sombre"}
+        icon={mounted ? dark ? <SunOutlined /> : <MoonOutlined /> : <span style={{ width: 14 }} />}
+        onClick={() => setTheme(dark ? "light" : "dark")}
+      />
+    </Tooltip>
   );
 }

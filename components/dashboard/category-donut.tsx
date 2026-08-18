@@ -1,79 +1,112 @@
 "use client";
 
-import { Cell, Pie, PieChart } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { useTheme } from "next-themes";
+import { Card, Empty, Flex, Typography, theme } from "antd";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { PALETTES, SURFACE, type PaletteName } from "@shared/palette";
 import { formatCents } from "@shared/format";
 import type { CategoryBreakdownItem } from "@application/stats";
 
-export function CategoryDonut({ data }: { data: CategoryBreakdownItem[] }) {
-  if (data.length === 0) {
+const { Text } = Typography;
+
+/**
+ * Where the money went, this period.
+ *
+ * Capped at seven slices plus "Autres". That is not cosmetic: the categorical
+ * ramp is validated for eight slots and no further — a ninth colour would be
+ * an unvalidated hue sitting next to eight that were checked, and with a dozen
+ * categories the slices become unreadable long before the colours run out.
+ *
+ * Categories carry a user-chosen colour, but it is deliberately ignored here.
+ * Nothing stops two categories being given the same colour in the Rules page,
+ * and the validated ramp is the only set with a colour-vision guarantee.
+ */
+export function CategoryDonut({ items }: { items: CategoryBreakdownItem[] }) {
+  const { resolvedTheme } = useTheme();
+  const mode = resolvedTheme === "dark" ? "dark" : "light";
+  const { token } = theme.useToken();
+  const ramp = PALETTES[("bleu" satisfies PaletteName)].series[mode];
+
+  const total = items.reduce((sum, i) => sum + i.totalCents, 0);
+  if (total === 0) {
     return (
-      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Aucune dépense sur la période.
-      </div>
+      <Card title="Répartition des dépenses" style={{ height: "100%" }}>
+        <Empty description="Aucune dépense sur la période" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+      </Card>
     );
   }
-  const chartData = data.map((d) => ({
-    name: d.name,
-    value: d.totalCents / 100,
-    color: d.color,
-  }));
-  const total = data.reduce((a, d) => a + d.totalCents, 0);
-  const config: ChartConfig = Object.fromEntries(
-    chartData.map((d) => [d.name, { label: d.name, color: d.color }]),
-  );
+
+  const sorted = [...items].sort((a, b) => b.totalCents - a.totalCents);
+  const head = sorted.slice(0, 7);
+  const tail = sorted.slice(7);
+  const data = [
+    ...head.map((i, idx) => ({ name: i.name, value: i.totalCents, fill: ramp[idx] })),
+    ...(tail.length
+      ? [
+          {
+            name: `Autres (${tail.length})`,
+            value: tail.reduce((s, i) => s + i.totalCents, 0),
+            fill: ramp[7],
+          },
+        ]
+      : []),
+  ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_1fr] md:items-center">
-      <ChartContainer config={config} className="h-56 w-full">
-        <PieChart>
-          <ChartTooltip
-            content={
-              <ChartTooltipContent
-                hideLabel
-                formatter={(value, name) => [formatCents(Number(value) * 100), String(name)]}
+    <Card title="Répartition des dépenses" style={{ height: "100%" }}>
+      <Flex gap={20} align="center" wrap>
+        <div style={{ width: 180, height: 180, minWidth: 180, flexShrink: 0 }}>
+          <ResponsiveContainer>
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={54}
+                outerRadius={84}
+                // A 2px ring in the surface colour keeps adjacent slices from
+                // bleeding into one another.
+                stroke={mode === "dark" ? SURFACE.dark : SURFACE.light}
+                strokeWidth={2}
+              >
+                {data.map((d) => (
+                  <Cell key={d.name} fill={d.fill} />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(v, n) => [formatCents(Number(v)), String(n)] as [string, string]}
+                contentStyle={{
+                  background: token.colorBgElevated,
+                  border: `1px solid ${token.colorBorderSecondary}`,
+                  borderRadius: token.borderRadius,
+                  color: token.colorText,
+                }}
               />
-            }
-          />
-          <Pie
-            data={chartData}
-            dataKey="value"
-            nameKey="name"
-            innerRadius={50}
-            outerRadius={85}
-            paddingAngle={2}
-          >
-            {chartData.map((d) => (
-              <Cell key={d.name} fill={d.color} stroke="var(--background)" />
-            ))}
-          </Pie>
-        </PieChart>
-      </ChartContainer>
-      <ul className="space-y-1.5 text-sm">
-        {data.slice(0, 8).map((d) => {
-          const pct = total === 0 ? 0 : (d.totalCents / total) * 100;
-          return (
-            <li key={`${d.id ?? "uncat"}-${d.name}`} className="flex items-center gap-2">
-              <span
-                className="size-3 shrink-0 rounded-sm"
-                style={{ backgroundColor: d.color }}
-              />
-              <span className="flex-1 truncate">{d.name}</span>
-              <span className="tabular-nums text-muted-foreground">
-                {formatCents(d.totalCents)}
-              </span>
-              <span className="w-12 text-right tabular-nums text-xs text-muted-foreground">
-                {pct.toFixed(0)} %
-              </span>
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* The legend is the accessible channel: every slice is named and
+            valued in text, so identity never rests on colour alone. */}
+        <Flex vertical gap={6} style={{ flex: 1, minWidth: 200 }}>
+          {data.map((d) => (
+            <Flex key={d.name} align="center" gap={8} justify="space-between">
+              <Flex align="center" gap={8} style={{ minWidth: 0 }}>
+                <span
+                  aria-hidden
+                  style={{ width: 10, height: 10, borderRadius: 3, background: d.fill, flexShrink: 0 }}
+                />
+                <Text ellipsis style={{ fontSize: 13 }}>
+                  {d.name}
+                </Text>
+              </Flex>
+              <Text type="secondary" style={{ fontSize: 13, fontVariantNumeric: "tabular-nums" }}>
+                {formatCents(d.value)} · {Math.round((d.value / total) * 100)}%
+              </Text>
+            </Flex>
+          ))}
+        </Flex>
+      </Flex>
+    </Card>
   );
 }

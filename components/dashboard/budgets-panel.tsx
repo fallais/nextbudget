@@ -1,75 +1,71 @@
+"use client";
+
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { CategoryBadge } from "@/components/categories/category-badge";
+import { Card, Flex, Progress, Typography, theme } from "antd";
+import { STATUS } from "@shared/palette";
 import { formatCents } from "@shared/format";
-import { cn } from "@shared/utils";
 import type { CategoryBudgetStatus } from "@application/budgets";
 
+const { Text } = Typography;
+
+/**
+ * Budgets closest to their limit, worst first.
+ *
+ * Nothing budgeted yet ⇒ no card at all. An empty panel inviting you to set
+ * one up is noise on a dashboard you look at daily; the Budgets page in the
+ * sidebar is where that invitation belongs.
+ */
 export function BudgetsPanel({ statuses }: { statuses: CategoryBudgetStatus[] }) {
-  // Nothing budgeted yet ⇒ no card at all. An empty panel prompting you to set
-  // one up is noise on a dashboard you look at every day; the Budgets page in
-  // the sidebar is where that invitation belongs. The parent widens the
-  // neighbouring panel to fill the row.
+  const { token } = theme.useToken();
   if (statuses.length === 0) return null;
 
-  const top = statuses.slice(0, 5);
+  const top = [...statuses].sort((a, b) => b.ratio - a.ratio).slice(0, 5);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <div>
-          <CardTitle className="text-base">Budgets en cours</CardTitle>
-          <CardDescription>Top {top.length} par taux de consommation</CardDescription>
-        </div>
-        <Link
-          href="/budgets"
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          Tout voir <ArrowRight className="size-3" />
-        </Link>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card
+      title="Budgets en cours"
+      extra={<Link href="/budgets">Tout voir</Link>}
+      style={{ height: "100%" }}
+    >
+      <Flex vertical gap={14}>
         {top.map((s) => {
           const pct = Math.min(100, Math.round(s.ratio * 100));
-          const overshoot = s.ratio > 1;
-          const danger = s.ratio >= 1;
-          const warn = s.ratio >= 0.8 && s.ratio < 1;
-          const barColor = danger
-            ? "bg-rose-600"
-            : warn
-              ? "bg-amber-500"
-              : "bg-emerald-600";
+          const over = s.ratio >= 1;
+          const near = s.ratio >= 0.8 && s.ratio < 1;
           return (
-            <div key={s.category.id} className="space-y-1.5">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <CategoryBadge category={s.category} />
-                  <span className="text-xs text-muted-foreground">
+            <div key={s.category.id}>
+              <Flex justify="space-between" align="baseline" gap={8}>
+                <Text style={{ fontSize: 13 }} ellipsis>
+                  {s.category.name}
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {" "}
                     /{s.periodLabel}
-                  </span>
-                </div>
-                <span
-                  className={cn(
-                    "tabular-nums",
-                    overshoot
-                      ? "font-semibold text-rose-600 dark:text-rose-400"
-                      : "text-muted-foreground",
-                  )}
+                  </Text>
+                </Text>
+                {/* The over-budget case is stated in words as well as colour —
+                    "dépassé" is what a colourblind reader has to go on. */}
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontVariantNumeric: "tabular-nums",
+                    color: over ? STATUS.critical : token.colorTextSecondary,
+                    fontWeight: over ? 600 : undefined,
+                  }}
                 >
                   {formatCents(s.spentCents)} / {formatCents(s.budgetCents)}
-                </span>
-              </div>
-              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                <div
-                  className={cn("h-full transition-all", barColor)}
-                  style={{ width: `${pct}%` }}
-                />
-              </div>
+                  {over && " · dépassé"}
+                </Text>
+              </Flex>
+              <Progress
+                percent={pct}
+                showInfo={false}
+                size={["100%", 6]}
+                strokeColor={over ? STATUS.critical : near ? STATUS.warning : STATUS.good}
+              />
             </div>
           );
         })}
-      </CardContent>
+      </Flex>
     </Card>
   );
 }
