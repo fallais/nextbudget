@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Alert, Button, Col, Flex, Progress, Row, Table, Typography } from "antd";
+import { useEffect, useRef, useState } from "react";
+import { Alert, Button, Col, Flex, Progress, Row, Table, Tag, Typography, theme } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import {
   amortizationSchedule,
@@ -55,26 +55,77 @@ export function AmortizationDetail({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const { token } = theme.useToken();
 
-  if (asset.principalCents == null || asset.interestRateBps == null || !asset.termMonths) {
+  // Everything below is computed before the early returns so the hooks that
+  // follow run on every render — React requires the same hook order each time.
+  const today = todayIso();
+  const hasTerms =
+    asset.principalCents != null && asset.interestRateBps != null && !!asset.termMonths;
+  const loan = hasTerms
+    ? {
+        principalCents: asset.principalCents as number,
+        interestRateBps: asset.interestRateBps as number,
+        termMonths: asset.termMonths as number,
+        monthlyPaymentCents: asset.monthlyPaymentCents,
+        insuranceMonthlyCents: asset.insuranceMonthlyCents,
+        feesCents: asset.feesCents,
+        startDate: asset.startDate,
+      }
+    : null;
+  const schedule = loan ? amortizationSchedule(loan) : [];
+  const summary = loan ? summarizeLoan(loan, today) : null;
+
+  /**
+   * The instalment that is next due — the row worth looking at.
+   *
+   * Past instalments are history; the last row is the end of the loan. Where
+   * you are now is what you came to see, so that is what the table scrolls to
+   * and highlights.
+   */
+  const currentIndex = Math.max(
+    0,
+    schedule.findIndex((r) => r.date !== null && r.date > today),
+  );
+
+  /**
+   * Put the current row third, so the two instalments just paid stay visible
+   * above it — landing on it at the very top hides the context that makes it
+   * readable.
+   */
+  useEffect(() => {
+    if (!open) return;
+    let frame = 0;
+    let tries = 0;
+
+    // antd lays the scroll body out after mount, so the first frame has no
+    // measurable rows and setting scrollTop then does nothing. Retry across a
+    // few frames until the body is actually scrollable, and anchor on the row
+    // element rather than a multiplied row height, which drifts once a row
+    // wraps to two lines.
+    const place = () => {
+      const body = bodyRef.current?.querySelector<HTMLElement>(".ant-table-body");
+      const rows = body?.querySelectorAll<HTMLElement>("tbody tr.ant-table-row");
+      const target = rows?.[currentIndex];
+      if (body && target && body.scrollHeight > body.clientHeight) {
+        body.scrollTop = Math.max(0, target.offsetTop - 2 * target.offsetHeight);
+        return;
+      }
+      if (tries++ < 40) frame = requestAnimationFrame(place);
+    };
+
+    frame = requestAnimationFrame(place);
+    return () => cancelAnimationFrame(frame);
+  }, [open, currentIndex]);
+
+  if (!loan) {
     return (
       <Text type="secondary" style={{ fontSize: 12 }}>
         Renseignez capital, taux et durée pour voir l&apos;échéancier.
       </Text>
     );
   }
-
-  const loan = {
-    principalCents: asset.principalCents,
-    interestRateBps: asset.interestRateBps,
-    termMonths: asset.termMonths,
-    monthlyPaymentCents: asset.monthlyPaymentCents,
-    insuranceMonthlyCents: asset.insuranceMonthlyCents,
-    feesCents: asset.feesCents,
-    startDate: asset.startDate,
-  };
-  const schedule = amortizationSchedule(loan);
-  const summary = summarizeLoan(loan, todayIso());
   if (schedule.length === 0 || !summary) {
     return (
       <Text type="secondary" style={{ fontSize: 12 }}>
@@ -84,17 +135,30 @@ export function AmortizationDetail({
   }
 
   const { progress } = summary;
-  const paidPct = progress
-    ? Math.round((progress.principalPaidCents / asset.principalCents) * 100)
-    : null;
   // Flag a drift worth acting on — ignore the cents of rounding.
   const staleBalance =
     progress != null &&
     Math.abs(asset.valueCents - progress.principalRemainingCents) >
-      Math.max(10_000, asset.principalCents * 0.01);
+      Math.max(10_000, loan.principalCents * 0.01);
 
   const columns: ColumnsType<AmortizationRow> = [
-    { title: "#", dataIndex: "index", width: 56 },
+    {
+      title: "#",
+      dataIndex: "index",
+      width: 92,
+      render: (n: number, _r, i) =>
+        i === currentIndex ? (
+          // Named as well as tinted: the highlight must not be colour alone.
+          <Flex align="center" gap={6}>
+            <span>{n}</span>
+            <Tag color="processing" bordered={false} style={{ marginInlineEnd: 0, fontSize: 11 }}>
+              à venir
+            </Tag>
+          </Flex>
+        ) : (
+          n
+        ),
+    },
     {
       title: "Date",
       dataIndex: "date",
@@ -150,15 +214,31 @@ export function AmortizationDetail({
       )}
 
       {open && (
-        <Table
-          rowKey="index"
-          size="small"
-          columns={columns}
-          dataSource={schedule}
-          pagination={false}
-          // Hundreds of instalments: scroll the body rather than the page.
-          scroll={{ y: 260 }}
-        />
+        <div ref={bodyRef}>
+          <Table
+            rowKey="index"
+            size="small"
+            columns={columns}
+            dataSource={schedule}
+            pagination={false}
+            // Hundreds of instalments: scroll the body, not the page. Tall
+            // enough to show roughly a year at a time.
+            scroll={{ y: 460 }}
+            onRow={(_r, i) =>
+              i === currentIndex
+                ? {
+                    style: {
+                      background: token.colorPrimaryBg,
+                      boxShadow: `inset 3px 0 0 ${token.colorPrimary}`,
+                      fontWeight: 600,
+                    },
+                  }
+                : (i ?? 0) < currentIndex
+                  ? { style: { color: token.colorTextTertiary } }
+                  : {}
+            }
+          />
+        </div>
       )}
     </Flex>
   );
