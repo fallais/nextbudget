@@ -23,6 +23,7 @@ export function ThemeToggle() {
     <Tooltip title={dark ? "Passer en clair" : "Passer en sombre"}>
       <Button
         type="text"
+        style={{ color: "rgba(255,255,255,0.85)" }}
         aria-label={dark ? "Passer en thème clair" : "Passer en thème sombre"}
         icon={mounted ? dark ? <SunOutlined /> : <MoonOutlined /> : <span style={{ width: 14 }} />}
         onClick={() => setTheme(dark ? "light" : "dark")}

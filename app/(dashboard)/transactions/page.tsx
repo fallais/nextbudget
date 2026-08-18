@@ -1,13 +1,10 @@
-import { Suspense } from "react";
 import {
   listTransactions,
   listAllCategories,
   listAllAccounts,
   type TransactionFilters,
 } from "@application/queries";
-import { TransactionsFilters } from "@/components/transactions/filters";
-import { TransactionsTable } from "@/components/transactions/transactions-table";
-import { Skeleton } from "@/components/ui/skeleton";
+import { TransactionsView } from "@/components/transactions/transactions-view";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -51,26 +48,13 @@ export default async function TransactionsPage({
   ]);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Transactions</h2>
-        <p className="text-sm text-muted-foreground">
-          Filtrez, catégorisez et exportez vos transactions.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px_1fr]">
-        <Suspense fallback={<Skeleton className="h-[600px]" />}>
-          <TransactionsFilters categories={categories} accounts={accounts} />
-        </Suspense>
-        <TransactionsTable
-          rows={data.rows}
-          total={data.total}
-          page={page}
-          pageSize={PAGE_SIZE}
-          categories={categories}
-        />
-      </div>
-    </div>
+    <TransactionsView
+      rows={data.rows}
+      total={data.total}
+      page={page}
+      pageSize={PAGE_SIZE}
+      categories={categories}
+      accounts={accounts}
+    />
   );
 }

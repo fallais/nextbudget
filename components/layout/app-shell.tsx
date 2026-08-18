@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Layout, Menu, Typography, theme } from "antd";
+import { Layout, Menu, Typography } from "antd";
 import {
-  AppstoreOutlined,
   BankOutlined,
   CreditCardOutlined,
   FolderOpenOutlined,
@@ -21,7 +20,7 @@ import { LogoMark } from "./logo";
 import { UserMenu, type CurrentUser } from "@/components/auth/user-menu";
 import { ThemeToggle } from "./theme-toggle";
 
-const { Sider, Header, Content } = Layout;
+const { Sider, Content } = Layout;
 
 /**
  * Day-to-day money first, then what you own and owe, then the things you set
@@ -41,6 +40,15 @@ const NAV = [
   { key: "/parametres", icon: <SettingOutlined />, label: "Paramètres" },
 ];
 
+/**
+ * The app frame: one sidebar, and the page.
+ *
+ * There is deliberately no top bar. A header spanning the content would cost a
+ * permanent horizontal band to hold two controls that are looked at rarely —
+ * the theme switch and the account menu — while the pages below are dense
+ * tables that want the vertical room. Both live in the sidebar footer instead,
+ * where the sidebar is already paying for the space.
+ */
 export function AppShell({
   user,
   authMode,
@@ -52,7 +60,6 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const { token } = theme.useToken();
 
   // Longest matching prefix, so /credits stays lit on a nested route while "/"
   // only matches the dashboard itself.
@@ -70,6 +77,7 @@ export function AppShell({
         theme="dark"
         width={228}
         breakpoint="lg"
+        style={{ display: "flex", flexDirection: "column" }}
       >
         <Link
           href="/"
@@ -90,37 +98,35 @@ export function AppShell({
             </Typography.Text>
           )}
         </Link>
+
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[selected]}
-          items={NAV.map((n) => ({
-            ...n,
-            label: <Link href={n.key}>{n.label}</Link>,
-          }))}
+          style={{ flex: 1, borderInlineEnd: 0 }}
+          items={NAV.map((n) => ({ ...n, label: <Link href={n.key}>{n.label}</Link> }))}
         />
-      </Sider>
 
-      <Layout>
-        <Header
+        {/* Footer: who you are, and the theme. Sits above antd's own collapse
+            trigger, which occupies the very bottom of the Sider. */}
+        <div
           style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "flex-end",
-            gap: 8,
-            paddingInline: 20,
-            height: 56,
-            lineHeight: "56px",
-            borderBottom: `1px solid ${token.colorBorderSecondary}`,
+            justifyContent: collapsed ? "center" : "space-between",
+            gap: 4,
+            padding: collapsed ? "8px 0 56px" : "8px 12px 56px",
+            borderTop: "1px solid rgba(255,255,255,0.12)",
           }}
         >
-          <ThemeToggle />
-          <UserMenu user={user} authMode={authMode} />
-        </Header>
+          <UserMenu user={user} authMode={authMode} collapsed={collapsed} />
+          {!collapsed && <ThemeToggle />}
+        </div>
+      </Sider>
+
+      <Layout>
         <Content style={{ padding: 20 }}>{children}</Content>
       </Layout>
     </Layout>
   );
 }
-
-export { AppstoreOutlined };

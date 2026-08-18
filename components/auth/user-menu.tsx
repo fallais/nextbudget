@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { App, Avatar, Button, Dropdown, Tag, Typography } from "antd";
+import { App, Avatar, Button, Dropdown, Typography } from "antd";
 import { LockOutlined, LogoutOutlined, SettingOutlined, UserOutlined } from "@ant-design/icons";
 
 const { Text } = Typography;
@@ -12,16 +12,22 @@ export type CurrentUser = { id: number; name: string; role: "owner" | "member" }
 /**
  * Who is signed in, and the way out.
  *
- * In open mode there is no session to end, so the menu says so rather than
- * offering a logout that would do nothing — and the owner gets the prompt to
- * turn authentication on, which is the only action that matters there.
+ * Lives in the sidebar footer, so its trigger is styled for the dark surface
+ * rather than inheriting the page's text colour — antd's `type="text"` button
+ * would otherwise render near-black on near-black.
+ *
+ * In open mode there is no session to end, so the menu says so instead of
+ * offering a logout that would do nothing; the owner gets the prompt to turn
+ * authentication on, which is the only action that matters there.
  */
 export function UserMenu({
   user,
   authMode,
+  collapsed = false,
 }: {
   user: CurrentUser;
   authMode: "open" | "enforced";
+  collapsed?: boolean;
 }) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -42,6 +48,7 @@ export function UserMenu({
   return (
     <Dropdown
       trigger={["click"]}
+      placement="topLeft"
       menu={{
         items: [
           {
@@ -75,13 +82,34 @@ export function UserMenu({
         ],
       }}
     >
-      <Button type="text" style={{ height: 40, paddingInline: 8 }}>
-        <Avatar size={26} icon={<UserOutlined />} />
-        <Text style={{ marginInlineStart: 8 }}>{user.name}</Text>
-        {open && (
-          <Tag style={{ marginInlineStart: 8, marginInlineEnd: 0 }} bordered={false}>
-            ouvert
-          </Tag>
+      <Button
+        type="text"
+        aria-label={`Compte de ${user.name}`}
+        style={{
+          color: "rgba(255,255,255,0.85)",
+          paddingInline: collapsed ? 0 : 6,
+          minWidth: collapsed ? 32 : undefined,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          maxWidth: "100%",
+        }}
+      >
+        <Avatar size={24} icon={<UserOutlined />} />
+        {!collapsed && (
+          <span
+            style={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              fontSize: 13,
+            }}
+          >
+            {user.name}
+            {open && (
+              <span style={{ opacity: 0.6 }}> · ouvert</span>
+            )}
+          </span>
         )}
       </Button>
     </Dropdown>
