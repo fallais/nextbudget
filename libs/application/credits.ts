@@ -121,6 +121,13 @@ export type CreditsTotals = {
   count: number;
   /** Sum of outstanding balances — what is still owed today. */
   outstandingCents: number;
+  /**
+   * The échéances alone: capital + interest, as the offre de prêt quotes them.
+   * Kept apart from the insurance because a lender often debits the premium
+   * separately, and folding the two into one figure makes the app look like it
+   * disagrees with the contract.
+   */
+  monthlyPaymentCents: number;
   /** What leaves the account every month, insurance included. */
   monthlyTotalCents: number;
   /** Interest + insurance + fees over the whole life of every loan. */
@@ -132,6 +139,7 @@ export function summarizeCredits(items: CreditListItem[]): CreditsTotals {
   return {
     count: active.length,
     outstandingCents: active.reduce((sum, i) => sum + i.credit.valueCents, 0),
+    monthlyPaymentCents: active.reduce((sum, i) => sum + (i.summary?.monthlyPaymentCents ?? 0), 0),
     monthlyTotalCents: active.reduce((sum, i) => sum + (i.summary?.monthlyTotalCents ?? 0), 0),
     totalCostCents: active.reduce((sum, i) => sum + (i.summary?.totalCostCents ?? 0), 0),
   };

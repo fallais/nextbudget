@@ -73,13 +73,15 @@ export function AmortizationDetail({ asset }: { asset: AssetRow }) {
   return (
     <div className="space-y-3 text-sm">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {/* The échéance leads, because that is the figure printed on the offer;
+            the premium is shown beside it rather than silently added in. */}
         <Stat
-          label="Mensualité"
-          value={formatCents(summary.monthlyTotalCents)}
+          label="Échéance"
+          value={formatCents(summary.monthlyPaymentCents)}
           hint={
             summary.totalInsuranceCents > 0
-              ? `dont ${formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)} d'assurance`
-              : undefined
+              ? `+ ${formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)} d'assurance = ${formatCents(summary.monthlyTotalCents)}`
+              : "hors assurance"
           }
         />
         <Stat

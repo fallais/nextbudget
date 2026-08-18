@@ -68,9 +68,13 @@ export default async function CreditsPage() {
                 <CalendarClock className="size-4" /> Mensualités
               </p>
               <p className="text-2xl font-semibold tabular-nums">
-                {formatCents(totals.monthlyTotalCents)}
+                {formatCents(totals.monthlyPaymentCents)}
               </p>
-              <p className="text-xs text-muted-foreground">assurance comprise</p>
+              <p className="text-xs text-muted-foreground">
+                {totals.monthlyTotalCents > totals.monthlyPaymentCents
+                  ? `+ ${formatCents(totals.monthlyTotalCents - totals.monthlyPaymentCents)} d'assurance = ${formatCents(totals.monthlyTotalCents)}`
+                  : "hors assurance"}
+              </p>
             </CardContent>
           </Card>
           <Card>

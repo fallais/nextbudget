@@ -118,7 +118,20 @@ export function CreditsPane({
                     {summary && (
                       <span className="text-muted-foreground">
                         {" "}
-                        · {formatCents(summary.monthlyTotalCents)}/mois
+                        · échéance {formatCents(summary.monthlyPaymentCents)}
+                        {/* Spelled out rather than folded into one figure: the
+                            échéance on the offer is capital + interest, while
+                            the insurance is often debited separately. Showing
+                            only the total makes it look like the schedule
+                            disagrees with the contract when it does not. */}
+                        {summary.monthlyTotalCents > summary.monthlyPaymentCents && (
+                          <>
+                            {" "}
+                            + {formatCents(summary.monthlyTotalCents - summary.monthlyPaymentCents)}{" "}
+                            d&apos;assurance = {formatCents(summary.monthlyTotalCents)}
+                          </>
+                        )}
+                        /mois
                       </span>
                     )}
                     {summary?.endDate && (
