@@ -2,7 +2,10 @@ import "reflect-metadata";
 import { type DataSource, IsNull } from "typeorm";
 import { getDataSource } from "@infrastructure/persistence/client";
 import { AccountEntity, CategoryEntity, ContributionEntity, FixedExpenseEntity, PersonEntity, RuleEntity, SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
-import { loadDefaultCategories } from "@infrastructure/categorize/defaults";
+import { DEFAULT_CATEGORIES } from "@infrastructure/categorize/default-categories";
+import { MERCHANT_CATALOG } from "@infrastructure/categorize/catalog";
+import { MERCHANT_KIND_CATEGORY } from "@domain/enums";
+import { normalizeDescription } from "@domain/value-objects/normalized-description";
 
 /**
  * `npm run db:migrate` — bring a database up to date, then seed defaults.
@@ -20,49 +23,32 @@ const DEFAULT_CATEGORY_ICON = "HelpCircle";
 
 async function runSeed(ds: DataSource): Promise<{
   createdCategories: number;
-  createdRules: number;
+  prunedRules: number;
 }> {
   const catRepo = ds.getRepository(CategoryEntity);
-  const ruleRepo = ds.getRepository(RuleEntity);
   const accountRepo = ds.getRepository(AccountEntity);
 
   let createdCats = 0;
-  let createdRules = 0;
 
-  // Defaults live in libs/infrastructure/categorize/categories.yaml. Seeding is additive: it
-  // only creates what is missing, so edits made on the Rules page survive a
-  // re-run and the DB stays the single source of truth for the engine.
-  for (const cat of loadDefaultCategories()) {
-    let category = await catRepo.findOne({ where: { name: cat.name } });
-    if (!category) {
-      category = await catRepo.save(
-        catRepo.create({
-          name: cat.name,
-          color: cat.color ?? DEFAULT_CATEGORY_COLOR,
-          icon: cat.icon ?? DEFAULT_CATEGORY_ICON,
-          isDefault: true,
-        }),
-      );
-      createdCats++;
-    }
-
-    for (const rule of cat.patterns) {
-      const exists = await ruleRepo.findOne({ where: { pattern: rule.pattern } });
-      if (!exists) {
-        await ruleRepo.save(
-          ruleRepo.create({
-            categoryId: category.id,
-            pattern: rule.pattern,
-            matchType: rule.matchType,
-            amountCondition: rule.amountCondition,
-            priority: rule.priority,
-            isActive: true,
-          }),
-        );
-        createdRules++;
-      }
-    }
+  // Only categories are seeded now. Merchant patterns live in TypeScript
+  // (libs/infrastructure/categorize/catalog) and are evaluated at runtime, so
+  // there is nothing to copy into the rules table — and an improved catalogue
+  // reaches an install that seeded months ago.
+  for (const cat of DEFAULT_CATEGORIES) {
+    const existing = await catRepo.findOne({ where: { name: cat.name } });
+    if (existing) continue;
+    await catRepo.save(
+      catRepo.create({
+        name: cat.name,
+        color: cat.color ?? DEFAULT_CATEGORY_COLOR,
+        icon: cat.icon ?? DEFAULT_CATEGORY_ICON,
+        isDefault: true,
+      }),
+    );
+    createdCats++;
   }
+
+  const prunedRules = await pruneSeededRules(ds);
 
   // Default account so the user can ingest immediately
   if ((await accountRepo.count()) === 0) {
@@ -71,7 +57,43 @@ async function runSeed(ds: DataSource): Promise<{
 
   await backfillOwnership(ds);
 
-  return { createdCategories: createdCats, createdRules };
+  return { createdCategories: createdCats, prunedRules };
+}
+
+/**
+ * Drop the rules an older version seeded from `categories.yaml`.
+ *
+ * Only the ones still identical to what the catalogue now says: same pattern,
+ * same target category, plain `contains`, default priority, no amount
+ * condition. Those are pure duplicates of a catalogue entry — deleting them
+ * changes no categorisation and hands the Catégories page back to the rules
+ * you actually wrote. Anything you touched differs, and is kept: an edited
+ * rule still outranks the catalogue.
+ */
+async function pruneSeededRules(ds: DataSource): Promise<number> {
+  const ruleRepo = ds.getRepository(RuleEntity);
+  const catRepo = ds.getRepository(CategoryEntity);
+
+  const catalogPatterns = new Map<string, string>();
+  for (const entry of MERCHANT_CATALOG) {
+    for (const pattern of entry.patterns) {
+      catalogPatterns.set(normalizeDescription(pattern), MERCHANT_KIND_CATEGORY[entry.kind]);
+    }
+  }
+
+  const categories = await catRepo.find();
+  const nameById = new Map(categories.map((c) => [c.id, c.name]));
+
+  let pruned = 0;
+  for (const rule of await ruleRepo.find()) {
+    if (rule.matchType !== "contains" || rule.amountCondition !== "any") continue;
+    if (rule.priority !== 100 || !rule.isActive) continue;
+    const target = catalogPatterns.get(normalizeDescription(rule.pattern));
+    if (!target || target !== nameById.get(rule.categoryId)) continue;
+    await ruleRepo.delete(rule.id);
+    pruned++;
+  }
+  return pruned;
 }
 
 /**
@@ -131,7 +153,8 @@ async function main() {
   console.log("Schema synchronized. Seeding categories and rules...");
   const result = await runSeed(ds);
   console.log(
-    `Seed done. New categories: ${result.createdCategories}, new rules: ${result.createdRules}`,
+    `Seed done. New categories: ${result.createdCategories}, ` +
+      `redundant seeded rules removed: ${result.prunedRules}`,
   );
   await ds.destroy();
 }

@@ -1,0 +1,126 @@
+import type { MerchantEntry } from "@domain/services/merchant-catalog";
+
+/** Things bought rather than consumed: shops, marketplaces, DIY, garden. */
+export const SHOPPING: MerchantEntry[] = [
+  // ── Marketplaces ───────────────────────────────────────────────────────
+  { key: "amazon", name: "Amazon", kind: "marketplace", patterns: ["AMAZON", "AMZN"] },
+  { key: "cdiscount", name: "Cdiscount", kind: "marketplace", patterns: ["CDISCOUNT"] },
+  { key: "ebay", name: "eBay", kind: "marketplace", patterns: ["EBAY"] },
+  { key: "vinted", name: "Vinted", kind: "marketplace", patterns: ["VINTED"] },
+  { key: "leboncoin", name: "leboncoin", kind: "marketplace", patterns: ["LEBONCOIN"] },
+  { key: "aliexpress", name: "AliExpress", kind: "marketplace", patterns: ["ALIEXPRESS"] },
+  { key: "temu", name: "Temu", kind: "marketplace", patterns: ["TEMU"] },
+  { key: "shein", name: "Shein", kind: "marketplace", patterns: ["SHEIN"] },
+  { key: "veepee", name: "Veepee", kind: "marketplace", patterns: ["VEEPEE"] },
+  { key: "rakuten", name: "Rakuten", kind: "marketplace", patterns: ["RAKUTEN"] },
+  { key: "back-market", name: "Back Market", kind: "marketplace", patterns: ["BACK MARKET"] },
+
+  { key: "etsy", name: "Etsy", kind: "marketplace", patterns: ["ETSY"] },
+  { key: "showroomprive", name: "Showroomprivé", kind: "marketplace", patterns: ["SHOWROOMPRIVE"] },
+  { key: "wish", name: "Wish", kind: "marketplace", patterns: ["WISH.COM"] },
+
+  // ── Mode ───────────────────────────────────────────────────────────────
+  { key: "zalando", name: "Zalando", kind: "fashion", patterns: ["ZALANDO"] },
+  { key: "asos", name: "ASOS", kind: "fashion", patterns: ["ASOS"] },
+  { key: "kiabi", name: "Kiabi", kind: "fashion", patterns: ["KIABI"] },
+  { key: "zara", name: "Zara", kind: "fashion", patterns: ["ZARA"] },
+  { key: "h-m", name: "H&M", kind: "fashion", patterns: ["H&M"] },
+  { key: "uniqlo", name: "Uniqlo", kind: "fashion", patterns: ["UNIQLO"] },
+  { key: "primark", name: "Primark", kind: "fashion", patterns: ["PRIMARK"] },
+  { key: "celio", name: "Celio", kind: "fashion", patterns: ["CELIO"] },
+  { key: "jules", name: "Jules", kind: "fashion", patterns: ["JULES"] },
+  { key: "promod", name: "Promod", kind: "fashion", patterns: ["PROMOD"] },
+  { key: "gemo", name: "Gémo", kind: "fashion", patterns: ["GEMO"] },
+  { key: "la-halle", name: "La Halle", kind: "fashion", patterns: ["LA HALLE"] },
+  { key: "chaussea", name: "Chausséa", kind: "fashion", patterns: ["CHAUSSEA"] },
+  { key: "courir", name: "Courir", kind: "fashion", patterns: ["COURIR"] },
+  { key: "foot-locker", name: "Foot Locker", kind: "fashion", patterns: ["FOOT LOCKER"] },
+  { key: "bershka", name: "Bershka", kind: "fashion", patterns: ["BERSHKA"] },
+  { key: "mango", name: "Mango", kind: "fashion", patterns: ["MANGO"] },
+  { key: "undiz", name: "Undiz", kind: "fashion", patterns: ["UNDIZ"] },
+  { key: "etam", name: "Etam", kind: "fashion", patterns: ["ETAM"] },
+  { key: "nike", name: "Nike", kind: "fashion", patterns: ["NIKE"] },
+  { key: "adidas", name: "Adidas", kind: "fashion", patterns: ["ADIDAS"] },
+  { key: "jd-sports", name: "JD Sports", kind: "fashion", patterns: ["JD SPORTS"] },
+  { key: "snipes", name: "Snipes", kind: "fashion", patterns: ["SNIPES"] },
+  { key: "kaporal", name: "Kaporal", kind: "fashion", patterns: ["KAPORAL"] },
+  { key: "bijouterie", name: "Bijouterie (générique)", kind: "fashion", patterns: ["BIJOUTERIE"] },
+
+  // ── Électronique ───────────────────────────────────────────────────────
+  { key: "fnac", name: "Fnac", kind: "electronics", patterns: ["FNAC"] },
+  { key: "darty", name: "Darty", kind: "electronics", patterns: ["DARTY"] },
+  { key: "boulanger", name: "Boulanger", kind: "electronics", patterns: ["BOULANGER"] },
+  { key: "ldlc", name: "LDLC", kind: "electronics", patterns: ["LDLC"] },
+  { key: "materiel-net", name: "Materiel.net", kind: "electronics", patterns: ["MATERIEL.NET"] },
+  { key: "apple", name: "Apple", kind: "electronics", patterns: ["APPLE STORE", "APPLE.COM"] },
+  { key: "samsung", name: "Samsung", kind: "electronics", patterns: ["SAMSUNG"] },
+
+  { key: "cybertek", name: "Cybertek", kind: "electronics", patterns: ["CYBERTEK"] },
+  { key: "top-achat", name: "TopAchat", kind: "electronics", patterns: ["TOPACHAT", "TOP ACHAT"] },
+  { key: "son-video", name: "Son-Vidéo", kind: "electronics", patterns: ["SON VIDEO"] },
+
+  // ── Bazar & discount ───────────────────────────────────────────────────
+  { key: "action", name: "Action", kind: "general_retail", patterns: ["ACTION FRANCE", "MAGASIN ACTION"] },
+  { key: "gifi", name: "GiFi", kind: "general_retail", patterns: ["GIFI"] },
+  { key: "centrakor", name: "Centrakor", kind: "general_retail", patterns: ["CENTRAKOR"] },
+  { key: "foir-fouille", name: "La Foir'Fouille", kind: "general_retail", patterns: ["FOIR FOUILLE"] },
+  { key: "stokomani", name: "Stokomani", kind: "general_retail", patterns: ["STOKOMANI"] },
+  { key: "noz", name: "Noz", kind: "general_retail", patterns: ["MAGASIN NOZ"] },
+  { key: "hema", name: "Hema", kind: "general_retail", patterns: ["HEMA"] },
+  { key: "flying-tiger", name: "Flying Tiger", kind: "general_retail", patterns: ["FLYING TIGER"] },
+
+  { key: "zeeman", name: "Zeeman", kind: "general_retail", patterns: ["ZEEMAN"] },
+  { key: "maxi-bazar", name: "Maxi Bazar", kind: "general_retail", patterns: ["MAXI BAZAR"] },
+  { key: "babou", name: "Babou", kind: "general_retail", patterns: ["BABOU"] },
+  { key: "tedi", name: "TEDi", kind: "general_retail", patterns: ["TEDI"] },
+
+  // ── Meuble & déco ──────────────────────────────────────────────────────
+  { key: "ikea", name: "IKEA", kind: "furniture", patterns: ["IKEA"] },
+  { key: "conforama", name: "Conforama", kind: "furniture", patterns: ["CONFORAMA"] },
+  // "BUT" is three letters that live inside other words.
+  { key: "but", name: "BUT", kind: "furniture", regex: "\\bBUT\\b", patterns: [] },
+  { key: "maisons-du-monde", name: "Maisons du Monde", kind: "furniture", patterns: ["MAISONS DU MONDE"] },
+  { key: "alinea", name: "Alinéa", kind: "furniture", patterns: ["ALINEA"] },
+  { key: "la-redoute", name: "La Redoute", kind: "furniture", patterns: ["LA REDOUTE"] },
+
+  { key: "gautier", name: "Gautier", kind: "furniture", patterns: ["MEUBLES GAUTIER"] },
+  // FLY lives inside FLYING TIGER, so it needs a boundary of its own.
+  { key: "fly", name: "Fly", kind: "furniture", regex: "\\bFLY\\b", patterns: [] },
+  { key: "delamaison", name: "Delamaison", kind: "furniture", patterns: ["DELAMAISON"] },
+  { key: "westwing", name: "Westwing", kind: "furniture", patterns: ["WESTWING"] },
+
+  // ── Bricolage & matériaux ──────────────────────────────────────────────
+  { key: "leroy-merlin", name: "Leroy Merlin", kind: "home_improvement", patterns: ["LEROY MERLI"] },
+  { key: "castorama", name: "Castorama", kind: "home_improvement", patterns: ["CASTORAMA"] },
+  { key: "brico-depot", name: "Brico Dépôt", kind: "home_improvement", patterns: ["BRICO DEPOT"] },
+  { key: "bricomarche", name: "Bricomarché", kind: "home_improvement", patterns: ["BRICOMARCHE"] },
+  { key: "mr-bricolage", name: "Mr.Bricolage", kind: "home_improvement", patterns: ["MR BRICOLAGE"] },
+  { key: "weldom", name: "Weldom", kind: "home_improvement", patterns: ["WELDOM"] },
+  { key: "point-p", name: "Point.P", kind: "home_improvement", patterns: ["POINT P"] },
+  { key: "saint-maclou", name: "Saint Maclou", kind: "home_improvement", patterns: ["SAINT MACLOU"] },
+  { key: "lapeyre", name: "Lapeyre", kind: "home_improvement", patterns: ["LAPEYRE"] },
+  { key: "manomano", name: "ManoMano", kind: "home_improvement", patterns: ["MANOMANO"] },
+  { key: "chausson-materiaux", name: "Chausson Matériaux", kind: "home_improvement", patterns: ["CHAUSSON MATERIA"] },
+  { key: "gedimat", name: "Gedimat", kind: "home_improvement", patterns: ["GEDIMAT"] },
+  { key: "lafarge", name: "Lafarge", kind: "home_improvement", patterns: ["LAFARGE"] },
+  { key: "adeo", name: "Adeo", kind: "home_improvement", patterns: ["ADEO"] },
+  { key: "tridome", name: "Tridôme", kind: "home_improvement", patterns: ["TRIDOME"] },
+  { key: "bigmat", name: "BigMat", kind: "home_improvement", patterns: ["BIGMAT"] },
+  { key: "brico-cash", name: "Brico Cash", kind: "home_improvement", patterns: ["BRICO CASH"] },
+  { key: "diy-generic", name: "Bricolage (générique)", kind: "home_improvement", patterns: ["BRICOLAGE", "MATERIAUX"] },
+
+  // ── Jardin & animaux ───────────────────────────────────────────────────
+  { key: "gamm-vert", name: "Gamm vert", kind: "garden_pets", patterns: ["GAMM VERT"] },
+  { key: "jardiland", name: "Jardiland", kind: "garden_pets", patterns: ["JARDILAND"] },
+  { key: "truffaut", name: "Truffaut", kind: "garden_pets", patterns: ["TRUFFAUT"] },
+  { key: "botanic", name: "Botanic", kind: "garden_pets", patterns: ["BOTANIC"] },
+  { key: "point-vert", name: "Point Vert", kind: "garden_pets", patterns: ["POINT VERT"] },
+  { key: "maxi-zoo", name: "Maxi Zoo", kind: "garden_pets", patterns: ["MAXI ZOO"] },
+  { key: "animalis", name: "Animalis", kind: "garden_pets", patterns: ["ANIMALIS"] },
+  { key: "bitiba", name: "Bitiba", kind: "garden_pets", patterns: ["BITIBA"] },
+  { key: "zooplus", name: "Zooplus", kind: "garden_pets", patterns: ["ZOOPLUS"] },
+  { key: "croquetteland", name: "Croquetteland", kind: "garden_pets", patterns: ["CROQUETTELAND"] },
+  { key: "tom-and-co", name: "Tom&Co", kind: "garden_pets", patterns: ["TOM&CO", "TOM & CO"] },
+  { key: "delbard", name: "Delbard", kind: "garden_pets", patterns: ["DELBARD"] },
+  { key: "veterinaire", name: "Vétérinaire (générique)", kind: "garden_pets", patterns: ["VETERINAIRE", "JARDINERIE"] },
+];

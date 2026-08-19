@@ -17,6 +17,7 @@ import { CategoryEntity } from "./category";
 import { ContributionEntity } from "./contribution";
 import { FixedExpenseEntity } from "./fixed-expense";
 import { ImportEntity } from "./import";
+import { MerchantOverrideEntity } from "./merchant-override";
 import { PersonEntity } from "./person";
 import { RuleEntity } from "./rule";
 import { SessionEntity } from "./session";
@@ -33,6 +34,7 @@ export { CategoryEntity } from "./category";
 export { ContributionEntity } from "./contribution";
 export { FixedExpenseEntity } from "./fixed-expense";
 export { ImportEntity } from "./import";
+export { MerchantOverrideEntity } from "./merchant-override";
 export { PersonEntity } from "./person";
 export { RuleEntity } from "./rule";
 export { SessionEntity } from "./session";
@@ -47,6 +49,7 @@ export const ALL_ENTITIES = [
   AccountEntity,
   CategoryEntity,
   RuleEntity,
+  MerchantOverrideEntity,
   TransactionEntity,
   PersonEntity,
   ContributionEntity,

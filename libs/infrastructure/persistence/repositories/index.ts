@@ -6,6 +6,7 @@ import {
   Category,
   Contribution,
   FixedExpense,
+  MerchantOverride,
   Person,
   Rule,
   Transaction,
@@ -16,12 +17,14 @@ import {
   type CategoryRow,
   type ContributionRow,
   type FixedExpenseRow,
+  type MerchantOverrideRow,
   type NewAccount,
   type NewAsset,
   type NewBudget,
   type NewCategory,
   type NewContribution,
   type NewFixedExpense,
+  type NewMerchantOverride,
   type NewPerson,
   type NewRule,
   type NewTransaction,
@@ -38,6 +41,7 @@ import {
   CategoryEntity,
   ContributionEntity,
   FixedExpenseEntity,
+  MerchantOverrideEntity,
   PersonEntity,
   RuleEntity,
   TransactionEntity,
@@ -49,6 +53,7 @@ import type {
   BudgetRepository,
   ContributionRepository,
   FixedExpenseRepository,
+  MerchantOverrideRepository,
   RuleRepository,
   TransactionRepository,
 } from "@domain/repositories";
@@ -94,6 +99,32 @@ class TypeOrmBudgetRepository
 }
 
 export const budgets: BudgetRepository = new TypeOrmBudgetRepository(BudgetEntity, Budget);
+
+class TypeOrmMerchantOverrideRepository
+  extends TypeOrmRepository<MerchantOverride, MerchantOverrideRow, NewMerchantOverride>
+  implements MerchantOverrideRepository
+{
+  async findByKey(merchantKey: string): Promise<MerchantOverride | null> {
+    const row = await (await this.repo()).findOne({ where: { merchantKey } });
+    return row ? MerchantOverride.reconstitute(row) : null;
+  }
+
+  async deleteByKey(merchantKey: string): Promise<boolean> {
+    const result = await (await this.repo()).delete({ merchantKey });
+    return (result.affected ?? 0) > 0;
+  }
+
+  async clearCategory(categoryId: number): Promise<void> {
+    // The merchant stays overridden — switched off if that is all it said,
+    // otherwise back to its kind's category, which is the honest default.
+    const repo = await this.repo();
+    await repo.delete({ categoryId, disabled: false });
+    await repo.update({ categoryId }, { categoryId: null });
+  }
+}
+
+export const merchantOverrides: MerchantOverrideRepository =
+  new TypeOrmMerchantOverrideRepository(MerchantOverrideEntity, MerchantOverride);
 
 export const categories = new TypeOrmRepository<Category, CategoryRow, NewCategory>(
   CategoryEntity,

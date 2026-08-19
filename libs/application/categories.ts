@@ -3,6 +3,7 @@ import {
   budgets,
   categories,
   fixedExpenses,
+  merchantOverrides,
   rules,
   transactions,
 } from "@infrastructure/persistence/repositories";
@@ -16,7 +17,8 @@ import {
  *
  * This is the `ON DELETE` behaviour the schema does not express: rules and
  * budgets cascade, because a rule filing into a category that no longer exists
- * (or a budget for it) is meaningless. Transactions and fixed expenses only
+ * (or a budget for it) is meaningless; a merchant override pointing here falls
+ * back to the catalogue. Transactions and fixed expenses only
  * lose the link — the spending still happened and the bill is still due, they
  * just become uncategorised.
  *
@@ -31,6 +33,9 @@ export async function deleteCategory(categoryId: number): Promise<boolean> {
 
   await rules.deleteByCategory(categoryId);
   await budgets.deleteByCategory(categoryId);
+  // A merchant re-pointed here goes back to its catalogue default rather than
+  // keeping an id that no longer resolves to anything.
+  await merchantOverrides.clearCategory(categoryId);
   await transactions.clearCategory(categoryId);
   await fixedExpenses.clearCategory(categoryId);
 

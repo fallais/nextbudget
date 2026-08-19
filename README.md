@@ -13,7 +13,9 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
   parsed in-memory. Duplicate transactions are detected by a content hash, so
   re-importing overlapping files is safe.
 - **Auto-categorization** — a transparent, rule-based engine (patterns, priorities,
-  amount conditions) with a batteries-included set of French merchant rules.
+  amount conditions) over a catalogue of ~390 French and European merchants that
+  ships with the app. Your own rules always win, and any shipped merchant can be
+  moved to another category or switched off without editing it.
 - **Budgets** — per-category monthly/weekly budgets with progress tracking.
 - **Fixed expenses** (Frais fixes) — recurring charges and their schedule.
 - **Contributions** (Apports) — track who paid what into shared accounts — designed

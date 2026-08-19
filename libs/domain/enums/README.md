@@ -1,14 +1,14 @@
 # Domain enums
 
 Closed sets of values the domain speaks in: visibilities, match types, account
-kinds, asset types.
+kinds, asset types, merchant kinds.
 
 They are `as const` arrays with the union derived from them, **not** TypeScript
 `enum`s. The values *are* the strings stored in Postgres and sent over HTTP, so
 a union is exactly the right type — `row.visibility` needs no conversion at any
 boundary. A string `enum` is nominally typed, so `"shared"` would not be
-assignable to `Visibility.Shared`, forcing a mapping in every Zod schema, YAML
-default, test and JSON payload; `enum` also emits runtime code, which sits badly
+assignable to `Visibility.Shared`, forcing a mapping in every Zod schema,
+seed, test and JSON payload; `enum` also emits runtime code, which sits badly
 with `isolatedModules`.
 
 Deriving the type from the array keeps one source of truth: the same
@@ -19,3 +19,8 @@ seeding) and the compile-time union.
 export const VISIBILITIES = ["private", "shared"] as const;
 export type Visibility = (typeof VISIBILITIES)[number];
 ```
+
+`merchant-kind.ts` carries two maps alongside its union: the French label each
+kind wears in the interface, and the **category name** it files into. The
+second is what lets a shipped merchant catalogue meet a per-install `categories`
+table — see `libs/infrastructure/categorize/catalog/`.

@@ -7,6 +7,17 @@ export type CompiledRule = {
   categoryId: number;
   priority: number;
   amountCondition: AmountCondition;
+  /**
+   * How much of the description a match consumed. Breaks a priority tie in
+   * favour of the more specific pattern, which is what makes "UBER EATS" a
+   * restaurant while "UBER" stays a ride — a distinction that used to need a
+   * hand-tuned priority on both, and silently broke when either changed.
+   */
+  specificity: number;
+  /** At equal priority and specificity, what you wrote beats what we shipped. */
+  source: "user" | "catalog";
+  /** Where the rule came from, for the UI: a rule id, or a merchant key. */
+  origin: string;
   test: (normalizedDescription: string, amountCents: number) => boolean;
 };
 
@@ -27,7 +38,10 @@ export type RuleInput = {
   createdAt?: Date;
 };
 
-export function compileRule(rule: RuleInput): CompiledRule | null {
+export function compileRule(
+  rule: RuleInput,
+  meta: { source?: "user" | "catalog"; origin?: string } = {},
+): CompiledRule | null {
   const pattern = rule.pattern;
   const norm = normalizeDescription(pattern);
   let textTest: (s: string) => boolean;
@@ -56,6 +70,9 @@ export function compileRule(rule: RuleInput): CompiledRule | null {
     categoryId: rule.categoryId,
     priority: rule.priority,
     amountCondition: condition,
+    specificity: norm.length,
+    source: meta.source ?? "user",
+    origin: meta.origin ?? `rule:${rule.id}`,
     test: (s, amount) => {
       if (!textTest(s)) return false;
       if (condition === "positive" && amount <= 0) return false;
@@ -63,6 +80,20 @@ export function compileRule(rule: RuleInput): CompiledRule | null {
       return true;
     },
   };
+}
+
+/**
+ * The order rules are tried in — the whole precedence of the engine, in one
+ * comparison: priority first (lower wins, as the Rules page says), then the
+ * more specific pattern, then yours over ours.
+ */
+export function orderRules(rules: CompiledRule[]): CompiledRule[] {
+  return [...rules].sort(
+    (a, b) =>
+      a.priority - b.priority ||
+      b.specificity - a.specificity ||
+      (a.source === b.source ? 0 : a.source === "user" ? -1 : 1),
+  );
 }
 
 export function matchCategoryId(

@@ -145,20 +145,36 @@ over the stored value. `patchSchema` unwraps defaults first.
   contributions, fixed_expenses, budgets, assets are scoped directly. Writes stamp
   `owner_id`. Categories/rules stay shared config. Per-row toggles → `/api/visibility`.
 
-## Categorization defaults
-Default categories and merchant patterns live in **one YAML file**,
-`libs/infrastructure/categorize/categories.yaml`, validated by a Zod schema in
-`libs/infrastructure/categorize/defaults.ts`.
-- **Seeded into `categories` + `rules`** at `db:migrate`, additively: only
-  missing rows are created, so edits made in the Rules UI survive a re-run.
-- After seeding, the **DB is the only source the engine reads**. There is no
-  runtime overlay and no `PATTERN_PACKS` env — what the Rules page shows is what
-  runs.
-- A pattern is normally just a string; use the long form
-  (`pattern`/`matchType`/`amountCondition`/`priority`) only when a rule needs it.
-- Keep contributed merchants **generic** (national/international chains).
-  Hyper-local or personal merchants belong in your own install, added from the
-  Rules page — not in this file.
+## Categorization (rules + merchant catalogue)
+Three layers decide a category, merged into one ordered list by
+`libs/application/categorize/engine.ts`:
+1. **Your rules** — the `rules` table, edited on a category's page.
+2. **Synthetic rules** — contributions, at priority 40, so an apport labelled
+   "DE JEAN - EDF" is an apport and not an energy bill.
+3. **The shipped catalogue** — `libs/infrastructure/categorize/catalog/*.ts`,
+   evaluated **at runtime**, never seeded into `rules`.
+
+Ordering is one comparison (`orderRules`): priority ascending, then the longer
+matched pattern (so "UBER EATS" beats "UBER" with no hand-tuned priorities),
+then `source: "user"` before `"catalog"`.
+
+- **Where things live.** The *vocabulary* is domain (`libs/domain/enums/merchant-kind.ts`
+  — kinds, their French labels, and the category **name** each files into) and so
+  is the matching (`libs/domain/services/{categorization,merchant-catalog}.ts`).
+  The *brands* are infrastructure: swapping `catalog/` for another country's
+  changes no domain code. Assembly is application.
+- **Overrides, not edits.** `merchant_overrides (merchant_key, category_id,
+  disabled)` stores only what the user changed, so untouched entries keep
+  improving with each release and "réinitialiser" is a `DELETE`. Managed on a
+  category's page → `/api/merchants/[key]`.
+- **Seeding** is now categories only (`default-categories.ts`); `db:migrate`
+  also prunes `rules` rows still identical to a catalogue entry, left behind by
+  the YAML era. An edited rule differs, so it is kept — and still wins.
+- Contributed merchants stay **generic** (national/international chains).
+  Hyper-local or personal merchants belong in your own install as a rule.
+  Patterns are `contains` on the normalised description, ≥4 characters unless
+  allowlisted in `catalog/testing.ts`; use `regex` with `\b…\b` for short names
+  (`BUT`, `FLY`, `ASF`). One test file per catalogue file.
 
 ## Adding a new bank parser
 Add `libs/infrastructure/ingest/parsers/<name>.ts` exporting a function returning `ParseResult`,
