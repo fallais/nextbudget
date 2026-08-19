@@ -1,4 +1,3 @@
-import { listAllCategories } from "@application/queries";
 import {
   getFixedExpensesWithStatus,
   summarizeFixedExpenses,
@@ -9,16 +8,16 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export default async function FraisFixesPage() {
-  const [statuses, categories] = await Promise.all([
-    getFixedExpensesWithStatus(),
-    listAllCategories(),
-  ]);
+  const statuses = await getFixedExpensesWithStatus();
+
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
   return (
     <FixedExpensesView
       statuses={statuses}
       summary={summarizeFixedExpenses(statuses)}
-      categories={categories}
+      monthElapsedPct={Math.round((now.getDate() / daysInMonth) * 100)}
     />
   );
 }
