@@ -45,6 +45,21 @@ export function formatMonthLabel(iso: string): string {
   return format(parseISO(iso), "MMM yyyy", { locale: fr });
 }
 
+/**
+ * Date layouts a bank export may use, tried in this order when no format is
+ * pinned. Labelled with an example rather than the pattern: the mapping step
+ * asks a person which shape their file uses, and "31/12/2026" answers that
+ * faster than "dd/MM/yyyy".
+ */
+export const DATE_FORMATS = [
+  { value: "dd/MM/yyyy", label: "31/12/2026" },
+  { value: "dd/MM/yy", label: "31/12/26" },
+  { value: "yyyy-MM-dd", label: "2026-12-31" },
+  { value: "yyyy/MM/dd", label: "2026/12/31" },
+  { value: "dd-MM-yyyy", label: "31-12-2026" },
+  { value: "dd.MM.yyyy", label: "31.12.2026" },
+] as const;
+
 export function parseAmountToCents(input: string): number {
   // Accept "1234,56", "1 234,56", "-1234.56", "(1234.56)" (negative)
   let s = input.trim();

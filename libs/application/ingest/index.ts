@@ -3,7 +3,8 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { ImportEntity, TransactionEntity, AccountEntity } from "@infrastructure/persistence/schemas";
 import type { NewTransaction } from "@domain/entities";
 import { isUniqueViolation } from "@infrastructure/persistence/errors";
-import { detectParser, runParser } from "@infrastructure/ingest/parsers/registry";
+import { detectParser, previewParser, runParser, type ParserId } from "@infrastructure/ingest/parsers/registry";
+import type { ColumnMapping, CsvPreview } from "@infrastructure/ingest/parsers/csv-generic";
 import { transactionHash } from "@infrastructure/ingest/hash";
 import { loadActiveCompiledRules, matchCategoryId } from "@application/categorize/engine";
 
@@ -27,6 +28,50 @@ export type IngestRunResult = {
   files: IngestFileResult[];
   totals: { files: number; new: number; duplicate: number; error: number };
 };
+
+/** A column mapping per filename — how the confirm step overrules detection. */
+export type MappingsByFile = Record<string, Partial<ColumnMapping>>;
+
+export type FilePreview = {
+  filename: string;
+  parser: ParserId | null;
+  preview: CsvPreview | null;
+  /** Set when the file cannot be read at all, e.g. an unsupported extension. */
+  error?: string;
+};
+
+/**
+ * Read the uploads without writing anything.
+ *
+ * The import page shows this back — which column it took for the date, for the
+ * libellé, for the amount — and lets it be corrected before a single row is
+ * written. Detection is a first guess, not a verdict: a wrong guess used to
+ * mean a wrong import to undo by hand, and every unknown bank meant a new
+ * parser rather than four selects.
+ */
+export async function previewUploads(
+  files: UploadedFile[],
+  mappings: MappingsByFile = {},
+): Promise<FilePreview[]> {
+  return Promise.all(
+    files.map(async ({ filename, buffer }) => {
+      const parserId = detectParser(filename);
+      if (!parserId) {
+        return {
+          filename,
+          parser: null,
+          preview: null,
+          error: "Format de fichier non reconnu",
+        };
+      }
+      return {
+        filename,
+        parser: parserId,
+        preview: await previewParser(parserId, buffer, mappings[filename] ?? {}),
+      };
+    }),
+  );
+}
 
 
 /**
@@ -53,7 +98,11 @@ async function resolveAccount(requestedId?: number | null): Promise<number> {
   return found.id;
 }
 
-async function ingestOne(file: UploadedFile, accountId: number): Promise<IngestFileResult> {
+async function ingestOne(
+  file: UploadedFile,
+  accountId: number,
+  mapping: Partial<ColumnMapping> = {},
+): Promise<IngestFileResult> {
   const { filename, buffer } = file;
   const parserId = detectParser(filename);
 
@@ -80,7 +129,7 @@ async function ingestOne(file: UploadedFile, accountId: number): Promise<IngestF
   const importId = importRow.id;
 
   try {
-    const parsed = await runParser(parserId, buffer);
+    const parsed = await runParser(parserId, buffer, mapping);
 
     if (parsed.rows.length === 0 && parsed.errors.length > 0) {
       const message = parsed.errors[0].message;
@@ -184,11 +233,12 @@ async function ingestOne(file: UploadedFile, accountId: number): Promise<IngestF
 export async function ingestUploads(
   files: UploadedFile[],
   targetAccountId?: number | null,
+  mappings: MappingsByFile = {},
 ): Promise<IngestRunResult> {
   const accountId = await resolveAccount(targetAccountId);
   const results: IngestFileResult[] = [];
   for (const f of files) {
-    results.push(await ingestOne(f, accountId));
+    results.push(await ingestOne(f, accountId, mappings[f.filename] ?? {}));
   }
   return {
     files: results,

@@ -60,6 +60,29 @@ export const budgetInputSchema = z.object({
 /** The category is a budget's identity, so a patch only ever moves the ceiling. */
 export const budgetUpdateSchema = patchSchema(budgetInputSchema.omit({ categoryId: true }));
 
+/**
+ * A column mapping sent back by the import page's confirm step.
+ *
+ * Every field is optional: what the page does not send stays detected, so a
+ * user who only corrects the amount column does not have to restate the rest.
+ * `null` is meaningful and distinct from absent — it says "this file has no
+ * such column", which is how a debit/credit pair replaces a single amount.
+ */
+export const columnMappingSchema = z.object({
+  delimiter: z.string().min(1).max(4).optional(),
+  headerRowIndex: z.number().int().min(0).max(500).optional(),
+  date: z.string().optional(),
+  description: z.string().optional(),
+  amount: z.string().nullable().optional(),
+  debit: z.string().nullable().optional(),
+  credit: z.string().nullable().optional(),
+  dateFormat: z.string().nullable().optional(),
+  invertSign: z.boolean().optional(),
+});
+
+/** Mappings keyed by filename — an upload can hold files of different shapes. */
+export const mappingsByFileSchema = z.record(z.string(), columnMappingSchema);
+
 export const fixedExpenseMatchTypeSchema = z.enum(["contains", "starts_with", "regex"]);
 
 export const personInputSchema = z.object({
