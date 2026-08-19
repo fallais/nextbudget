@@ -3,13 +3,6 @@
 **Local-first personal finance dashboard for individuals and couples.**
 Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastructure you control.
 
-> ⚠️ **Status: early / pre-1.0.** NextBudget is the open-source evolution of a private
-> finance dashboard. The UI is in **French**; the code is in English. Multi-user,
-> optional auth, and assets/net-worth features are on the [roadmap](#roadmap).
-
-Built with **Next.js 15** (App Router), **PostgreSQL** (TypeORM), and Tailwind.
-No external services, no telemetry — self-host with Docker Compose (app + Postgres).
-
 ---
 
 ## Features
