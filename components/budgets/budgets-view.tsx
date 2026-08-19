@@ -1,245 +1,163 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  App,
-  Button,
-  Card,
-  Col,
-  Empty,
-  Flex,
-  InputNumber,
-  Modal,
-  Progress,
-  Row,
-  Segmented,
-  Statistic,
-  Tag,
-  Typography,
-} from "antd";
+import Link from "next/link";
+import { Button, Card, Empty, Flex, Tooltip, Typography, theme } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
+import { PageHeader } from "@/components/layout/page-header";
 import { STATUS } from "@shared/palette";
 import { formatCents } from "@shared/format";
-import type { CategoryRow } from "@domain/entities";
+import { BudgetItemRow } from "./budget-row";
 import type { CategoryBudgetStatus } from "@application/budgets";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /**
- * Budgets: one card per tracked category, worst first.
+ * Budgets: one ceiling per category, worst first.
  *
  * Sorted by how close each is to its ceiling rather than alphabetically — the
  * page exists to surface the ones about to be blown, and a list you have to
  * scan for trouble is doing half its job.
+ *
+ * One card at the top, then rows that lead to their own page, the same shape
+ * as Crédits and Patrimoine. A budget is created from the button in the header,
+ * where the category is chosen; the list used to double as a category picker,
+ * which made it two things at once and neither of them clearly.
  */
 export function BudgetsView({
   statuses,
-  toBudget,
-  coveredByFixed,
-  monthlyEquivalent,
-  monthlySpent,
+  monthlyBudgetCents,
+  monthlySpentCents,
+  monthElapsedPct,
 }: {
   statuses: CategoryBudgetStatus[];
-  toBudget: CategoryRow[];
-  coveredByFixed: CategoryRow[];
-  monthlyEquivalent: number;
-  monthlySpent: number;
+  monthlyBudgetCents: number;
+  monthlySpentCents: number;
+  monthElapsedPct: number;
 }) {
-  const router = useRouter();
-  const { message } = App.useApp();
-  const [editing, setEditing] = useState<CategoryRow | null>(null);
-  const [amount, setAmount] = useState<number | null>(null);
-  const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
-  const [saving, setSaving] = useState(false);
+  const { token } = theme.useToken();
 
-  function open(category: CategoryRow, current?: CategoryBudgetStatus) {
-    setEditing(category);
-    setAmount(current ? current.budgetCents / 100 : null);
-    setPeriod(current?.period ?? "monthly");
-  }
-
-  async function save() {
-    if (!editing) return;
-    setSaving(true);
-    try {
-      const res = await fetch(`/api/categories/${editing.id}/budget`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          budgetAmountCents: amount === null ? null : Math.round(amount * 100),
-          budgetPeriod: amount === null ? null : period,
-        }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        message.error(body?.error ?? "Échec de l'enregistrement");
-        return;
-      }
-      message.success(amount === null ? "Budget retiré" : "Budget enregistré");
-      setEditing(null);
-      router.refresh();
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const sorted = [...statuses].sort((a, b) => b.ratio - a.ratio);
-  const remaining = monthlyEquivalent - monthlySpent;
+  const remaining = monthlyBudgetCents - monthlySpentCents;
+  const usedPct =
+    monthlyBudgetCents > 0 ? Math.round((monthlySpentCents / monthlyBudgetCents) * 100) : 0;
+  const overCount = statuses.filter((s) => s.ratio >= 1).length;
+  const over = remaining < 0;
 
   return (
     <Flex vertical gap={16}>
-      <div>
-        <Title level={3} style={{ margin: 0 }}>
-          Budgets
-        </Title>
-        <Text type="secondary">
-          Un plafond par catégorie. Les charges fixes ont leur propre page.
-        </Text>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Budgets" }]}
+        description="Un plafond par catégorie. Les charges fixes ont leur propre page."
+        actions={
+          <Link href="/budgets/nouveau">
+            <Button type="primary" icon={<PlusOutlined />}>
+              Ajouter un budget
+            </Button>
+          </Link>
+        }
+      />
 
       {statuses.length > 0 && (
-        <Row gutter={[16, 16]}>
-          <Col xs={12} md={8}>
-            <Card size="small">
-              <Statistic title="Budgété / mois" value={formatCents(monthlyEquivalent)} />
-            </Card>
-          </Col>
-          <Col xs={12} md={8}>
-            <Card size="small">
-              <Statistic title="Dépensé" value={formatCents(monthlySpent)} />
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card size="small">
-              <Statistic
-                title={remaining >= 0 ? "Reste" : "Dépassement"}
-                value={formatCents(Math.abs(remaining))}
-                valueStyle={{ color: remaining >= 0 ? STATUS.good : STATUS.critical }}
-              />
-            </Card>
-          </Col>
-        </Row>
+        <Card>
+          <Flex vertical gap={16}>
+            <Flex justify="space-between" align="flex-start" wrap gap={16}>
+              <Flex vertical gap={0}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {over ? "Dépassement ce mois" : "Reste à dépenser ce mois"}
+                </Text>
+                <Text
+                  strong
+                  style={{
+                    fontSize: 34,
+                    fontVariantNumeric: "tabular-nums",
+                    color: over ? STATUS.critical : undefined,
+                  }}
+                >
+                  {formatCents(Math.abs(remaining))}
+                </Text>
+              </Flex>
+
+              <Flex gap={32} wrap>
+                <Figure label="Plafonds" value={formatCents(monthlyBudgetCents)} />
+                <Figure label="Dépensé" value={formatCents(monthlySpentCents)} />
+              </Flex>
+            </Flex>
+
+            {monthlyBudgetCents > 0 && (
+              <Flex vertical gap={6}>
+                {/* The spend against the ceilings, with a mark where the month
+                    itself has got to. The gap between the two is the whole
+                    point: 60 % spent is fine on the 20th and not on the 5th. */}
+                <div
+                  style={{
+                    position: "relative",
+                    height: 12,
+                    background: token.colorFillSecondary,
+                    borderRadius: 4,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${Math.min(100, usedPct)}%`,
+                      height: "100%",
+                      background: over ? STATUS.critical : token.colorPrimary,
+                      borderRadius: 4,
+                    }}
+                  />
+                  <Tooltip title={`Le mois est écoulé à ${monthElapsedPct} %`}>
+                    <div
+                      style={{
+                        position: "absolute",
+                        insetBlock: -3,
+                        left: `${monthElapsedPct}%`,
+                        width: 2,
+                        marginLeft: -1,
+                        background: token.colorTextSecondary,
+                        borderRadius: 1,
+                      }}
+                    />
+                  </Tooltip>
+                </div>
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {usedPct} % des plafonds utilisés, pour un mois écoulé à {monthElapsedPct} %.
+                  {overCount > 0 &&
+                    ` ${overCount} budget${overCount > 1 ? "s" : ""} déjà dépassé${overCount > 1 ? "s" : ""}.`}
+                </Text>
+              </Flex>
+            )}
+          </Flex>
+        </Card>
       )}
 
-      {sorted.length === 0 ? (
+      {statuses.length === 0 ? (
         <Card>
-          <Empty description="Aucun budget défini" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          <Empty description="Aucun budget défini" image={Empty.PRESENTED_IMAGE_SIMPLE}>
+            <Link href="/budgets/nouveau">
+              <Button type="primary" icon={<PlusOutlined />}>
+                Ajouter un budget
+              </Button>
+            </Link>
+          </Empty>
         </Card>
       ) : (
-        <Row gutter={[16, 16]}>
-          {sorted.map((s) => {
-            const pct = Math.min(100, Math.round(s.ratio * 100));
-            const over = s.ratio >= 1;
-            const near = s.ratio >= 0.8 && s.ratio < 1;
-            return (
-              <Col key={s.category.id} xs={24} md={12} xl={8}>
-                <Card
-                  size="small"
-                  title={s.category.name}
-                  extra={
-                    <Button type="link" size="small" onClick={() => open(s.category, s)}>
-                      Modifier
-                    </Button>
-                  }
-                >
-                  <Flex justify="space-between" align="baseline">
-                    <Text strong style={{ fontVariantNumeric: "tabular-nums", fontSize: 18 }}>
-                      {formatCents(s.spentCents)}
-                    </Text>
-                    <Text type="secondary" style={{ fontVariantNumeric: "tabular-nums" }}>
-                      / {formatCents(s.budgetCents)} · {s.periodLabel}
-                    </Text>
-                  </Flex>
-                  <Progress
-                    percent={pct}
-                    showInfo={false}
-                    size={["100%", 6]}
-                    strokeColor={over ? STATUS.critical : near ? STATUS.warning : STATUS.good}
-                  />
-                  <Flex justify="space-between">
-                    {/* State in words, not only in the bar's colour. */}
-                    <Text style={{ fontSize: 12 }} type={over ? "danger" : "secondary"}>
-                      {over
-                        ? `Dépassé de ${formatCents(s.spentCents - s.budgetCents)}`
-                        : `Reste ${formatCents(s.remainingCents)}`}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {s.daysRemaining} j restants
-                    </Text>
-                  </Flex>
-                </Card>
-              </Col>
-            );
-          })}
-        </Row>
-      )}
-
-      {toBudget.length > 0 && (
-        <Card size="small" title={`À budgétiser (${toBudget.length})`}>
-          <Flex wrap gap={8}>
-            {toBudget.map((c) => (
-              <Button key={c.id} size="small" icon={<PlusOutlined />} onClick={() => open(c)}>
-                {c.name}
-              </Button>
-            ))}
-          </Flex>
-        </Card>
-      )}
-
-      {coveredByFixed.length > 0 && (
-        <Card size="small" title="Déjà couvertes par une charge fixe">
-          <Flex wrap gap={6}>
-            {coveredByFixed.map((c) => (
-              <Tag key={c.id}>{c.name}</Tag>
-            ))}
-          </Flex>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            Un budget en plus d&apos;une charge fixe compterait la même dépense deux fois.
-          </Text>
-        </Card>
-      )}
-
-      <Modal
-        open={editing !== null}
-        title={editing ? `Budget · ${editing.name}` : ""}
-        onCancel={() => setEditing(null)}
-        onOk={save}
-        confirmLoading={saving}
-        okText="Enregistrer"
-        cancelText="Annuler"
-        footer={(_, { OkBtn, CancelBtn }) => (
-          <Flex justify="space-between">
-            <Button danger type="text" onClick={() => { setAmount(null); void save(); }}>
-              Retirer le budget
-            </Button>
-            <Flex gap={8}>
-              <CancelBtn />
-              <OkBtn />
-            </Flex>
-          </Flex>
-        )}
-      >
-        <Flex vertical gap={12} style={{ paddingBlock: 8 }}>
-          <InputNumber
-            autoFocus
-            style={{ width: "100%" }}
-            addonAfter="€"
-            placeholder="Montant"
-            min={0}
-            value={amount}
-            onChange={setAmount}
-          />
-          <Segmented
-            value={period}
-            onChange={(v) => setPeriod(v as "monthly" | "weekly")}
-            options={[
-              { value: "monthly", label: "Par mois" },
-              { value: "weekly", label: "Par semaine" },
-            ]}
-          />
+        <Flex vertical gap={8}>
+          {statuses.map((s) => (
+            <BudgetItemRow key={s.id} status={s} />
+          ))}
         </Flex>
-      </Modal>
+      )}
+    </Flex>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: string }) {
+  return (
+    <Flex vertical gap={1}>
+      <Text type="secondary" style={{ fontSize: 12 }}>
+        {label}
+      </Text>
+      <Text strong style={{ fontSize: 18, fontVariantNumeric: "tabular-nums" }}>
+        {value}
+      </Text>
     </Flex>
   );
 }

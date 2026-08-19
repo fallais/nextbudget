@@ -19,7 +19,7 @@ export type { AssetRow, NewAsset } from "./asset";
 export type { AssetOwnerRow, NewAssetOwner } from "./asset-owner";
 export type { AssetValuationRow, NewAssetValuation } from "./asset-valuation";
 
-export { Budget } from "./budget";
+export { Budget, WEEKS_PER_MONTH, monthlyEquivalentCents } from "./budget";
 export type { BudgetRow, NewBudget } from "./budget";
 
 export { Category } from "./category";

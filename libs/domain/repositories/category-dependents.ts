@@ -18,6 +18,8 @@ export interface RuleRepository extends Repository<Rule, RuleRow, NewRule> {
 
 export interface BudgetRepository extends Repository<Budget, BudgetRow, NewBudget> {
   deleteByCategory(categoryId: number): Promise<void>;
+  /** A category holds at most one budget; this is what enforces it on create. */
+  findByCategory(categoryId: number): Promise<Budget | null>;
 }
 
 export interface FixedExpenseRepository

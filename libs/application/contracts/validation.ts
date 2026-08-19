@@ -51,19 +51,14 @@ export const categoryInputSchema = z.object({
   icon: z.string().min(1).max(64),
 });
 
-export const categoryBudgetSchema = z
-  .object({
-    budgetAmountCents: z.number().int().positive().nullable(),
-    budgetPeriod: budgetPeriodSchema.nullable(),
-  })
-  .refine(
-    (d) =>
-      (d.budgetAmountCents === null && d.budgetPeriod === null) ||
-      (d.budgetAmountCents !== null && d.budgetPeriod !== null),
-    {
-      message: "Le montant et la période doivent être définis ou nuls ensemble",
-    },
-  );
+export const budgetInputSchema = z.object({
+  categoryId: z.number().int().positive(),
+  amountCents: z.number().int().positive(),
+  period: budgetPeriodSchema.default("monthly"),
+});
+
+/** The category is a budget's identity, so a patch only ever moves the ceiling. */
+export const budgetUpdateSchema = patchSchema(budgetInputSchema.omit({ categoryId: true }));
 
 export const fixedExpenseMatchTypeSchema = z.enum(["contains", "starts_with", "regex"]);
 

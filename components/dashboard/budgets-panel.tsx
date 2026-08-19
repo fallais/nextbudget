@@ -60,7 +60,10 @@ export function BudgetsPanel({ statuses }: { statuses: CategoryBudgetStatus[] })
                 percent={pct}
                 showInfo={false}
                 size={["100%", 6]}
-                strokeColor={over ? STATUS.critical : near ? STATUS.warning : STATUS.good}
+                // The same three states as the Budgets page: ordinary is the
+                // interactive hue, and only "close" and "over" take a status
+                // colour, so a full row of green does not read as an alarm.
+                strokeColor={over ? STATUS.critical : near ? STATUS.warning : token.colorPrimary}
               />
             </div>
           );

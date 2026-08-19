@@ -6,7 +6,6 @@ import {
   rules,
   transactions,
 } from "@infrastructure/persistence/repositories";
-import type { BudgetPeriod } from "@domain/enums";
 
 /**
  * Category use cases that are more than a single repository call.
@@ -36,29 +35,4 @@ export async function deleteCategory(categoryId: number): Promise<boolean> {
   await fixedExpenses.clearCategory(categoryId);
 
   return categories.delete(categoryId);
-}
-
-/**
- * Set (or clear) the budget attached to a category.
- *
- * v0.1 keeps it to one budget per category, so this replaces rather than
- * accumulates: the existing row goes, and a new one is written only when both
- * an amount and a period were supplied. Passing either as `null` clears it.
- */
-export async function setCategoryBudget(
-  categoryId: number,
-  amountCents: number | null,
-  period: BudgetPeriod | null,
-  ownerId: number | null,
-): Promise<void> {
-  await budgets.deleteByCategory(categoryId);
-  if (amountCents === null || period === null) return;
-
-  await budgets.create({
-    categoryId,
-    amountCents,
-    period,
-    ownerId,
-    visibility: "shared",
-  });
 }

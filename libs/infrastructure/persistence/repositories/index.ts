@@ -86,6 +86,11 @@ class TypeOrmBudgetRepository
   async deleteByCategory(categoryId: number): Promise<void> {
     await (await this.repo()).delete({ categoryId });
   }
+
+  async findByCategory(categoryId: number): Promise<Budget | null> {
+    const row = await (await this.repo()).findOne({ where: { categoryId } });
+    return row ? Budget.reconstitute(row) : null;
+  }
 }
 
 export const budgets: BudgetRepository = new TypeOrmBudgetRepository(BudgetEntity, Budget);

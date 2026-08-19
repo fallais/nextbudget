@@ -1,36 +1,31 @@
-import { listAllCategories } from "@application/queries";
-import {
-  getBudgetStatuses,
-  getCategoriesWithFixedExpenseCount,
-} from "@application/budgets";
+import { getBudgetStatuses } from "@application/budgets";
+import { monthlyEquivalentCents } from "@domain/entities";
 import { BudgetsView } from "@/components/budgets/budgets-view";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** A weekly budget in a monthly summary is worth 52/12 of itself. */
-const toMonthly = (cents: number, period: "weekly" | "monthly") =>
-  period === "weekly" ? Math.round(cents * (52 / 12)) : cents;
-
 export default async function BudgetsPage() {
-  const [allCategories, statuses, fxByCategory] = await Promise.all([
-    listAllCategories(),
-    getBudgetStatuses(),
-    getCategoriesWithFixedExpenseCount(),
-  ]);
+  const statuses = await getBudgetStatuses();
 
-  const tracked = new Set(statuses.map((s) => s.category.id));
-  const untracked = allCategories.filter((c) => !tracked.has(c.id));
+  // A weekly ceiling only compares with a monthly one once both are on the
+  // same footing; the summary is stated per month because that is how the
+  // rest of the app counts.
+  const now = new Date();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
 
   return (
     <BudgetsView
       statuses={statuses}
-      // A category already covered by a fixed expense is deliberately not
-      // offered a budget: the same spending would be counted twice.
-      toBudget={untracked.filter((c) => !fxByCategory.has(c.id))}
-      coveredByFixed={untracked.filter((c) => fxByCategory.has(c.id))}
-      monthlyEquivalent={statuses.reduce((a, s) => a + toMonthly(s.budgetCents, s.period), 0)}
-      monthlySpent={statuses.reduce((a, s) => a + toMonthly(s.spentCents, s.period), 0)}
+      monthlyBudgetCents={statuses.reduce(
+        (sum, s) => sum + monthlyEquivalentCents(s.budgetCents, s.period),
+        0,
+      )}
+      monthlySpentCents={statuses.reduce(
+        (sum, s) => sum + monthlyEquivalentCents(s.spentCents, s.period),
+        0,
+      )}
+      monthElapsedPct={Math.round((now.getDate() / daysInMonth) * 100)}
     />
   );
 }

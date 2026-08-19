@@ -16,7 +16,16 @@ export interface BudgetRow {
 export type NewBudget = Omit<BudgetRow, "id" | "createdAt">;
 
 /** Weeks per month, averaged over a year — 52/12, not 4. */
-const WEEKS_PER_MONTH = 52 / 12;
+export const WEEKS_PER_MONTH = 52 / 12;
+
+/**
+ * A figure on a monthly footing, so a weekly ceiling can be compared with a
+ * monthly one and the two summed. Exported as a function on cents because the
+ * UI holds rows and totals, not `Budget` instances.
+ */
+export function monthlyEquivalentCents(cents: number, period: BudgetPeriod): number {
+  return period === "weekly" ? Math.round(cents * WEEKS_PER_MONTH) : cents;
+}
 
 export class Budget extends Entity<BudgetRow> {
   private constructor(row: BudgetRow) {
