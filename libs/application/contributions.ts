@@ -106,9 +106,13 @@ export async function getContributionsByPersonWithStatus(
 
   const byPerson = new Map<number, ContributionStatus[]>();
   for (const c of allContribs) {
-    const status = computeStatus(c, monthlyTxs);
+    // Switched off is switched off. Listing one alongside this month's dues
+    // read as "still owed" — it has no state a month can put it in, and the
+    // totals beneath the table already left it out, so the row disagreed with
+    // its own summary.
+    if (!c.isActive) continue;
     const arr = byPerson.get(c.personId) ?? [];
-    arr.push(status);
+    arr.push(computeStatus(c, monthlyTxs));
     byPerson.set(c.personId, arr);
   }
 
@@ -143,9 +147,8 @@ export async function getContributionsByPersonWithStatus(
   const out: PersonWithStatus[] = [];
   for (const p of allPersons) {
     const list = byPerson.get(p.id) ?? [];
-    const active = list.filter((s) => s.contribution.isActive);
-    const expectedTotal = active.reduce((a, s) => a + s.contribution.expectedAmountCents, 0);
-    const byContribTotal = active.reduce((a, s) => a + s.receivedCents, 0);
+    const expectedTotal = list.reduce((a, s) => a + s.contribution.expectedAmountCents, 0);
+    const byContribTotal = list.reduce((a, s) => a + s.receivedCents, 0);
 
     const hasBroad = p.matchPattern && p.matchPattern.trim().length > 0;
     const byBroadTotal: number | null = hasBroad ? (broadByPerson.get(p.id) ?? 0) : null;
@@ -167,10 +170,8 @@ export async function getContributionsByPersonWithStatus(
   return out;
 }
 
+/** Only called for active contributions — the caller drops the rest. */
 function computeStatus(c: ContributionRow, monthlyTxs: MonthlyTx[]): ContributionStatus {
-  if (!c.isActive) {
-    return { contribution: c, matched: [], receivedCents: 0, state: "pending", variancePct: null };
-  }
   const compiled = compileRule({
     id: 0,
     categoryId: 0,
