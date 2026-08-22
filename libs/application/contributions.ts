@@ -4,6 +4,7 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { AccountEntity, ContributionEntity, PersonEntity, TransactionEntity } from "@infrastructure/persistence/schemas";
 import type { ContributionRow, PersonRow, TransactionRow } from "@domain/entities";
 import { compileRule } from "@domain/services/categorization";
+import { coverFromPool } from "@application/consolidation";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
 export type ContributionStatus = {
@@ -263,7 +264,15 @@ export function summarizeContributions(
  * 2022, and colouring those months as missed would bury the ones that are.
  * `pending` is the current month, which has not finished yet.
  */
-export type MonthState = "received" | "anomaly" | "missed" | "pending" | "before";
+export type MonthState =
+  | "received"
+  | "anomaly"
+  /** Nothing matched, and the payer sent nothing unaccounted for either. */
+  | "missed"
+  /** Nothing matched, but a lump from the same person covers it. */
+  | "covered"
+  | "pending"
+  | "before";
 
 export type ContributionMonth = {
   /** "YYYY-MM". */
@@ -290,6 +299,14 @@ export type PersonHistory = {
   expectedCents: number;
   receivedCents: number;
   missedCount: number;
+  /**
+   * Money this person sent that no apport claimed, per month, after covering
+   * what it could. Zero everywhere until the person has a `matchPattern` —
+   * without one there is no way to tell their transfers from anyone else's.
+   */
+  unclaimedByMonth: Record<string, number>;
+  /** True once any month was settled by a lump rather than line by line. */
+  hasConsolidated: boolean;
 };
 
 function monthsEnding(now: Date, count: number): string[] {
@@ -329,10 +346,14 @@ export async function getContributionHistory(
     .andWhere("t.amount_cents > 0");
   applyAccountScope(qb, "t", await matchableAccountIds());
   const txs = (await qb.getMany()).map((t) => ({
+    id: t.id,
     month: t.date.slice(0, 7),
     normalized: t.normalizedDescription,
     amountCents: t.amountCents,
   }));
+  // Anything an apport recognised is spoken for; only what is left can be a
+  // catch-up, or the same euros would be counted twice.
+  const claimed = new Set<number>();
 
   const byPerson = new Map<number, ContributionHistory[]>();
   const inactiveByPerson = new Map<number, ContributionRow[]>();
@@ -355,6 +376,7 @@ export async function getContributionHistory(
     if (compiled) {
       for (const t of txs) {
         if (!compiled.test(t.normalized, t.amountCents)) continue;
+        claimed.add(t.id);
         receivedByMonth.set(t.month, (receivedByMonth.get(t.month) ?? 0) + Math.abs(t.amountCents));
       }
     }
@@ -389,8 +411,39 @@ export async function getContributionHistory(
     ]);
   }
 
+  // Persons in id order, and each transaction claimable once: "DE FRANCOIS -
+  // ESSENCE MARTIN" carries two names, and letting both claim it would credit
+  // the same euros to two people.
   return allPersons.map((person) => {
     const list = byPerson.get(person.id) ?? [];
+
+    const pool = new Map<string, number>();
+    const broad = person.matchPattern?.trim()
+      ? compileRule({
+          id: 0,
+          categoryId: 0,
+          pattern: person.matchPattern,
+          matchType: person.matchType ?? "contains",
+          amountCondition: "positive",
+          priority: 0,
+        })
+      : null;
+    if (broad) {
+      for (const t of txs) {
+        if (claimed.has(t.id)) continue;
+        if (!broad.test(t.normalized, t.amountCents)) continue;
+        claimed.add(t.id);
+        pool.set(t.month, (pool.get(t.month) ?? 0) + Math.abs(t.amountCents));
+      }
+    }
+
+    const leftover = coverFromPool(
+      list.map((c) => ({ expectedAmountCents: c.contribution.expectedAmountCents, months: c.months })),
+      pool,
+    );
+    // Counted after covering: a month a lump settled is not a month in arrears.
+    for (const c of list) c.missedCount = c.months.filter((m) => m.state === "missed").length;
+
     return {
       person,
       contributions: list,
@@ -398,6 +451,8 @@ export async function getContributionHistory(
       expectedCents: list.reduce((a, c) => a + c.expectedCents, 0),
       receivedCents: list.reduce((a, c) => a + c.receivedCents, 0),
       missedCount: list.reduce((a, c) => a + c.missedCount, 0),
+      unclaimedByMonth: Object.fromEntries([...leftover].filter(([, v]) => v > 0)),
+      hasConsolidated: list.some((c) => c.months.some((m) => m.state === "covered")),
     };
   });
 }

@@ -222,6 +222,25 @@ export function ApportsView({
                 ))
               )}
 
+              {Object.keys(p.unclaimedByMonth).length > 0 && (
+                <Card size="small">
+                  <Flex vertical gap={4}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      Versements de {p.person.name} qu&apos;aucun apport ne réclame
+                    </Text>
+                    <Flex gap={16} wrap>
+                      {Object.entries(p.unclaimedByMonth)
+                        .sort()
+                        .map(([month, cents]) => (
+                          <Text key={month} style={{ fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
+                            {formatMonthLabel(`${month}-01`)} · {formatCents(cents)}
+                          </Text>
+                        ))}
+                    </Flex>
+                  </Flex>
+                </Card>
+              )}
+
               {p.inactive.length > 0 && (
                 <Card size="small" style={{ background: token.colorFillQuaternary }}>
                   <Flex vertical gap={6}>
@@ -418,6 +437,9 @@ function ApportRow({
 const MONTH_COLOR: Record<MonthState, string | undefined> = {
   received: MONEY.income,
   anomaly: STATUS.warning,
+  // Settled, but by a lump rather than on its own line — so not the same green
+  // as a payment the app could actually point at.
+  covered: STATUS.warning,
   missed: STATUS.serious,
   pending: undefined,
   before: undefined,
@@ -426,6 +448,7 @@ const MONTH_COLOR: Record<MonthState, string | undefined> = {
 const MONTH_WORD: Record<MonthState, string> = {
   received: "reçu",
   anomaly: "montant inhabituel",
+  covered: "rattrapé par un versement groupé",
   missed: "non versé",
   pending: "en attente",
   before: "pas encore en place",

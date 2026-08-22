@@ -28,6 +28,7 @@ export default async function ParametresPage() {
     name: m.person.name,
     userId: m.user?.id ?? null,
     email: m.user?.email ?? null,
+    matchPattern: m.person.matchPattern,
   }));
 
   const accountRows: SettingsAccount[] = accounts.map((a) => ({

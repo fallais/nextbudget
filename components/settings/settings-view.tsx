@@ -34,6 +34,8 @@ export type SettingsMember = {
   name: string;
   userId: number | null;
   email: string | null;
+  /** How their transfers are recognised when they pay several apports at once. */
+  matchPattern: string | null;
 };
 
 export type SettingsAccount = AccountRow & { txCount: number };
@@ -65,6 +67,7 @@ export function SettingsView({
   const [accountOpen, setAccountOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [memberOpen, setMemberOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<SettingsMember | null>(null);
   const [editingAccount, setEditingAccount] = useState<SettingsAccount | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -189,7 +192,8 @@ export function SettingsView({
                       type="primary"
                       icon={<PlusOutlined />}
                       onClick={() => {
-                        memberForm.setFieldsValue({ name: "" });
+                        setEditingMember(null);
+                        memberForm.setFieldsValue({ name: "", matchPattern: "" });
                         setMemberOpen(true);
                       }}
                     >
@@ -200,10 +204,33 @@ export function SettingsView({
                   <Flex vertical gap={8}>
                     {members.map((m) => (
                       <Flex key={m.id} justify="space-between" align="center">
-                        <Text>{m.name}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {m.email ?? (m.userId ? "compte lié" : "sans connexion")}
-                        </Text>
+                        <Flex vertical gap={0}>
+                          <Text>{m.name}</Text>
+                          <Text type="secondary" style={{ fontSize: 11 }}>
+                            {m.matchPattern
+                              ? `virements reconnus par « ${m.matchPattern} »`
+                              : "aucun libellé de virement"}
+                          </Text>
+                        </Flex>
+                        <Flex align="center" gap={8}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {m.email ?? (m.userId ? "compte lié" : "sans connexion")}
+                          </Text>
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<EditOutlined />}
+                            aria-label="Modifier"
+                            onClick={() => {
+                              setEditingMember(m);
+                              memberForm.setFieldsValue({
+                                name: m.name,
+                                matchPattern: m.matchPattern ?? "",
+                              });
+                              setMemberOpen(true);
+                            }}
+                          />
+                        </Flex>
                       </Flex>
                     ))}
                   </Flex>
@@ -384,11 +411,11 @@ export function SettingsView({
 
       <Modal
         open={memberOpen}
-        title="Nouveau membre"
+        title={editingMember ? `Modifier « ${editingMember.name} »` : "Nouveau membre"}
         onCancel={() => setMemberOpen(false)}
         onOk={() => memberForm.submit()}
         confirmLoading={busy}
-        okText="Créer"
+        okText={editingMember ? "Enregistrer" : "Créer"}
         cancelText="Annuler"
       >
         <Form
@@ -397,8 +424,15 @@ export function SettingsView({
           style={{ paddingTop: 8 }}
           onFinish={async (v) => {
             setBusy(true);
+            const body = {
+              name: v.name as string,
+              matchPattern: (v.matchPattern as string)?.trim() || null,
+            };
             try {
-              if (await send("/api/persons", "POST", v)) setMemberOpen(false);
+              const ok = editingMember
+                ? await send(`/api/persons/${editingMember.id}`, "PATCH", body)
+                : await send("/api/persons", "POST", body);
+              if (ok) setMemberOpen(false);
             } finally {
               setBusy(false);
             }
@@ -411,6 +445,13 @@ export function SettingsView({
             extra="Un membre n'a pas besoin de connexion : c'est quelqu'un dont l'argent est suivi, pas un identifiant."
           >
             <Input placeholder="Camille" />
+          </Form.Item>
+          <Form.Item
+            name="matchPattern"
+            label="Libellé de ses virements"
+            extra="Ce qui identifie un virement venant d'elle ou de lui — « FRANCOIS », « MARIE ». Sert quand plusieurs apports sont réglés en un seul versement : sans lui, ces mois-là comptent comme non versés."
+          >
+            <Input placeholder="FRANCOIS" />
           </Form.Item>
         </Form>
       </Modal>
