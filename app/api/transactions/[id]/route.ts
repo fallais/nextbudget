@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (txId === null) return badRequest("ID invalide");
 
   const parsed = updateTransactionSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const updated = await transactions.update(txId, { categoryId: parsed.data.categoryId });

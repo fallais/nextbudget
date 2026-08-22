@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
         ? mappingsByFileSchema.safeParse(JSON.parse(rawMappings))
         : null;
     if (parsedMappings && !parsedMappings.success) {
-      return badRequest(parsedMappings.error.message);
+      return badRequest(parsedMappings.error);
     }
 
     const uploads: UploadedFile[] = await Promise.all(

@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const parsed = personInputSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const userId = parsed.data.userId ?? null;
   if (userId != null && (await isUserLinkTaken(userId))) {

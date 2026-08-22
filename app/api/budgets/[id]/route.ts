@@ -10,7 +10,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (budgetId === null) return badRequest("ID invalide");
 
   const parsed = budgetUpdateSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const updated = await budgets.update(budgetId, parsed.data);

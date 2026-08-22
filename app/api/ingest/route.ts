@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ingestUploads, type UploadedFile } from "@application/ingest";
 import { mappingsByFileSchema } from "@application/contracts/validation";
+import { badRequest } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest) {
         ? mappingsByFileSchema.safeParse(JSON.parse(rawMappings))
         : null;
     if (parsedMappings && !parsedMappings.success) {
-      return NextResponse.json({ error: parsedMappings.error.message }, { status: 400 });
+      return badRequest(parsedMappings.error);
     }
 
     const uploads: UploadedFile[] = await Promise.all(

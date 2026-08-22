@@ -11,7 +11,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (assetId === null) return badRequest("ID invalide");
 
   const parsed = assetUpdateSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const { owners, ...assetData } = parsed.data;
 

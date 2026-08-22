@@ -13,7 +13,7 @@ const schema = z.object({
 
 export async function PATCH(request: Request) {
   const parsed = schema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const { kind, id, visibility } = parsed.data;
   return handle(async () => {

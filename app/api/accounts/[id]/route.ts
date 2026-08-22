@@ -11,7 +11,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (accountId === null) return badRequest("ID invalide");
 
   const parsed = accountUpdateSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const updated = await accounts.update(accountId, parsed.data);

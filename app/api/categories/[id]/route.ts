@@ -11,7 +11,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (catId === null) return badRequest("ID invalide");
 
   const parsed = patchSchema(categoryInputSchema).safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const updated = await categories.update(catId, parsed.data);

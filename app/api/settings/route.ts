@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getHouseholdMode, setHouseholdMode } from "@application/settings";
 import { getAuthMode, getCurrentUser } from "@application/auth";
+import { badRequest } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,7 +21,7 @@ export async function PATCH(request: Request) {
   }
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.message }, { status: 400 });
+    return badRequest(parsed.error);
   }
   await setHouseholdMode(parsed.data.household);
   return NextResponse.json({ ok: true });

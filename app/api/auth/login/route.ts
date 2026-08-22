@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   const parsed = loginSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const { identifier, password } = parsed.data;
 

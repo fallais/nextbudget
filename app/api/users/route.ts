@@ -25,7 +25,7 @@ export async function POST(request: Request) {
   if (!(await isOwner())) return FORBIDDEN;
 
   const parsed = userInputSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const created = await users.create({

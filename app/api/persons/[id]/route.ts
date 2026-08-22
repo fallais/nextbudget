@@ -11,7 +11,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (personId === null) return badRequest("ID invalide");
 
   const parsed = patchSchema(personInputSchema).safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   if (parsed.data.userId != null && (await isUserLinkTaken(parsed.data.userId, personId))) {
     return conflict("Ce compte utilisateur est déjà lié à une autre personne");

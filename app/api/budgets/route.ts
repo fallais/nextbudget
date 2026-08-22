@@ -13,7 +13,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const parsed = budgetInputSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     const created = await createBudget({

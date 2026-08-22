@@ -16,7 +16,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const parsed = assetInputSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const { owners, ...assetData } = parsed.data;
 

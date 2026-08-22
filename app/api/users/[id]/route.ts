@@ -22,7 +22,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (userId === null) return badRequest("ID invalide");
 
   const parsed = userUpdateSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   const { password, ...rest } = parsed.data;
 

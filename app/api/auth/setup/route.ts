@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   const parsed = enableAuthSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     await enableEnforcedAuth(

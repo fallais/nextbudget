@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import type { ZodError } from "zod";
+import { describeValidationError } from "@application/contracts/validation-error";
 import { isDomainError } from "@domain/errors";
 import { isUniqueViolation } from "@infrastructure/persistence/errors";
 
@@ -19,7 +21,15 @@ export function parseId(raw: string): number | null {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
-export const badRequest = (error: string) => NextResponse.json({ error }, { status: 400 });
+/**
+ * A rejected request. Hand it a `ZodError` rather than its `.message`: that
+ * property is the issue list as JSON, and it used to arrive on screen intact.
+ */
+export const badRequest = (error: string | ZodError) =>
+  NextResponse.json(
+    { error: typeof error === "string" ? error : describeValidationError(error) },
+    { status: 400 },
+  );
 export const notFound = (error = "Introuvable") => NextResponse.json({ error }, { status: 404 });
 export const conflict = (error: string) => NextResponse.json({ error }, { status: 409 });
 export const ok = () => NextResponse.json({ ok: true });

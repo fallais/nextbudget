@@ -15,7 +15,7 @@ const overrideSchema = z.object({
 export async function PUT(request: Request, context: { params: Promise<{ key: string }> }) {
   const { key } = await context.params;
   const parsed = overrideSchema.safeParse(await request.json());
-  if (!parsed.success) return badRequest(parsed.error.message);
+  if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
     await setMerchantOverride(
