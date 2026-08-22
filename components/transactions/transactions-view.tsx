@@ -10,6 +10,7 @@ import {
   DatePicker,
   Flex,
   Input,
+  InputNumber,
   Select,
   Table,
   Tag,
@@ -220,6 +221,25 @@ export function TransactionsView({
               options={accounts.map((a) => ({ value: a.id, label: a.name }))}
             />
           )}
+          {/* Signed, and in euros: a filter typed as −50 to −10 reads the way
+              the amounts in the table below do. */}
+          <Flex gap={6} align="center">
+            <InputNumber
+              style={{ width: 118 }}
+              placeholder="Montant min"
+              step={10}
+              value={euros(searchParams.get("amountMin"))}
+              onChange={(v) => apply({ amountMin: cents(v) })}
+            />
+            <Text type="secondary">–</Text>
+            <InputNumber
+              style={{ width: 118 }}
+              placeholder="max"
+              step={10}
+              value={euros(searchParams.get("amountMax"))}
+              onChange={(v) => apply({ amountMax: cents(v) })}
+            />
+          </Flex>
           <Checkbox
             checked={searchParams.get("uncategorized") === "1"}
             onChange={(e) => apply({ uncategorized: e.target.checked ? "1" : undefined })}
@@ -282,6 +302,19 @@ export function TransactionsView({
 }
 
 export { Tag };
+
+/** The URL carries cents; the box shows euros. */
+function euros(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n / 100 : null;
+}
+
+function cents(v: number | string | null | undefined): string | undefined {
+  if (v === null || v === undefined || v === "") return undefined;
+  const n = typeof v === "number" ? v : Number.parseFloat(v);
+  return Number.isFinite(n) ? String(Math.round(n * 100)) : undefined;
+}
 
 /** One figure in the summary strip: a label, an amount, an optional caveat. */
 function Figure({

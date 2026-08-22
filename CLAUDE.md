@@ -208,6 +208,20 @@ then `source: "user"` before `"catalog"`.
   allowlisted in `catalog/testing.ts`; use `regex` with `\b…\b` for short names
   (`BUT`, `FLY`, `ASF`). One test file per catalogue file.
 
+## Remboursements anticipés
+`loan_prepayments (asset_id, date, amount_cents, mode, fees_cents, notes)` —
+capital repaid ahead of a loan's schedule, partial or total.
+- **Rebuilt, not subtracted.** `amortizationSchedule` takes them as input and
+  applies each on the first instalment dated on or after it: `mode: "duration"`
+  keeps the instalment and the loan ends sooner, `mode: "payment"` redraws the
+  instalment over the months that remain. A corrected balance typed onto the
+  asset would be right for a day and wrong after.
+- Undated loans (no `start_date`) **ignore** them — there is no month to place
+  them in, and guessing one moves every figure after it.
+- `fees_cents` is the IRA, counted into `totalCostCents` like any other cost of
+  borrowing. `progress.principalPaidCents` counts early capital as repaid.
+- Owned by the asset aggregate (`AssetRepository`), deleted with it.
+
 ## Property estimation (DVF)
 On-demand only, from `/patrimoine/[id]` → `POST /api/assets/[id]/estimate`.
 - **Inputs** live on the asset: `address`, `surface_m2`, `property_kind`

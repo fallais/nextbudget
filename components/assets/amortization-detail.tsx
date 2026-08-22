@@ -8,6 +8,7 @@ import {
   summarizeLoan,
   type AmortizationRow,
   type LoanSummary,
+  type Prepayment,
 } from "@domain/services/amortization";
 import { STATUS } from "@shared/palette";
 import { formatCents, formatDateShort } from "@shared/format";
@@ -50,9 +51,12 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 export function AmortizationDetail({
   asset,
   defaultOpen = false,
+  prepayments,
 }: {
   asset: AssetRow;
   defaultOpen?: boolean;
+  /** Capital repaid ahead of schedule, so the table shows the loan as it is. */
+  prepayments?: Prepayment[];
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -72,6 +76,7 @@ export function AmortizationDetail({
         insuranceMonthlyCents: asset.insuranceMonthlyCents,
         feesCents: asset.feesCents,
         startDate: asset.startDate,
+        prepayments,
       }
     : null;
   const schedule = loan ? amortizationSchedule(loan) : [];

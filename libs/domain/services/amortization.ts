@@ -6,11 +6,30 @@ export type LoanInput = {
   insuranceMonthlyCents?: number | null;
   feesCents?: number | null;
   startDate?: string | null;
+  /** Capital repaid ahead of the schedule. Ignored without a `startDate`. */
+  prepayments?: Prepayment[];
+};
+
+/**
+ * Capital paid off early, and what the lender did with it.
+ *
+ * `duration` keeps the instalment and ends the loan sooner; `payment` keeps
+ * the end date and lowers every instalment left. The schedule has to be
+ * rebuilt from the date either way, which is why this is an input to it rather
+ * than a number subtracted from the balance afterwards.
+ */
+export type Prepayment = {
+  date: string;
+  amountCents: number;
+  mode: "duration" | "payment";
+  /** Indemnité de remboursement anticipé, if the lender charged one. */
+  feesCents?: number | null;
 };
 
 export type LoanProgress = {
   paidCount: number;
   remainingCount: number;
+  /** Capital repaid so far — instalments and early repayments together. */
   principalPaidCents: number;
   principalRemainingCents: number;
   interestPaidCents: number;
@@ -26,6 +45,9 @@ export type LoanSummary = {
   totalInterestCents: number;
   totalInsuranceCents: number;
   feesCents: number;
+  /** Capital repaid ahead of schedule, and what the lender charged for it. */
+  prepaidCents: number;
+  prepaymentFeesCents: number;
   /** Interest + insurance + fees: what borrowing costs on top of the capital. */
   totalCostCents: number;
   /** Capital + total cost: everything paid over the life of the loan. */
@@ -42,6 +64,8 @@ export type AmortizationRow = {
   paymentCents: number;
   interestCents: number;
   principalCents: number;
+  /** Capital repaid ahead of schedule this month, on top of the instalment. */
+  prepaymentCents: number;
   balanceCents: number; // remaining balance after this payment
 };
 
@@ -68,12 +92,13 @@ export function amortizationSchedule(opts: {
   termMonths: number;
   monthlyPaymentCents?: number | null;
   startDate?: string | null;
+  prepayments?: Prepayment[];
 }): AmortizationRow[] {
   const { principalCents, interestRateBps, termMonths } = opts;
   if (principalCents <= 0 || termMonths <= 0) return [];
 
   const r = interestRateBps / 10000 / 12;
-  const payment =
+  let payment =
     opts.monthlyPaymentCents && opts.monthlyPaymentCents > 0
       ? opts.monthlyPaymentCents
       : monthlyPaymentCents(principalCents, interestRateBps, termMonths);
@@ -81,6 +106,13 @@ export function amortizationSchedule(opts: {
   const startParts = opts.startDate
     ? (opts.startDate.split("-").map(Number) as [number, number, number])
     : null;
+  // Undated, a prepayment cannot be placed in the schedule, and guessing a
+  // month for it would move every figure after it.
+  const pending = startParts
+    ? [...(opts.prepayments ?? [])].sort((a, b) => a.date.localeCompare(b.date))
+    : [];
+  let next = 0;
+
   let balance = principalCents;
   const rows: AmortizationRow[] = [];
 
@@ -98,12 +130,30 @@ export function amortizationSchedule(opts: {
       // UTC math avoids local-timezone drift; Date.UTC handles month/year overflow.
       date = new Date(Date.UTC(y, m - 1 + i, d)).toISOString().slice(0, 10);
     }
+
+    // Everything paid on or before this instalment, including anything dated
+    // before the loan even started, lands here.
+    let prepaid = 0;
+    while (date && next < pending.length && pending[next].date <= date) {
+      const p = pending[next++];
+      const applied = Math.min(Math.max(0, p.amountCents), balance);
+      balance -= applied;
+      prepaid += applied;
+      // Reduced instalment: the remaining months stay, the payment is redrawn
+      // over what is left. Reduced duration needs nothing — a smaller balance
+      // simply runs out of months sooner.
+      if (p.mode === "payment" && balance > 0 && i < termMonths) {
+        payment = monthlyPaymentCents(balance, interestRateBps, termMonths - i);
+      }
+    }
+
     rows.push({
       index: i,
       date,
       paymentCents: interest + principalPart,
       interestCents: interest,
       principalCents: principalPart,
+      prepaymentCents: prepaid,
       balanceCents: Math.max(0, balance),
     });
   }
@@ -128,7 +178,13 @@ export function summarizeLoan(loan: LoanInput, today?: string): LoanSummary | nu
   const fees = Math.max(0, loan.feesCents ?? 0);
   const totalInterest = schedule.reduce((a, r) => a + r.interestCents, 0);
   const totalInsurance = insuranceMonthly * schedule.length;
-  const totalCost = totalInterest + totalInsurance + fees;
+  const prepaid = schedule.reduce((a, r) => a + r.prepaymentCents, 0);
+  // Only the repayments the schedule could place: an undated one changed
+  // nothing, so charging for it here would overstate the cost.
+  const prepaymentFees = schedule.some((r) => r.prepaymentCents > 0)
+    ? (loan.prepayments ?? []).reduce((a, p) => a + Math.max(0, p.feesCents ?? 0), 0)
+    : 0;
+  const totalCost = totalInterest + totalInsurance + fees + prepaymentFees;
 
   const summary: LoanSummary = {
     monthlyPaymentCents: schedule[0].paymentCents,
@@ -136,6 +192,8 @@ export function summarizeLoan(loan: LoanInput, today?: string): LoanSummary | nu
     totalInterestCents: totalInterest,
     totalInsuranceCents: totalInsurance,
     feesCents: fees,
+    prepaidCents: prepaid,
+    prepaymentFeesCents: prepaymentFees,
     totalCostCents: totalCost,
     totalPaidCents: loan.principalCents + totalCost,
     termMonths: schedule.length,
@@ -151,7 +209,7 @@ export function summarizeLoan(loan: LoanInput, today?: string): LoanSummary | nu
     summary.progress = {
       paidCount: paid.length,
       remainingCount: schedule.length - paid.length,
-      principalPaidCents: paid.reduce((a, r) => a + r.principalCents, 0),
+      principalPaidCents: paid.reduce((a, r) => a + r.principalCents + r.prepaymentCents, 0),
       principalRemainingCents:
         paid.length > 0 ? paid[paid.length - 1].balanceCents : loan.principalCents,
       interestPaidCents: paid.reduce((a, r) => a + r.interestCents, 0),

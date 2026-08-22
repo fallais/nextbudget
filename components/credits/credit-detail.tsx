@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DeleteOutlined, EditOutlined } from "@ant-design/icons";
 import { AssetForm, type FormPerson } from "@/components/assets/asset-form";
 import { AmortizationDetail } from "@/components/assets/amortization-detail";
+import { PrepaymentsCard } from "./prepayments-card";
 import { CreditCard } from "./credit-card";
 import type { AssetOwnerInput } from "@domain/repositories";
 import type { CreditListItem } from "@application/credits";
@@ -70,8 +71,23 @@ export function CreditDetail({
           expanded below instead, which is the point of coming here. */}
       <CreditCard item={item} />
 
+      <PrepaymentsCard
+        assetId={item.credit.id}
+        prepayments={item.prepayments}
+        hasStartDate={!!item.credit.startDate}
+      />
+
       <Card title="Échéancier">
-        <AmortizationDetail asset={item.credit} defaultOpen />
+        <AmortizationDetail
+          asset={item.credit}
+          defaultOpen
+          prepayments={item.prepayments.map((p) => ({
+            date: p.date,
+            amountCents: p.amountCents,
+            mode: p.mode,
+            feesCents: p.feesCents,
+          }))}
+        />
       </Card>
 
       <AssetForm

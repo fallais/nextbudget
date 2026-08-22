@@ -1,11 +1,12 @@
 import "server-only";
-import { Asset, type AssetRow } from "@domain/entities";
+import { Asset, type AssetRow, type PrepaymentRow } from "@domain/entities";
 import {
   insuranceMonthlyFrom,
   summarizeLoan,
   type LoanSummary,
 } from "@domain/services/amortization";
 import { listAssetOwners, listAssets } from "@application/assets";
+import { assets } from "@infrastructure/persistence/repositories";
 import { listMembers } from "@application/household";
 
 /**
@@ -41,6 +42,8 @@ export type CreditListItem = {
   borrowers: BorrowerInsurance[];
   /** Months between signature and first instalment, when deferred. */
   deferralMonths: number | null;
+  /** Capital repaid ahead of schedule, oldest first. */
+  prepayments: PrepaymentRow[];
 };
 
 /** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
@@ -49,7 +52,7 @@ function todayIso(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function toLoanInput(a: AssetRow, insuranceMonthlyCents: number) {
+function toLoanInput(a: AssetRow, insuranceMonthlyCents: number, prepayments: PrepaymentRow[]) {
   if (a.principalCents == null || a.interestRateBps == null || !a.termMonths) return null;
   return {
     principalCents: a.principalCents,
@@ -59,6 +62,12 @@ function toLoanInput(a: AssetRow, insuranceMonthlyCents: number) {
     insuranceMonthlyCents,
     feesCents: a.feesCents,
     startDate: a.startDate,
+    prepayments: prepayments.map((p) => ({
+      date: p.date,
+      amountCents: p.amountCents,
+      mode: p.mode,
+      feesCents: p.feesCents,
+    })),
   };
 }
 
@@ -68,9 +77,10 @@ export async function listCredits(): Promise<CreditListItem[]> {
   const today = todayIso();
 
   const liabilities = all.filter((a) => a.kind === "liability");
-  const [ownerRows, members] = await Promise.all([
+  const [ownerRows, members, prepaymentRows] = await Promise.all([
     listAssetOwners(liabilities.map((a) => a.id)),
     listMembers(),
+    assets.listPrepayments(liabilities.map((a) => a.id)),
   ]);
   const personName = new Map(members.map((m) => [m.person.id, m.person.name]));
 
@@ -93,7 +103,8 @@ export async function listCredits(): Promise<CreditListItem[]> {
       credit.insuranceMonthlyCents,
       borrowers.map((b) => b.monthlyCents),
     );
-    const loan = toLoanInput(credit, insurance);
+    const prepayments = prepaymentRows.get(credit.id) ?? [];
+    const loan = toLoanInput(credit, insurance, prepayments);
 
     return {
       credit,
@@ -107,6 +118,7 @@ export async function listCredits(): Promise<CreditListItem[]> {
       // Only interesting when the loan is actually shared.
       borrowers: borrowers.length > 1 ? borrowers : [],
       deferralMonths: Asset.reconstitute(credit).deferralMonths,
+      prepayments,
     };
   });
 }

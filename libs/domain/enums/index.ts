@@ -6,3 +6,4 @@ export * from "./match-type";
 export * from "./merchant-kind";
 export * from "./user-role";
 export * from "./visibility";
+export * from "./prepayment-mode";

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { PROPERTY_KINDS } from "@domain/enums";
+import { PREPAYMENT_MODES, PROPERTY_KINDS } from "@domain/enums";
 
 /**
  * The schema for a PATCH body: every field optional, and **defaults removed**.
@@ -239,6 +239,16 @@ export const assetInputSchema = z.object({
 });
 
 export const assetUpdateSchema = patchSchema(assetInputSchema);
+
+/** A remboursement anticipé: capital paid off ahead of the schedule. */
+export const prepaymentInputSchema = z.object({
+  date: z.string().date(),
+  amountCents: z.number().int().positive(),
+  mode: z.enum(PREPAYMENT_MODES).default("duration"),
+  /** Indemnité de remboursement anticipé. */
+  feesCents: z.number().int().min(0).nullable().optional(),
+  notes: z.string().max(500).nullable().optional(),
+});
 
 export const assetValuationSchema = z.object({
   date: z.string().date(),

@@ -19,6 +19,7 @@ import { FixedExpenseEntity } from "./fixed-expense";
 import { ImportEntity } from "./import";
 import { MerchantOverrideEntity } from "./merchant-override";
 import { PersonEntity } from "./person";
+import { PrepaymentEntity } from "./prepayment";
 import { RuleEntity } from "./rule";
 import { SessionEntity } from "./session";
 import { SettingEntity } from "./setting";
@@ -36,6 +37,7 @@ export { FixedExpenseEntity } from "./fixed-expense";
 export { ImportEntity } from "./import";
 export { MerchantOverrideEntity } from "./merchant-override";
 export { PersonEntity } from "./person";
+export { PrepaymentEntity } from "./prepayment";
 export { RuleEntity } from "./rule";
 export { SessionEntity } from "./session";
 export { SettingEntity } from "./setting";
@@ -58,5 +60,6 @@ export const ALL_ENTITIES = [
   AssetEntity,
   AssetOwnerEntity,
   AssetValuationEntity,
+  PrepaymentEntity,
   ImportEntity,
 ];

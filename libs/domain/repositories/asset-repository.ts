@@ -1,5 +1,6 @@
 import type { Asset, AssetRow, NewAsset } from "@domain/entities";
 import type { OwnerShareRow } from "@domain/value-objects/share";
+import type { Prepayment, PrepaymentRow, NewPrepayment } from "@domain/entities";
 import type { Repository } from "./repository";
 
 /**
@@ -40,6 +41,12 @@ export interface AssetRepository extends Repository<Asset, AssetRow, NewAsset> {
    * cleared — those rows outlive the asset they pointed at.
    */
   deleteWithDependents(id: number): Promise<boolean>;
+
+  /** Capital repaid ahead of schedule, oldest first. */
+  listPrepayments(assetIds: number[]): Promise<Map<number, PrepaymentRow[]>>;
+  addPrepayment(input: NewPrepayment): Promise<Prepayment>;
+  /** Resolves `false` when no prepayment has that id on that loan. */
+  deletePrepayment(assetId: number, prepaymentId: number): Promise<boolean>;
 
   /** Append valuation snapshots (the net-worth-over-time series). */
   recordValuations(

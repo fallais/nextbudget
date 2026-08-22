@@ -1,6 +1,13 @@
 import "server-only";
 import { In, type EntityManager } from "typeorm";
-import { Asset, type AssetRow, type NewAsset } from "@domain/entities";
+import {
+  Asset,
+  Prepayment,
+  type AssetRow,
+  type NewAsset,
+  type NewPrepayment,
+  type PrepaymentRow,
+} from "@domain/entities";
 import { invariant } from "@domain/errors";
 import type { AssetOwnerInput, AssetRepository } from "@domain/repositories";
 import { getDataSource } from "@infrastructure/persistence/client";
@@ -8,6 +15,7 @@ import {
   AssetEntity,
   AssetOwnerEntity,
   AssetValuationEntity,
+  PrepaymentEntity,
   FixedExpenseEntity,
   PersonEntity,
 } from "@infrastructure/persistence/schemas";
@@ -74,6 +82,7 @@ export class TypeOrmAssetRepository
       if (!existing) return false;
 
       await manager.getRepository(AssetValuationEntity).delete({ assetId: id });
+      await manager.getRepository(PrepaymentEntity).delete({ assetId: id });
       await manager.getRepository(AssetOwnerEntity).delete({ assetId: id });
       await manager
         .getRepository(FixedExpenseEntity)
@@ -82,6 +91,35 @@ export class TypeOrmAssetRepository
       await manager.getRepository(AssetEntity).delete(id);
       return true;
     });
+  }
+
+  async listPrepayments(assetIds: number[]): Promise<Map<number, PrepaymentRow[]>> {
+    const out = new Map<number, PrepaymentRow[]>();
+    if (assetIds.length === 0) return out;
+    const ds = await getDataSource();
+    const rows = await ds.getRepository(PrepaymentEntity).find({
+      where: { assetId: In(assetIds) },
+      order: { date: "ASC", id: "ASC" },
+    });
+    for (const row of rows) out.set(row.assetId, [...(out.get(row.assetId) ?? []), row]);
+    return out;
+  }
+
+  async addPrepayment(input: NewPrepayment): Promise<Prepayment> {
+    const ds = await getDataSource();
+    // Through the entity, so an amount of zero or a malformed date is refused
+    // here rather than quietly reshaping a schedule.
+    const entity = Prepayment.create(input);
+    const saved = await ds.getRepository(PrepaymentEntity).save(entity.toRow());
+    return Prepayment.reconstitute(saved);
+  }
+
+  async deletePrepayment(assetId: number, prepaymentId: number): Promise<boolean> {
+    const ds = await getDataSource();
+    const res = await ds
+      .getRepository(PrepaymentEntity)
+      .delete({ id: prepaymentId, assetId });
+    return (res.affected ?? 0) > 0;
   }
 
   async recordValuations(

@@ -17,6 +17,11 @@ export type ContributionStatus = {
 export type PersonWithStatus = {
   person: PersonRow;
   contributions: ContributionStatus[];
+  /**
+   * Switched off, so absent from the month's dues above — but still listed,
+   * separately, or an apport put on hold would be unreachable to turn back on.
+   */
+  inactive: ContributionRow[];
   expectedTotalCents: number;
   receivedByContribCents: number;
   receivedByBroadCents: number | null;
@@ -105,12 +110,16 @@ export async function getContributionsByPersonWithStatus(
   }));
 
   const byPerson = new Map<number, ContributionStatus[]>();
+  const inactiveByPerson = new Map<number, ContributionRow[]>();
   for (const c of allContribs) {
     // Switched off is switched off. Listing one alongside this month's dues
     // read as "still owed" — it has no state a month can put it in, and the
     // totals beneath the table already left it out, so the row disagreed with
     // its own summary.
-    if (!c.isActive) continue;
+    if (!c.isActive) {
+      inactiveByPerson.set(c.personId, [...(inactiveByPerson.get(c.personId) ?? []), c]);
+      continue;
+    }
     const arr = byPerson.get(c.personId) ?? [];
     arr.push(computeStatus(c, monthlyTxs));
     byPerson.set(c.personId, arr);
@@ -160,6 +169,7 @@ export async function getContributionsByPersonWithStatus(
     out.push({
       person: p,
       contributions: list,
+      inactive: inactiveByPerson.get(p.id) ?? [],
       expectedTotalCents: expectedTotal,
       receivedByContribCents: byContribTotal,
       receivedByBroadCents: byBroadTotal,

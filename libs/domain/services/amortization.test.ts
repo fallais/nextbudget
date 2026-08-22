@@ -197,3 +197,86 @@ describe("impliedTaegBps", () => {
     expect(impliedTaegBps({ principalCents: 0, interestRateBps: 150, termMonths: 240 })).toBeNull();
   });
 });
+
+describe("remboursement anticipé", () => {
+  // 100 000 € over 120 months at 3 %: an instalment of 965,61 €.
+  const LOAN = { principalCents: 100_000_00, interestRateBps: 300, termMonths: 120,
+                 startDate: "2026-01-01" };
+
+  it("does nothing without a start date, since it cannot be placed", () => {
+    const undated = amortizationSchedule({
+      ...LOAN, startDate: null,
+      prepayments: [{ date: "2026-06-01", amountCents: 10_000_00, mode: "duration" }],
+    });
+    expect(undated.reduce((a, r) => a + r.prepaymentCents, 0)).toBe(0);
+  });
+
+  it("shortens the loan when the instalment is kept", () => {
+    const plain = amortizationSchedule(LOAN);
+    const shortened = amortizationSchedule({
+      ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration" }],
+    });
+    expect(shortened.length).toBeLessThan(plain.length);
+    // The instalment never moves.
+    expect(shortened[shortened.length - 2].paymentCents).toBe(plain[0].paymentCents);
+  });
+
+  it("lowers the instalment when the end date is kept", () => {
+    const plain = amortizationSchedule(LOAN);
+    const lowered = amortizationSchedule({
+      ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "payment" }],
+    });
+    expect(lowered[lowered.length - 1].index).toBe(plain.length);
+    expect(lowered[8].paymentCents).toBeLessThan(plain[8].paymentCents);
+  });
+
+  it("attributes the repayment to the instalment that follows it", () => {
+    const s = amortizationSchedule({
+      ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 5_000_00, mode: "duration" }],
+    });
+    // Instalments fall on the 1st, so a payment on the 15th lands on 1 July.
+    expect(s.find((r) => r.date === "2026-07-01")?.prepaymentCents).toBe(5_000_00);
+    expect(s.find((r) => r.date === "2026-06-01")?.prepaymentCents).toBe(0);
+  });
+
+  it("saves interest, which is the point of it", () => {
+    const plain = summarizeLoan(LOAN, "2036-01-01")!;
+    const early = summarizeLoan(
+      { ...LOAN, prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration" }] },
+      "2036-01-01",
+    )!;
+    expect(early.totalInterestCents).toBeLessThan(plain.totalInterestCents);
+    expect(early.prepaidCents).toBe(20_000_00);
+  });
+
+  it("counts the lender's indemnity as part of what borrowing cost", () => {
+    const withFee = summarizeLoan({ ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration", feesCents: 300_00 }],
+    }, "2036-01-01")!;
+    const withoutFee = summarizeLoan({ ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration" }],
+    }, "2036-01-01")!;
+    expect(withFee.prepaymentFeesCents).toBe(300_00);
+    expect(withFee.totalCostCents - withoutFee.totalCostCents).toBe(300_00);
+  });
+
+  it("never repays more capital than is left", () => {
+    const s = amortizationSchedule({
+      ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 500_000_00, mode: "duration" }],
+    });
+    expect(s[s.length - 1].balanceCents).toBe(0);
+    expect(s.reduce((a, r) => a + r.principalCents + r.prepaymentCents, 0)).toBe(100_000_00);
+  });
+
+  it("counts early capital as capital repaid, not as a shortfall", () => {
+    const p = summarizeLoan({ ...LOAN,
+      prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration" }],
+    }, "2026-08-01")!.progress!;
+    expect(p.principalPaidCents).toBeGreaterThan(20_000_00);
+    expect(p.principalRemainingCents).toBeLessThan(80_000_00);
+  });
+});

@@ -24,6 +24,9 @@ export { MerchantOverride } from "./merchant-override";
 export type { MerchantOverrideRow, NewMerchantOverride } from "./merchant-override";
 export type { BudgetRow, NewBudget } from "./budget";
 
+export { Prepayment } from "./prepayment";
+export type { PrepaymentRow, NewPrepayment } from "./prepayment";
+
 export { Category } from "./category";
 export type { CategoryRow, NewCategory } from "./category";
 
