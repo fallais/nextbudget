@@ -6,6 +6,7 @@ import { isUniqueViolation } from "@infrastructure/persistence/errors";
 import { detectParser, previewParser, runParser, type ParserId } from "@infrastructure/ingest/parsers/registry";
 import type { ColumnMapping, CsvPreview } from "@infrastructure/ingest/parsers/csv-generic";
 import { transactionHash } from "@infrastructure/ingest/hash";
+import { fingerprintKey, planImport, type Fingerprintable } from "@infrastructure/ingest/dedup";
 import { loadActiveCompiledRules, matchCategoryId } from "@application/categorize/engine";
 
 export type UploadedFile = {
@@ -98,6 +99,56 @@ async function resolveAccount(requestedId?: number | null): Promise<number> {
   return found.id;
 }
 
+/**
+ * How many times each fingerprint the file carries already exists in this
+ * account.
+ *
+ * One grouped query over the span the statement covers, rather than a lookup
+ * per row: a statement is a month or a year, so its date range is what bounds
+ * the work. `date` is ISO text, which orders lexicographically — the same
+ * property the month buckets elsewhere rely on.
+ */
+async function existingOccurrences(
+  accountId: number,
+  rows: Fingerprintable[],
+): Promise<Map<string, number>> {
+  if (rows.length === 0) return new Map();
+  const dates = rows.map((r) => r.date);
+  const from = dates.reduce((a, b) => (a < b ? a : b));
+  const to = dates.reduce((a, b) => (a > b ? a : b));
+
+  const ds = await getDataSource();
+  const raw = await ds
+    .getRepository(TransactionEntity)
+    .createQueryBuilder("t")
+    .select("t.date", "date")
+    .addSelect("t.amountCents", "amountCents")
+    .addSelect("t.normalizedDescription", "normalizedDescription")
+    .addSelect("COUNT(*)", "count")
+    .where("t.accountId = :accountId", { accountId })
+    .andWhere("t.date BETWEEN :from AND :to", { from, to })
+    .groupBy("t.date")
+    .addGroupBy("t.amountCents")
+    .addGroupBy("t.normalizedDescription")
+    .getRawMany<{
+      date: string;
+      amountCents: string;
+      normalizedDescription: string;
+      count: string;
+    }>();
+
+  return new Map(
+    raw.map((r) => [
+      fingerprintKey({
+        date: r.date,
+        amountCents: Number(r.amountCents),
+        normalizedDescription: r.normalizedDescription,
+      }),
+      Number(r.count),
+    ]),
+  );
+}
+
 async function ingestOne(
   file: UploadedFile,
   accountId: number,
@@ -154,15 +205,20 @@ async function ingestOne(
 
     const compiledRules = await loadActiveCompiledRules();
 
+    const plan = planImport(parsed.rows, await existingOccurrences(accountId, parsed.rows));
+
     let rowsNew = 0;
-    let rowsDuplicate = 0;
+    // Rows the account already holds. A lookalike is not one of them: it is a
+    // later occurrence of the same fingerprint, and gets written.
+    let rowsDuplicate = plan.duplicates;
     const rowsError = parsed.errors.length;
 
-    for (const row of parsed.rows) {
+    for (const { row, occurrence } of plan.write) {
       const hash = transactionHash({
         date: row.date,
         amountCents: row.amountCents,
         normalizedDescription: row.normalizedDescription,
+        occurrence,
       });
       const categoryId = matchCategoryId(row.normalizedDescription, row.amountCents, compiledRules);
       const value: NewTransaction = {
@@ -181,6 +237,8 @@ async function ingestOne(
         await txRepo.save(txRepo.create(value));
         rowsNew++;
       } catch (err: unknown) {
+        // The plan already accounted for what is on file; this is the net for
+        // a second import running against the same account at the same time.
         if (isUniqueViolation(err)) {
           rowsDuplicate++;
         } else {

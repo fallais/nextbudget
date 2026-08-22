@@ -21,11 +21,23 @@ read `.env.local` (Next loads that, not node). Pass `DATABASE_URL=… npm run �
   via a column transformer); format only at the UI edge (`libs/shared/format.ts`).
 - All `app/api/**/route.ts` must `export const runtime = 'nodejs'` (TypeORM/pg).
 - French locale for dates/currency: `1 234,56 €`, `15 mai 2026`, `15/05/2026`.
-- Transaction dedup hash: `sha256(date|amountCents|normalizedDescription)` — a
-  pure content fingerprint. Uniqueness is **per account**, enforced by the
-  composite `transactions_account_hash_uniq (account_id, hash)` index: two people
-  can genuinely pay the same merchant the same amount on the same day from
-  different accounts. Ingest treats Postgres error `23505` as a duplicate.
+- Transaction dedup hash: `sha256(date|amountCents|normalizedDescription)`,
+  plus `|#n` for the **nth occurrence** of that fingerprint in the account
+  (`libs/infrastructure/ingest/hash.ts`). Occurrence 0 omits the suffix, so rows
+  written before occurrences existed still match — no rehash, no migration.
+  Uniqueness is **per account**, enforced by the composite
+  `transactions_account_hash_uniq (account_id, hash)` index: two people can
+  genuinely pay the same merchant the same amount on the same day from
+  different accounts.
+- **Ingest counts occurrences, it does not collapse them** (`ingest/dedup.ts`,
+  `planImport`). A fingerprint appearing `k` times in the file and `e` times in
+  the account writes `k - e` rows as occurrences `e … k-1`. One insert per row
+  with `23505` counted as a duplicate — what this replaced — cannot tell a
+  statement imported twice from a day that genuinely holds two metro tickets,
+  and silently dropped the second. Re-importing stays a no-op (`k = e`), an
+  overlapping export reconciles to the higher count, and re-importing a
+  statement an older version thinned out restores exactly what it swallowed.
+  The `23505` catch remains as the net for two concurrent imports.
 - DB connection is `DATABASE_URL` (e.g. `postgres://nextbudget:nextbudget@localhost:5432/nextbudget`).
 - Import is a browser upload: the Import page POSTs files to `/api/ingest` as
   `multipart/form-data`; parsed in-memory. Accepted: `.csv`, `.tsv`, `.txt`.
