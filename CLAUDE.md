@@ -204,6 +204,27 @@ then `source: "user"` before `"catalog"`.
   allowlisted in `catalog/testing.ts`; use `regex` with `\b…\b` for short names
   (`BUT`, `FLY`, `ASF`). One test file per catalogue file.
 
+## Property estimation (DVF)
+On-demand only, from `/patrimoine/[id]` → `POST /api/assets/[id]/estimate`.
+- **Inputs** live on the asset: `address`, `surface_m2`, `property_kind`
+  (`maison` | `appartement`). All three are required; the kind matters because
+  houses and flats trade at different rates in the same street.
+- **Two calls out**, made only on a click, never on render: the BAN geocoder
+  (`api-adresse.data.gouv.fr`, keyless) turns the address into lat/lon + INSEE
+  code, then DVF's per-commune CSVs
+  (`files.data.gouv.fr/geo-dvf/latest/csv/{year}/communes/{dept}/{insee}.csv`,
+  ~200 kB each, last 4 years, 404s skipped) give the recorded sales. **Nothing
+  is stored** — parsed, medianed, dropped; a process-level cache avoids
+  refetching a commune-year.
+- **The arithmetic is domain** (`libs/domain/services/estimation.ts`), so it is
+  tested without a network: median €/m² of sales within ±30 % of the subject's
+  surface and inside the radius, × the surface, with the interquartile range
+  carried through. Radii 500 m → 1.5 km → 5 km, first one with ≥5 sales wins;
+  past that the answer is "too few sales", not a number from across town.
+- `libs/infrastructure/estimation/dvf.ts` keeps only mutations with **exactly
+  one** built property: one `valeur_fonciere` covering two houses prices
+  neither. Dependencies and bare parcels carry no surface and are ignored.
+
 ## Adding a new bank parser
 Add `libs/infrastructure/ingest/parsers/<name>.ts` exporting a function returning `ParseResult`,
 then register it in `libs/infrastructure/ingest/parsers/registry.ts` (extension- or

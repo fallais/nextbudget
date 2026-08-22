@@ -10,6 +10,7 @@ import { formatCents, formatDateShort } from "@shared/format";
 import { PageHeader } from "@/components/layout/page-header";
 import { AssetForm, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
+import { EstimationCard } from "./estimation-card";
 import type { AssetRow } from "@domain/entities";
 import type { AssetOwnerInput } from "@domain/repositories";
 import type { OwnerShareRow } from "@domain/value-objects/share";
@@ -156,6 +157,10 @@ export function AssetDetail({
           </Flex>
         )}
       </Card>
+
+      {asset.kind === "asset" && asset.type === "real_estate" && (
+        <EstimationCard asset={asset} />
+      )}
 
       {/* A property with a mortgage against it: what is left once the debt is
           deducted is the number that actually matters. */}

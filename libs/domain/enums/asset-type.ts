@@ -24,3 +24,19 @@ export const ASSET_TYPE_VALUES = [
 export function typesFor(kind: AssetKind): readonly AssetType[] {
   return kind === "asset" ? ASSET_TYPES : LIABILITY_TYPES;
 }
+
+/**
+ * House or flat — the one distinction a valuation cannot do without.
+ *
+ * `real_estate` covers both, and nothing else in the app needs to tell them
+ * apart. A price per m² does: the two trade at different rates in the same
+ * street, so estimating a flat against houses is not an approximation, it is
+ * the wrong market.
+ */
+export const PROPERTY_KINDS = ["maison", "appartement"] as const;
+export type PropertyKind = (typeof PROPERTY_KINDS)[number];
+
+export const PROPERTY_KIND_LABELS: Record<PropertyKind, string> = {
+  maison: "Maison",
+  appartement: "Appartement",
+};

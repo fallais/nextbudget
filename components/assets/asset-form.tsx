@@ -72,6 +72,9 @@ type Values = {
   signatureDate: dayjs.Dayjs | null;
   startDate: dayjs.Dayjs | null;
   linkedAssetId: number | null;
+  address: string | null;
+  surfaceM2: number | null;
+  propertyKind: "maison" | "appartement" | null;
   accountId: number | null;
   notes: string | null;
   shareMode: "shared" | "mine" | "custom";
@@ -149,6 +152,9 @@ export function AssetFormBody({
     signatureDate: asset?.signatureDate ? dayjs(asset.signatureDate) : null,
     startDate: asset?.startDate ? dayjs(asset.startDate) : null,
     linkedAssetId: asset?.linkedAssetId ?? null,
+    address: asset?.address ?? "",
+    surfaceM2: asset?.surfaceM2 ?? null,
+    propertyKind: asset?.propertyKind ?? null,
     accountId: asset?.accountId ?? null,
     notes: asset?.notes ?? "",
     shareMode: owners.length === 0 ? "mine" : owners.length > 1 ? "shared" : "custom",
@@ -177,6 +183,7 @@ export function AssetFormBody({
   const borrowerInsurance = Form.useWatch("borrowerInsurance", form);
 
   const isLoan = kind === "liability" && (type === "loan" || type === "mortgage");
+  const isProperty = kind === "asset" && type === "real_estate";
   const showShares = persons.length > 1;
   const splitInsurance = isLoan && showShares;
 
@@ -277,6 +284,11 @@ export function AssetFormBody({
         body.signatureDate = v.signatureDate ? v.signatureDate.format("YYYY-MM-DD") : null;
         body.startDate = v.startDate ? v.startDate.format("YYYY-MM-DD") : null;
         body.linkedAssetId = v.linkedAssetId ?? null;
+      }
+      if (isProperty) {
+        body.address = v.address?.trim() || null;
+        body.surfaceM2 = v.surfaceM2 ?? null;
+        body.propertyKind = v.propertyKind ?? null;
       }
 
       const res = await fetch(editing ? `/api/assets/${asset!.id}` : "/api/assets", {
@@ -518,6 +530,50 @@ export function AssetFormBody({
                 />
               </Form.Item>
             )}
+          </>
+        )}
+
+        {isProperty && (
+          <>
+            <Divider titlePlacement="start" style={{ marginTop: 4 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Le bien
+              </Text>
+            </Divider>
+
+            <Form.Item
+              name="address"
+              label="Adresse"
+              tooltip={help(
+                "Sert à estimer le bien d'après les ventes enregistrées autour. Elle n'est envoyée nulle part tant que vous ne demandez pas une estimation.",
+              )}
+            >
+              <Input placeholder="12 rue des Lilas, 31700 Blagnac" />
+            </Form.Item>
+
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item name="propertyKind" label="Type de bien">
+                  <Segmented
+                    options={[
+                      { value: "maison", label: "Maison" },
+                      { value: "appartement", label: "Appartement" },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="surfaceM2"
+                  label="Surface habitable"
+                  tooltip={help(
+                    "La surface bâtie, comme elle figure à l'acte — c'est celle sur laquelle les ventes voisines sont comparées.",
+                  )}
+                >
+                  <InputNumber style={{ width: "100%" }} min={1} max={100000} addonAfter="m²" />
+                </Form.Item>
+              </Col>
+            </Row>
           </>
         )}
 

@@ -22,6 +22,10 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
   for couples/households splitting expenses.
 - **Patrimoine / net worth** — track assets & liabilities (savings, real estate,
   vehicles, loans/mortgages with computed amortization) and your net worth over time.
+- **Property estimation** — give a house or flat its address, surface and kind, and
+  it can be valued from **DVF**, the public register of recorded French sale prices:
+  the median €/m² of comparable sales nearby, with the range it sits in. Runs only
+  when you ask for it — nothing leaves the machine on a page load.
 - **Couples & privacy** — runs **login-free by default**; a household can enable
   per-user passwords, and mark any account / expense / contribution / asset as
   **shared or private**. Private rows stay hidden from other members.

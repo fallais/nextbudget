@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { PROPERTY_KINDS } from "@domain/enums";
 
 /**
  * The schema for a PATCH body: every field optional, and **defaults removed**.
@@ -227,6 +228,9 @@ export const assetInputSchema = z.object({
   signatureDate: z.string().date().nullish(),
   startDate: z.string().date().nullish(),
   endDate: z.string().date().nullish(),
+  address: z.string().trim().max(200).nullable().optional(),
+  surfaceM2: z.number().int().min(1).max(100000).nullable().optional(),
+  propertyKind: z.enum(PROPERTY_KINDS).nullable().optional(),
   accountId: z.number().int().positive().nullish(),
   linkedAssetId: z.number().int().positive().nullish(),
   isActive: z.boolean().default(true),

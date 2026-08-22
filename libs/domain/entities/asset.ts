@@ -4,7 +4,7 @@ import { Money } from "@domain/value-objects/money";
 import { Share, TOTAL_BPS } from "@domain/value-objects/share";
 import { deferralMonthsBetween, summarizeLoan } from "@domain/services/amortization";
 
-import type { AssetKind, AssetType, Visibility } from "@domain/enums";
+import type { AssetKind, AssetType, PropertyKind, Visibility } from "@domain/enums";
 import { typesFor } from "@domain/enums";
 
 /** The persisted shape. Also what crosses to the UI, where classes cannot go. */
@@ -47,6 +47,13 @@ export interface AssetRow {
   /** First instalment. What the amortization schedule is anchored on. */
   startDate: string | null;
   endDate: string | null;
+  /**
+   * Where it is, and how big — the two facts a valuation needs and the app
+   * otherwise has nowhere to keep. Only ever filled in for property.
+   */
+  address: string | null;
+  surfaceM2: number | null;
+  propertyKind: PropertyKind | null;
   accountId: number | null;
   /** The asset this liability finances (a mortgage → the house it bought). */
   linkedAssetId: number | null;
