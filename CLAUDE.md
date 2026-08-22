@@ -122,7 +122,6 @@ Aliases: `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*`
 - `components/{layout,dashboard,transactions,categories,import,assets,auth,budgets,persons,accounts,settings,ui}/`
 
 ## Household (couple support)
-See `docs/couple-plan.md` for the full design and what was deliberately left out.
 - **Person ≠ user.** `persons` is the domain concept (everyone whose money is
   tracked, no login needed); `users` is auth. `persons.user_id` links them.
   Ownership and contributions attach to **persons**, so they work in open mode.

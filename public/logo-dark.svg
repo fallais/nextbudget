@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 392 96" width="392" height="96" role="img" aria-label="NextBudget">
+  <title>NextBudget</title>
+  <!-- Dark-surface variant of logo.svg: same drawing, light ink.
+       The navy mark is all but invisible on a dark README or page.
+  -->
+  <!-- Mark: a tirelire — piggy bank with a coin going into the slot.
+       Authored on the 302×302 grid, scaled to 72px here. -->
+  <g transform="translate(0 12) scale(0.238411)" fill="#F1F5F9">
+    <circle cx="145" cy="40" r="26"/>
+    <path d="M92 106 L136 74 L142 118 Z"/>
+    <rect x="64" y="230" width="36" height="42" rx="12"/>
+    <rect x="190" y="230" width="36" height="42" rx="12"/>
+    <ellipse cx="248" cy="174" rx="32" ry="27"/>
+    <path fill-rule="evenodd" clip-rule="evenodd"
+          d="M37 172a108 80 0 1 0 216 0a108 80 0 1 0-216 0Z
+             M115 124h60a9 9 0 0 1 0 18h-60a9 9 0 0 1 0-18Z"/>
+  </g>
+  <!-- Wordmark. Inter is the app's UI face, so this matches in-product; the
+       stack degrades to the platform grotesque elsewhere. -->
+  <text x="92" y="62"
+        font-family="Inter, 'Helvetica Neue', Arial, sans-serif"
+        font-size="52" font-weight="700" letter-spacing="-1.5">
+    <tspan fill="#F1F5F9">Next</tspan><tspan fill="#5B9CFF">Budget</tspan>
+  </text>
+</svg>
