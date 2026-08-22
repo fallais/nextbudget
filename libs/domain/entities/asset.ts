@@ -2,7 +2,11 @@ import { AggregateRoot } from "@domain/ddd";
 import { invariant } from "@domain/errors";
 import { Money } from "@domain/value-objects/money";
 import { Share, TOTAL_BPS } from "@domain/value-objects/share";
-import { deferralMonthsBetween, summarizeLoan } from "@domain/services/amortization";
+import {
+  deferralMonthsBetween,
+  summarizeLoan,
+  type Prepayment,
+} from "@domain/services/amortization";
 
 import type { AssetKind, AssetType, PropertyKind, Visibility } from "@domain/enums";
 import { typesFor } from "@domain/enums";
@@ -178,8 +182,12 @@ export class Asset extends AggregateRoot<AssetRow> {
    *
    * Everything else — a debt with no terms, a loan whose start is unknown —
    * falls back to the stored value, because there is nothing to derive from.
+   *
+   * `prepayments` belong to another table, so they are passed in. Leaving them
+   * out does not merely lose them: it reports a balance the borrower has not
+   * owed since the day they paid it down.
    */
-  outstandingCents(today: string): number {
+  outstandingCents(today: string, prepayments: Prepayment[] = []): number {
     if (!this.hasDerivableBalance) return this.row.valueCents;
     const summary = summarizeLoan(
       {
@@ -190,6 +198,7 @@ export class Asset extends AggregateRoot<AssetRow> {
         insuranceMonthlyCents: this.row.insuranceMonthlyCents,
         feesCents: this.row.feesCents,
         startDate: this.row.startDate,
+        prepayments,
       },
       today,
     );
@@ -197,8 +206,8 @@ export class Asset extends AggregateRoot<AssetRow> {
   }
 
   /** The row as it should be read: balance derived where one can be. */
-  toRowAt(today: string): AssetRow {
-    return { ...this.row, valueCents: this.outstandingCents(today) };
+  toRowAt(today: string, prepayments: Prepayment[] = []): AssetRow {
+    return { ...this.row, valueCents: this.outstandingCents(today, prepayments) };
   }
 
   /**

@@ -6,6 +6,7 @@ import type { AssetRow, AssetOwnerRow, PersonRow } from "@domain/entities";
 import { Asset } from "@domain/entities";
 import { getScope, applyOwnedScope } from "@application/scope";
 import { Ownership, Share, type OwnerShareRow } from "@domain/value-objects/share";
+import { assets as assetRepo } from "@infrastructure/persistence/repositories";
 
 /** Local date, not UTC: an instalment falls on a calendar day, not an instant. */
 function todayIso(): string {
@@ -22,9 +23,23 @@ function todayIso(): string {
  * the boundary keeps them consistent by construction. `value_cents` stays in
  * the table as the figure for debts that have no schedule to derive from.
  */
-function withDerivedBalances(rows: AssetRow[]): AssetRow[] {
+async function withDerivedBalances(rows: AssetRow[]): Promise<AssetRow[]> {
   const today = todayIso();
-  return rows.map((row) => Asset.reconstitute(row).toRowAt(today));
+  const loans = rows.filter((r) => r.kind === "liability").map((r) => r.id);
+  // One query for the whole list: a schedule that ignores capital already
+  // repaid reports a debt nobody has owed since the day they paid it down.
+  const prepayments = await assetRepo.listPrepayments(loans);
+  return rows.map((row) =>
+    Asset.reconstitute(row).toRowAt(
+      today,
+      (prepayments.get(row.id) ?? []).map((p) => ({
+        date: p.date,
+        amountCents: p.amountCents,
+        mode: p.mode,
+        feesCents: p.feesCents,
+      })),
+    ),
+  );
 }
 
 export async function listAssets(): Promise<AssetRow[]> {
@@ -43,7 +58,7 @@ export async function getVisibleAsset(id: number): Promise<AssetRow | null> {
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.id = :id", { id });
   applyOwnedScope(qb, "a", await getScope());
   const row = await qb.getOne();
-  return row ? withDerivedBalances([row])[0] : null;
+  return row ? (await withDerivedBalances([row]))[0] : null;
 }
 
 export type NetWorth = {
@@ -57,7 +72,7 @@ export async function getNetWorth(): Promise<NetWorth> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.is_active = true");
   applyOwnedScope(qb, "a", await getScope());
-  const assets = withDerivedBalances(await qb.getMany());
+  const assets = await withDerivedBalances(await qb.getMany());
 
   let assetsCents = 0;
   let liabilitiesCents = 0;
@@ -148,7 +163,7 @@ export async function getNetWorthByPerson(): Promise<NetWorthBreakdown> {
   const ds = await getDataSource();
   const qb = ds.getRepository(AssetEntity).createQueryBuilder("a").where("a.is_active = true");
   applyOwnedScope(qb, "a", await getScope());
-  const assets = withDerivedBalances(await qb.getMany());
+  const assets = await withDerivedBalances(await qb.getMany());
 
   const [owners, persons] = await Promise.all([
     listAssetOwners(assets.map((a) => a.id)),

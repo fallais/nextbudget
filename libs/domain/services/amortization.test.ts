@@ -280,3 +280,31 @@ describe("remboursement anticipé", () => {
     expect(p.principalRemainingCents).toBeLessThan(80_000_00);
   });
 });
+
+describe("l'échéance affichée", () => {
+  const LOAN = { principalCents: 100_000_00, interestRateBps: 300, termMonths: 120,
+                 startDate: "2026-01-01" };
+
+  it("is the opening one while nothing has changed it", () => {
+    const s = summarizeLoan(LOAN, "2026-06-01")!;
+    expect(s.monthlyPaymentCents).toBe(s.openingPaymentCents);
+  });
+
+  it("follows a réduction de mensualité instead of the signed figure", () => {
+    // What a statement shows from the month after the repayment. Reporting the
+    // opening instalment here would disagree with every one of them.
+    const s = summarizeLoan(
+      { ...LOAN, prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "payment" }] },
+      "2026-09-01",
+    )!;
+    expect(s.monthlyPaymentCents).toBeLessThan(s.openingPaymentCents);
+  });
+
+  it("is unmoved by a réduction de durée, which is the whole distinction", () => {
+    const s = summarizeLoan(
+      { ...LOAN, prepayments: [{ date: "2026-06-15", amountCents: 20_000_00, mode: "duration" }] },
+      "2026-09-01",
+    )!;
+    expect(s.monthlyPaymentCents).toBe(s.openingPaymentCents);
+  });
+});

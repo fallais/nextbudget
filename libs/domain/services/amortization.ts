@@ -38,8 +38,17 @@ export type LoanProgress = {
 };
 
 export type LoanSummary = {
-  /** Capital + interest only — what the amortization table pays down. */
+  /**
+   * The instalment as it stands today.
+   *
+   * Not the first one: a réduction de mensualité lowers it partway through,
+   * and a loan reporting the figure it was signed at would disagree with every
+   * statement since. Falls back to the opening instalment when the schedule
+   * cannot be dated.
+   */
   monthlyPaymentCents: number;
+  /** What it was at the first instalment, before any early repayment. */
+  openingPaymentCents: number;
   /** What actually leaves the account each month, insurance included. */
   monthlyTotalCents: number;
   totalInterestCents: number;
@@ -186,9 +195,15 @@ export function summarizeLoan(loan: LoanInput, today?: string): LoanSummary | nu
     : 0;
   const totalCost = totalInterest + totalInsurance + fees + prepaymentFees;
 
+  // The instalment now: the next one still to fall, or the last one paid on a
+  // loan that is finished.
+  const current =
+    (today ? schedule.find((r) => r.date !== null && r.date > today) : null) ?? schedule[0];
+
   const summary: LoanSummary = {
-    monthlyPaymentCents: schedule[0].paymentCents,
-    monthlyTotalCents: schedule[0].paymentCents + insuranceMonthly,
+    monthlyPaymentCents: current.paymentCents,
+    openingPaymentCents: schedule[0].paymentCents,
+    monthlyTotalCents: current.paymentCents + insuranceMonthly,
     totalInterestCents: totalInterest,
     totalInsuranceCents: totalInsurance,
     feesCents: fees,
