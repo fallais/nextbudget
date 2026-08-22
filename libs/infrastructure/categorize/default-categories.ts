@@ -12,11 +12,16 @@ export type DefaultCategory = { name: string; color: string; icon: string };
 export const DEFAULT_CATEGORIES: DefaultCategory[] = [
   { name: "Alimentation", color: "#16a34a", icon: "ShoppingCart" },
   { name: "Restaurants", color: "#f97316", icon: "UtensilsCrossed" },
+  // No catalogue entry files into Bar: French bars are local, and the
+  // catalogue only carries chains. It is here as the bucket your own rules
+  // aim at.
+  { name: "Bar", color: "#be123c", icon: "Beer" },
   { name: "Transport", color: "#0ea5e9", icon: "Train" },
   { name: "Logement", color: "#a16207", icon: "Home" },
   { name: "Énergie", color: "#eab308", icon: "Zap" },
   { name: "Télécom", color: "#6366f1", icon: "Smartphone" },
   { name: "Loisirs", color: "#ec4899", icon: "Gamepad2" },
+  { name: "Sport", color: "#2563eb", icon: "Dumbbell" },
   { name: "Santé", color: "#dc2626", icon: "HeartPulse" },
   { name: "Shopping", color: "#8b5cf6", icon: "ShoppingBag" },
   { name: "Apports", color: "#10b981", icon: "TrendingUp" },
