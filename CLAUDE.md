@@ -129,6 +129,16 @@ See `docs/couple-plan.md` for the full design and what was deliberately left out
 - **Accounts** carry `kind` (`personal` | `joint`). Joint-ness is a fact about the
   bank account, distinct from `visibility`. Contributions are matched only against
   joint accounts, falling back to all visible ones when none is marked joint.
+- **Balance needs an anchor.** `accounts.opening_balance_cents` (+ optional
+  `opening_balance_date`) is what the bank said was in the account that day;
+  `getAccountBalances` adds only the transactions dated on or after it. Summing
+  transactions alone gives net movement over what was imported, not a balance —
+  a statement starting in May sums to "net since May". Null anchor ⇒
+  `balanceCents: null` and the UI says the balance is unavailable rather than
+  showing a figure that disagrees with the bank. Import the whole history and
+  the anchor is simply `0` with no date, so net *is* the balance. The Transactions
+  page shows entrées/sorties/net for the current filter plus the balance of the
+  accounts in scope; Paramètres → Comptes only *sets* the anchor.
 - **Ownership shares** live in `asset_owners (asset_id, person_id, share_bps)`,
   10000 = 100%, validated in app code (`libs/domain/value-objects/share.ts`). An asset with **no** rows
   reads as wholly owned by its `owner_id` — that is what keeps legacy rows and solo

@@ -26,6 +26,26 @@ export type ListedTransaction = TransactionRow & {
   account: AccountRow | null;
 };
 
+/** What the filtered set adds up to — the page shows sums, not just rows. */
+export type TransactionTotals = {
+  inCents: number;
+  outCents: number;
+  netCents: number;
+};
+
+export type AccountBalance = {
+  accountId: number;
+  name: string;
+  /** Movements since the opening balance was taken. Always known. */
+  netCents: number;
+  /**
+   * What is in the account. Null until an opening balance is recorded: the
+   * net of an import that starts in May is not a balance, and showing it as
+   * one would be a number that quietly disagrees with the bank.
+   */
+  balanceCents: number | null;
+};
+
 function applyFilters(
   qb: SelectQueryBuilder<TransactionRow>,
   filters: TransactionFilters,
@@ -77,11 +97,13 @@ async function attachRefs(txs: TransactionRow[]): Promise<ListedTransaction[]> {
 export async function listTransactions(
   filters: TransactionFilters,
   pagination: { page: number; pageSize: number } = { page: 1, pageSize: 50 },
-): Promise<{ rows: ListedTransaction[]; total: number }> {
+): Promise<{ rows: ListedTransaction[]; total: number; totals: TransactionTotals }> {
   const ds = await getDataSource();
+  const visible = await visibleAccountIds(await getScope());
+
   const qb = ds.getRepository(TransactionEntity).createQueryBuilder("t");
   applyFilters(qb, filters);
-  applyAccountScope(qb, "t", await visibleAccountIds(await getScope()));
+  applyAccountScope(qb, "t", visible);
   const total = await qb.getCount();
   const txs = await qb
     .orderBy("t.date", "DESC")
@@ -89,7 +111,65 @@ export async function listTransactions(
     .take(pagination.pageSize)
     .skip((pagination.page - 1) * pagination.pageSize)
     .getMany();
-  return { rows: await attachRefs(txs), total };
+
+  // The sums are over everything the filter matches, not the page: a total
+  // that changed as you paged would answer a question nobody asked.
+  const totalsQb = ds.getRepository(TransactionEntity).createQueryBuilder("t");
+  applyFilters(totalsQb, filters);
+  applyAccountScope(totalsQb, "t", visible);
+  const sums = await totalsQb
+    .select("COALESCE(SUM(CASE WHEN t.amount_cents > 0 THEN t.amount_cents ELSE 0 END), 0)", "in")
+    .addSelect("COALESCE(SUM(CASE WHEN t.amount_cents < 0 THEN t.amount_cents ELSE 0 END), 0)", "out")
+    .addSelect("COALESCE(SUM(t.amount_cents), 0)", "net")
+    .getRawOne<{ in: string; out: string; net: string }>();
+
+  return {
+    rows: await attachRefs(txs),
+    total,
+    totals: {
+      inCents: Number(sums?.in ?? 0),
+      outCents: Number(sums?.out ?? 0),
+      netCents: Number(sums?.net ?? 0),
+    },
+  };
+}
+
+/**
+ * What is in each account, for the accounts asked for (all visible ones when
+ * none are named).
+ *
+ * Transactions dated before the opening balance are already inside it, so
+ * only what came after is added — otherwise re-importing an older statement
+ * would move a balance that has not changed.
+ */
+export async function getAccountBalances(accountIds?: number[]): Promise<AccountBalance[]> {
+  const all = await listAllAccounts();
+  const wanted =
+    accountIds && accountIds.length > 0 ? all.filter((a) => accountIds.includes(a.id)) : all;
+  if (wanted.length === 0) return [];
+
+  const ds = await getDataSource();
+  const rows = await ds
+    .getRepository(TransactionEntity)
+    .createQueryBuilder("t")
+    .innerJoin("accounts", "a", "a.id = t.account_id")
+    .select("t.account_id", "accountId")
+    .addSelect("COALESCE(SUM(t.amount_cents), 0)", "net")
+    .where("t.account_id IN (:...ids)", { ids: wanted.map((a) => a.id) })
+    .andWhere("(a.opening_balance_date IS NULL OR t.date >= a.opening_balance_date)")
+    .groupBy("t.account_id")
+    .getRawMany<{ accountId: number; net: string }>();
+
+  const netById = new Map(rows.map((r) => [Number(r.accountId), Number(r.net)]));
+  return wanted.map((a) => {
+    const netCents = netById.get(a.id) ?? 0;
+    return {
+      accountId: a.id,
+      name: a.name,
+      netCents,
+      balanceCents: a.openingBalanceCents != null ? a.openingBalanceCents + netCents : null,
+    };
+  });
 }
 
 export async function listAllCategories(): Promise<CategoryRow[]> {

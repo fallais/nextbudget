@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       bank: parsed.data.bank ?? null,
       iban: parsed.data.iban ?? null,
       currency: parsed.data.currency,
+      openingBalanceCents: parsed.data.openingBalanceCents ?? null,
+      openingBalanceDate: parsed.data.openingBalanceDate ?? null,
       visibility: parsed.data.visibility,
       // An explicit owner wins; otherwise the account belongs to whoever
       // created it, matching how rules/contributions/assets are stamped.

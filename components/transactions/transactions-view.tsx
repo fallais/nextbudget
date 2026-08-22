@@ -19,9 +19,14 @@ import type { ColumnsType } from "antd/es/table";
 import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { Money } from "@/components/money";
-import { formatDateShort } from "@shared/format";
+import { formatCents, formatDateShort } from "@shared/format";
+import { MONEY } from "@shared/palette";
 import type { CategoryRow, AccountRow } from "@domain/entities";
-import type { ListedTransaction } from "@application/queries";
+import type {
+  AccountBalance,
+  ListedTransaction,
+  TransactionTotals,
+} from "@application/queries";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -41,6 +46,8 @@ const { RangePicker } = DatePicker;
 export function TransactionsView({
   rows,
   total,
+  totals,
+  balances,
   page,
   pageSize,
   categories,
@@ -48,6 +55,8 @@ export function TransactionsView({
 }: {
   rows: ListedTransaction[];
   total: number;
+  totals: TransactionTotals;
+  balances: AccountBalance[];
   page: number;
   pageSize: number;
   categories: CategoryRow[];
@@ -142,6 +151,13 @@ export function TransactionsView({
 
   const exportHref = `/api/transactions/export?${searchParams.toString()}`;
 
+  // A balance only exists for an account whose opening balance was recorded;
+  // the others contribute movements and nothing more, so they are counted out
+  // loud rather than folded into a figure that would then be wrong.
+  const anchored = balances.filter((b) => b.balanceCents != null);
+  const soldeCents = anchored.reduce((sum, b) => sum + (b.balanceCents ?? 0), 0);
+  const unanchored = balances.length - anchored.length;
+
   return (
     <Flex vertical gap={16}>
       <Flex justify="space-between" align="flex-start" wrap gap={12}>
@@ -218,6 +234,31 @@ export function TransactionsView({
         </Flex>
       </Card>
 
+      <Card size="small">
+        <Flex gap={28} wrap align="baseline">
+          <Figure label="Entrées" cents={totals.inCents} color={MONEY.income} />
+          <Figure label="Sorties" cents={totals.outCents} color={MONEY.expense} />
+          <Figure label="Net" cents={totals.netCents} strong />
+          {anchored.length > 0 ? (
+            <Figure
+              label={balances.length === 1 ? `Solde · ${balances[0].name}` : "Solde des comptes"}
+              cents={soldeCents}
+              strong
+              foot={
+                unanchored > 0
+                  ? `${unanchored} compte${unanchored > 1 ? "s" : ""} sans solde de départ`
+                  : undefined
+              }
+            />
+          ) : (
+            <Text type="secondary" style={{ fontSize: 12, maxWidth: 320 }}>
+              Solde indisponible : indiquez le solde de départ du compte dans Paramètres →
+              Comptes. Sans lui, seul le net des opérations importées est connu.
+            </Text>
+          )}
+        </Flex>
+      </Card>
+
       <Card styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
@@ -241,3 +282,34 @@ export function TransactionsView({
 }
 
 export { Tag };
+
+/** One figure in the summary strip: a label, an amount, an optional caveat. */
+function Figure({
+  label,
+  cents,
+  color,
+  strong = false,
+  foot,
+}: {
+  label: string;
+  cents: number;
+  color?: string;
+  strong?: boolean;
+  foot?: string;
+}) {
+  return (
+    <div>
+      <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+        {label}
+      </Text>
+      <Text style={{ color, fontWeight: strong ? 600 : 500, fontSize: 16 }}>
+        {formatCents(cents)}
+      </Text>
+      {foot && (
+        <Text type="secondary" style={{ display: "block", fontSize: 11 }}>
+          {foot}
+        </Text>
+      )}
+    </div>
+  );
+}

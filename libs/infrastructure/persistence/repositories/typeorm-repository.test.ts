@@ -52,6 +52,8 @@ const validInput: NewAccount = {
   bank: null,
   iban: null,
   currency: "EUR",
+  openingBalanceCents: null,
+  openingBalanceDate: null,
   ownerId: 1,
   visibility: "shared",
 };

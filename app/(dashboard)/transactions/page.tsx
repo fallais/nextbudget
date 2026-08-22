@@ -1,4 +1,5 @@
 import {
+  getAccountBalances,
   listTransactions,
   listAllCategories,
   listAllAccounts,
@@ -41,16 +42,21 @@ export default async function TransactionsPage({
   };
   const page = Math.max(1, Number.parseInt(get("page") ?? "1", 10) || 1);
 
-  const [data, categories, accounts] = await Promise.all([
+  const [data, categories, accounts, balances] = await Promise.all([
     listTransactions(filters, { page, pageSize: PAGE_SIZE }),
     listAllCategories(),
     listAllAccounts(),
+    // Balances follow the account filter: narrow to one account and the
+    // figure shown is that account's, which is the question being asked.
+    getAccountBalances(filters.accountIds),
   ]);
 
   return (
     <TransactionsView
       rows={data.rows}
       total={data.total}
+      totals={data.totals}
+      balances={balances}
       page={page}
       pageSize={PAGE_SIZE}
       categories={categories}

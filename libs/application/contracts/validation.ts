@@ -37,6 +37,10 @@ export const accountInputSchema = z.object({
   bank: z.string().trim().max(80).nullable().optional(),
   iban: z.string().trim().max(34).nullable().optional(),
   currency: z.string().trim().length(3).default("EUR"),
+  // The anchor a real balance is computed from. Signed: an account can be
+  // overdrawn on the day you write it down.
+  openingBalanceCents: z.number().int().nullable().optional(),
+  openingBalanceDate: z.string().date().nullable().optional(),
   visibility: visibilitySchema.default("shared"),
   ownerId: z.number().int().positive().nullable().optional(),
 });

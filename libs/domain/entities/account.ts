@@ -11,6 +11,17 @@ export interface AccountRow {
   bank: string | null;
   iban: string | null;
   currency: string;
+  /**
+   * What the bank said was in the account on `openingBalanceDate`.
+   *
+   * Without it there is no balance to show, only the net of whatever was
+   * imported — a statement starting in May sums to "net since May", which is
+   * not what is in the account and must not be presented as if it were. Null
+   * means the question has not been answered yet.
+   */
+  openingBalanceCents: number | null;
+  /** When that balance was true. Null reads as "before the first import". */
+  openingBalanceDate: string | null;
   createdAt: Date;
 }
 
@@ -32,6 +43,11 @@ export class Account extends AggregateRoot<AccountRow> {
       "La devise doit être un code à trois lettres.",
       "account.currency_invalid",
     );
+    invariant(
+      input.openingBalanceDate == null || input.openingBalanceCents != null,
+      "Un solde de départ est nécessaire pour lui donner une date.",
+      "account.opening_balance_required",
+    );
     return new Account({ ...input, id: 0, createdAt: new Date() });
   }
 
@@ -51,6 +67,11 @@ export class Account extends AggregateRoot<AccountRow> {
   /** The common pot: the only account contributions are matched against. */
   get isJoint(): boolean {
     return this.row.kind === "joint";
+  }
+
+  /** Whether a real balance can be computed, or only a net of movements. */
+  get hasOpeningBalance(): boolean {
+    return this.row.openingBalanceCents != null;
   }
 
 }

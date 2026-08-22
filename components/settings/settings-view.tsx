@@ -7,9 +7,11 @@ import {
   App,
   Button,
   Card,
+  DatePicker,
   Flex,
   Form,
   Input,
+  InputNumber,
   Modal,
   Popconfirm,
   Segmented,
@@ -19,7 +21,8 @@ import {
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DeleteOutlined, LockOutlined, PlusOutlined } from "@ant-design/icons";
+import { DeleteOutlined, EditOutlined, LockOutlined, PlusOutlined } from "@ant-design/icons";
+import dayjs, { type Dayjs } from "dayjs";
 import { formatCents } from "@shared/format";
 import type { AccountRow } from "@domain/entities";
 import type { HouseholdMode } from "@application/settings";
@@ -62,6 +65,7 @@ export function SettingsView({
   const [accountOpen, setAccountOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [memberOpen, setMemberOpen] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<SettingsAccount | null>(null);
   const [busy, setBusy] = useState(false);
 
   async function send(url: string, method: string, body?: unknown) {
@@ -97,22 +101,49 @@ export function SettingsView({
     },
     {
       title: "",
-      width: 50,
+      width: 90,
       align: "right",
       render: (_, a) => (
-        <Popconfirm
-          title={`Supprimer « ${a.name} » ?`}
-          description={
-            a.txCount > 0
-              ? "Ce compte contient des transactions — la suppression sera refusée."
-              : undefined
-          }
-          okText="Supprimer"
-          cancelText="Annuler"
-          onConfirm={() => send(`/api/accounts/${a.id}`, "DELETE")}
-        >
-          <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="Supprimer" />
-        </Popconfirm>
+        <Flex gap={0} justify="flex-end">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            aria-label="Modifier"
+            onClick={() => {
+              setEditingAccount(a);
+              accountForm.setFieldsValue({
+                name: a.name,
+                bank: a.bank ?? "",
+                kind: a.kind,
+                currency: a.currency,
+                openingBalance:
+                  a.openingBalanceCents == null ? null : a.openingBalanceCents / 100,
+                openingBalanceDate: a.openingBalanceDate ? dayjs(a.openingBalanceDate) : null,
+              });
+              setAccountOpen(true);
+            }}
+          />
+          <Popconfirm
+            title={`Supprimer « ${a.name} » ?`}
+            description={
+              a.txCount > 0
+                ? "Ce compte contient des transactions — la suppression sera refusée."
+                : undefined
+            }
+            okText="Supprimer"
+            cancelText="Annuler"
+            onConfirm={() => send(`/api/accounts/${a.id}`, "DELETE")}
+          >
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              aria-label="Supprimer"
+            />
+          </Popconfirm>
+        </Flex>
       ),
     },
   ];
@@ -194,11 +225,14 @@ export function SettingsView({
                     type="primary"
                     icon={<PlusOutlined />}
                     onClick={() => {
+                      setEditingAccount(null);
                       accountForm.setFieldsValue({
                         name: "",
                         bank: "",
                         kind: "personal",
                         currency: "EUR",
+                        openingBalance: null,
+                        openingBalanceDate: null,
                       });
                       setAccountOpen(true);
                     }}
@@ -267,11 +301,11 @@ export function SettingsView({
 
       <Modal
         open={accountOpen}
-        title="Nouveau compte"
+        title={editingAccount ? `Modifier « ${editingAccount.name} »` : "Nouveau compte"}
         onCancel={() => setAccountOpen(false)}
         onOk={() => accountForm.submit()}
         confirmLoading={busy}
-        okText="Créer"
+        okText={editingAccount ? "Enregistrer" : "Créer"}
         cancelText="Annuler"
       >
         <Form
@@ -280,10 +314,24 @@ export function SettingsView({
           style={{ paddingTop: 8 }}
           onFinish={async (v) => {
             setBusy(true);
+            const openingBalance = v.openingBalance as number | null | undefined;
+            const openingDate = v.openingBalanceDate as Dayjs | null | undefined;
+            const body = {
+              name: v.name as string,
+              bank: (v.bank as string) || null,
+              kind: v.kind as string,
+              currency: (v.currency as string) || "EUR",
+              // Euros on screen, cents in the database — the conversion belongs
+              // at this edge and nowhere deeper.
+              openingBalanceCents:
+                openingBalance == null ? null : Math.round(openingBalance * 100),
+              openingBalanceDate: openingDate ? openingDate.format("YYYY-MM-DD") : null,
+            };
             try {
-              if (await send("/api/accounts", "POST", { ...v, visibility: "shared" })) {
-                setAccountOpen(false);
-              }
+              const ok = editingAccount
+                ? await send(`/api/accounts/${editingAccount.id}`, "PATCH", body)
+                : await send("/api/accounts", "POST", { ...body, visibility: "shared" });
+              if (ok) setAccountOpen(false);
             } finally {
               setBusy(false);
             }
@@ -306,6 +354,27 @@ export function SettingsView({
                 { value: "joint", label: "Commun" },
               ]}
             />
+          </Form.Item>
+          <Form.Item
+            name="openingBalance"
+            label="Solde de départ"
+            extra="Si vous avez importé tout l'historique du compte, laissez 0 sans date : le solde affiché sera alors celui de votre banque. Sinon, recopiez le solde figurant sur votre relevé et datez-le."
+          >
+            <InputNumber
+              style={{ width: "100%" }}
+              addonAfter="€"
+              placeholder="0"
+              step={10}
+              // Signed on purpose: an account can be in the red the day you
+              // write its balance down.
+            />
+          </Form.Item>
+          <Form.Item
+            name="openingBalanceDate"
+            label="À la date du"
+            tooltip="Les opérations antérieures sont déjà comprises dans ce solde et ne sont pas recomptées."
+          >
+            <DatePicker style={{ width: "100%" }} format="DD/MM/YYYY" />
           </Form.Item>
           <Form.Item name="currency" hidden>
             <Input />
