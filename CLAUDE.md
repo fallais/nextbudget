@@ -139,6 +139,12 @@ over the stored value. `patchSchema` unwraps defaults first.
   `open` (default) resolves the single owner with no login; `enforced` requires a
   session cookie (redirect to `/login`). Toggle via the sidebar "enable auth" prompt
   (`/api/auth/setup`). Sessions are opaque DB tokens (`libs/infrastructure/auth/session.ts`).
+- **First-run only**, `db:migrate` seeds the owner's login from
+  `NEXTBUDGET_OWNER_{NAME,EMAIL,PASSWORD}` (`applyOwnerEnv`), a password
+  switching the mode to `enforced`. Read only while the owner has no password,
+  so the env cannot revert one set since — that is `npm run auth:reset`. The
+  mode still lives in the DB; env only bootstraps a deployment that has no UI
+  access yet.
 - **Scoping** (`libs/application/scope.ts`): list/aggregate queries filter to
   `owner_id = me OR visibility = 'shared' OR owner_id IS NULL` — a **no-op in open
   mode**. Transactions/stats inherit visibility from their **account**; accounts,

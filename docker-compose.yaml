@@ -37,6 +37,12 @@ services:
     environment:
       DATABASE_URL: postgres://nextbudget:nextbudget@db:5432/nextbudget
       TZ: Europe/Paris
+      # Uncomment to come up with a login instead of open mode. Read by the
+      # first `db:migrate`, and ignored once the owner has a password — after
+      # that it is `npm run auth:reset -- <password>`.
+      # NEXTBUDGET_OWNER_NAME: Propriétaire
+      # NEXTBUDGET_OWNER_EMAIL: vous@example.com
+      # NEXTBUDGET_OWNER_PASSWORD: au-moins-8-caracteres
 
 volumes:
   nextbudget-pgdata:

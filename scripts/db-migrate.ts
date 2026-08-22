@@ -4,6 +4,8 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { AccountEntity, CategoryEntity, ContributionEntity, FixedExpenseEntity, PersonEntity, RuleEntity, SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import { DEFAULT_CATEGORIES } from "@infrastructure/categorize/default-categories";
 import { MERCHANT_CATALOG } from "@infrastructure/categorize/catalog";
+import { hashPassword } from "@infrastructure/auth/password";
+import type { UserRow } from "@domain/entities";
 import { MERCHANT_KIND_CATEGORY } from "@domain/enums";
 import { normalizeDescription } from "@domain/value-objects/normalized-description";
 
@@ -107,15 +109,20 @@ async function backfillOwnership(ds: DataSource): Promise<void> {
   // 1. Ensure a single owner user (open mode ⇒ no password).
   let owner = await userRepo.findOne({ where: { role: "owner" } });
   if (!owner) {
-    owner = await userRepo.save(userRepo.create({ name: "Propriétaire", role: "owner" }));
+    const named = process.env.NEXTBUDGET_OWNER_NAME?.trim();
+    owner = await userRepo.save(userRepo.create({ name: named || "Propriétaire", role: "owner" }));
   }
   const ownerId = owner.id;
 
-  // 2. Default auth mode = open (preserves the no-login behaviour).
+  // 2. Default auth mode = open (preserves the no-login behaviour)...
   const authMode = await settingRepo.findOne({ where: { key: "authMode" } });
   if (!authMode) {
     await settingRepo.save(settingRepo.create({ key: "authMode", value: "open" }));
   }
+
+  // ...unless the deployment shipped the owner a login. Before step 3, so the
+  // household member created below carries the name the login ended up with.
+  await applyOwnerEnv(ds, owner);
 
   // 3. Ensure the owner exists as a household member too. Ownership shares and
   //    contributions are attributed to persons, not users, so a brand-new solo
@@ -146,6 +153,71 @@ async function backfillOwnership(ds: DataSource): Promise<void> {
   await ds.getRepository(RuleEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(ContributionEntity).update({ ownerId: IsNull() }, { ownerId });
   await ds.getRepository(FixedExpenseEntity).update({ ownerId: IsNull() }, { ownerId });
+}
+
+/**
+ * Give the owner a login from the environment, on an install that has none.
+ *
+ * A fresh install answers with no login at all (`authMode: open`, owner with
+ * no password) — right for a laptop, wrong for a box on the LAN. These three
+ * variables let a deployment come up already secured, instead of someone
+ * having to reach the UI first to enable auth:
+ *
+ *   NEXTBUDGET_OWNER_NAME      display name, and one of the login identifiers
+ *   NEXTBUDGET_OWNER_EMAIL     the other identifier (optional)
+ *   NEXTBUDGET_OWNER_PASSWORD  ≥ 8 characters; setting it switches auth to `enforced`
+ *
+ * Read **only while the owner has no password** — the state of an install
+ * nobody has secured yet. Once a password exists, whether it was set here, in
+ * the UI or by `auth:reset`, these are ignored: a value left behind in a
+ * compose file must not silently revert a password changed since, and
+ * re-running `db:migrate` after an upgrade has to stay a no-op. Changing it
+ * later is `npm run auth:reset -- <password>`.
+ */
+async function applyOwnerEnv(ds: DataSource, owner: UserRow): Promise<void> {
+  const name = process.env.NEXTBUDGET_OWNER_NAME?.trim();
+  const email = process.env.NEXTBUDGET_OWNER_EMAIL?.trim();
+  const password = process.env.NEXTBUDGET_OWNER_PASSWORD;
+  if (!name && !email && !password) return;
+
+  if (owner.passwordHash) {
+    console.log(
+      "NEXTBUDGET_OWNER_* ignored: this install already has a password. " +
+        "Change it with `npm run auth:reset -- <password>`.",
+    );
+    return;
+  }
+  if (password !== undefined && password.length < 8) {
+    throw new Error("NEXTBUDGET_OWNER_PASSWORD must be at least 8 characters.");
+  }
+
+  const userRepo = ds.getRepository(UserEntity);
+  const patch: Partial<UserRow> = {};
+  if (name && name !== owner.name) patch.name = name;
+  if (email && email !== owner.email) {
+    // users.email is unique: fail loudly rather than let TypeORM raise 23505
+    // halfway through a migration.
+    const taken = await userRepo.findOne({ where: { email } });
+    if (taken && taken.id !== owner.id) {
+      throw new Error(`NEXTBUDGET_OWNER_EMAIL "${email}" already belongs to another user.`);
+    }
+    patch.email = email;
+  }
+  if (password) patch.passwordHash = await hashPassword(password);
+
+  if (Object.keys(patch).length === 0) return;
+  await userRepo.update(owner.id, patch);
+  Object.assign(owner, patch); // step 3 names the household member after it
+
+  if (password) {
+    await ds.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
+    console.log(
+      `Auth enforced. Log in as "${owner.name}"` +
+        `${owner.email ? ` or "${owner.email}"` : ""} with NEXTBUDGET_OWNER_PASSWORD.`,
+    );
+  } else {
+    console.log(`Owner identity set from the environment: "${owner.name}". Auth mode unchanged.`);
+  }
 }
 
 async function main() {

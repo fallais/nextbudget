@@ -42,6 +42,23 @@ Configuration is via environment variables (see [`.env.example`](./.env.example)
 `DATABASE_URL` (Postgres connection string) and optionally `TZ`. Everything else
 — household, privacy, accounts, categories — is configured in the app itself.
 
+By default there is **no login**: the app runs in open mode and resolves every
+request to a single owner. That suits a laptop; for a machine on the network,
+give the owner credentials before the first `db:migrate` and it comes up with
+auth already enforced:
+
+```yaml
+environment:
+  NEXTBUDGET_OWNER_NAME: Propriétaire         # a login identifier
+  NEXTBUDGET_OWNER_EMAIL: vous@example.com    # the other one (optional)
+  NEXTBUDGET_OWNER_PASSWORD: au-moins-8-caracteres
+```
+
+They are read only while the owner has no password — a value left in the file
+cannot revert a password changed since. To change it afterwards:
+`docker compose exec app npm run auth:reset -- <nouveau mot de passe>`, or
+`npm run auth:reset` with no argument to drop back to open mode.
+
 ## Local development
 
 Requires Node.js 20+ and a reachable PostgreSQL.
