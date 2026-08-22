@@ -253,3 +253,151 @@ export function summarizeContributions(
     anomalyCount: a,
   };
 }
+
+// ── History ──────────────────────────────────────────────────────────────────
+
+/**
+ * What happened to one apport in one month.
+ *
+ * `before` is not a failure: an apport that started in 2023 was not owed in
+ * 2022, and colouring those months as missed would bury the ones that are.
+ * `pending` is the current month, which has not finished yet.
+ */
+export type MonthState = "received" | "anomaly" | "missed" | "pending" | "before";
+
+export type ContributionMonth = {
+  /** "YYYY-MM". */
+  month: string;
+  receivedCents: number;
+  state: MonthState;
+};
+
+export type ContributionHistory = {
+  contribution: ContributionRow;
+  /** Oldest first, one entry per month of the window. */
+  months: ContributionMonth[];
+  /** Totals over the months this apport was actually owed. */
+  expectedCents: number;
+  receivedCents: number;
+  missedCount: number;
+  lastReceivedMonth: string | null;
+};
+
+export type PersonHistory = {
+  person: PersonRow;
+  contributions: ContributionHistory[];
+  inactive: ContributionRow[];
+  expectedCents: number;
+  receivedCents: number;
+  missedCount: number;
+};
+
+function monthsEnding(now: Date, count: number): string[] {
+  const out: string[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    out.push(d.toISOString().slice(0, 7));
+  }
+  return out;
+}
+
+/**
+ * Every apport over a window of months, and which of them went unpaid.
+ *
+ * The month view answers "are we square this month"; this answers "has this
+ * ever not arrived", which is the question that finds the one nobody noticed
+ * stopping. A month only counts against an apport once it has been paid at
+ * least once — before that there was nothing to expect.
+ */
+export async function getContributionHistory(
+  monthsBack = 12,
+  now: Date = new Date(),
+): Promise<PersonHistory[]> {
+  const window = monthsEnding(now, monthsBack);
+  const currentMonth = window[window.length - 1];
+  const from = `${window[0]}-01`;
+
+  const allPersons = await listPersons();
+  if (allPersons.length === 0) return [];
+  const allContribs = await listContributions();
+
+  const ds = await getDataSource();
+  const qb = ds
+    .getRepository(TransactionEntity)
+    .createQueryBuilder("t")
+    .where("t.date >= :from", { from })
+    .andWhere("t.amount_cents > 0");
+  applyAccountScope(qb, "t", await matchableAccountIds());
+  const txs = (await qb.getMany()).map((t) => ({
+    month: t.date.slice(0, 7),
+    normalized: t.normalizedDescription,
+    amountCents: t.amountCents,
+  }));
+
+  const byPerson = new Map<number, ContributionHistory[]>();
+  const inactiveByPerson = new Map<number, ContributionRow[]>();
+
+  for (const c of allContribs) {
+    if (!c.isActive) {
+      inactiveByPerson.set(c.personId, [...(inactiveByPerson.get(c.personId) ?? []), c]);
+      continue;
+    }
+    const compiled = compileRule({
+      id: 0,
+      categoryId: 0,
+      pattern: c.matchPattern,
+      matchType: c.matchType,
+      amountCondition: "positive",
+      priority: 0,
+    });
+
+    const receivedByMonth = new Map<string, number>();
+    if (compiled) {
+      for (const t of txs) {
+        if (!compiled.test(t.normalized, t.amountCents)) continue;
+        receivedByMonth.set(t.month, (receivedByMonth.get(t.month) ?? 0) + Math.abs(t.amountCents));
+      }
+    }
+    const firstPaid = window.find((m) => (receivedByMonth.get(m) ?? 0) > 0) ?? null;
+
+    const months: ContributionMonth[] = window.map((month) => {
+      const received = receivedByMonth.get(month) ?? 0;
+      if (received > 0) {
+        const variance = Math.abs(received - c.expectedAmountCents) / c.expectedAmountCents;
+        return {
+          month,
+          receivedCents: received,
+          state: variance * 100 > c.tolerancePct ? "anomaly" : "received",
+        };
+      }
+      if (firstPaid === null || month < firstPaid) return { month, receivedCents: 0, state: "before" };
+      return { month, receivedCents: 0, state: month === currentMonth ? "pending" : "missed" };
+    });
+
+    const owed = months.filter((m) => m.state !== "before");
+    byPerson.set(c.personId, [
+      ...(byPerson.get(c.personId) ?? []),
+      {
+        contribution: c,
+        months,
+        expectedCents: owed.length * c.expectedAmountCents,
+        receivedCents: months.reduce((a, m) => a + m.receivedCents, 0),
+        missedCount: months.filter((m) => m.state === "missed").length,
+        lastReceivedMonth:
+          [...months].reverse().find((m) => m.receivedCents > 0)?.month ?? null,
+      },
+    ]);
+  }
+
+  return allPersons.map((person) => {
+    const list = byPerson.get(person.id) ?? [];
+    return {
+      person,
+      contributions: list,
+      inactive: inactiveByPerson.get(person.id) ?? [],
+      expectedCents: list.reduce((a, c) => a + c.expectedCents, 0),
+      receivedCents: list.reduce((a, c) => a + c.receivedCents, 0),
+      missedCount: list.reduce((a, c) => a + c.missedCount, 0),
+    };
+  });
+}

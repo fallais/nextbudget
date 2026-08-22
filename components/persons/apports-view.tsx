@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   App,
   Button,
@@ -14,16 +14,15 @@ import {
   InputNumber,
   Modal,
   Popconfirm,
-  Progress,
   Row,
+  Segmented,
   Select,
   Statistic,
-  Table,
   Tag,
   Tooltip,
   Typography,
+  theme,
 } from "antd";
-import type { ColumnsType } from "antd/es/table";
 import {
   DeleteOutlined,
   EditOutlined,
@@ -31,41 +30,61 @@ import {
   PlayCircleOutlined,
   PlusOutlined,
 } from "@ant-design/icons";
-import { STATUS } from "@shared/palette";
-import { formatCents } from "@shared/format";
+import { PageHeader } from "@/components/layout/page-header";
+import { MONEY, STATUS } from "@shared/palette";
+import { formatCents, formatMonthLabel } from "@shared/format";
 import type { ContributionRow } from "@domain/entities";
-import type { ContributionStatus, PersonWithStatus } from "@application/contributions";
+import type { ContributionHistory, MonthState, PersonHistory } from "@application/contributions";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
-const STATE = {
-  received: { label: "Reçu", color: STATUS.good },
-  pending: { label: "En attente", color: STATUS.warning },
-  anomaly: { label: "Montant inhabituel", color: STATUS.serious },
-} as const;
+const ALL = "all";
+
+const WINDOWS = [
+  { value: "6", label: "6 mois" },
+  { value: "12", label: "12 mois" },
+  { value: "24", label: "24 mois" },
+];
 
 type Editing = { personId: number; contribution: ContributionRow | null };
 
 /**
- * Who has paid what into the common pot this month, and what they owe it.
+ * Who pays what into the common pot, and whether they have.
  *
- * One card per person, each with its own table: the question is always "is
- * this person up to date", and a single flat table of every contribution would
- * make you reassemble that yourself.
- *
- * Apports are created and edited from here rather than from Paramètres. An
- * apport is not configuration — it is a claim about money that arrives every
- * month, and the place to write it down is the page where you find out whether
- * it did.
+ * Built like Crédits rather than as one card per person: an apport is a
+ * standing commitment with a history, so it gets a row of its own, its figures
+ * labelled beside it, and its record of the last months as a strip you can
+ * read at a glance. A card per person answered "are we square this month" and
+ * nothing else — the useful question is which apport quietly stopped arriving,
+ * and that is invisible in a single month.
  */
-export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
+export function ApportsView({
+  perPerson,
+  months,
+}: {
+  perPerson: PersonHistory[];
+  months: number;
+}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { message } = App.useApp();
+  const { token } = theme.useToken();
   const [form] = Form.useForm();
+  const [scope, setScope] = useState<string>(ALL);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const active = perPerson.filter((p) => p.person.isActive);
+  const persons = perPerson.filter((p) => p.person.isActive);
+  const shown = scope === ALL ? persons : persons.filter((p) => String(p.person.id) === scope);
+
+  const totals = useMemo(
+    () => ({
+      expected: shown.reduce((a, p) => a + p.expectedCents, 0),
+      received: shown.reduce((a, p) => a + p.receivedCents, 0),
+      missed: shown.reduce((a, p) => a + p.missedCount, 0),
+    }),
+    [shown],
+  );
 
   async function send(url: string, method: string, body?: unknown) {
     const res = await fetch(url, {
@@ -85,6 +104,7 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
   function open(personId: number, contribution: ContributionRow | null) {
     setEditing({ personId, contribution });
     form.setFieldsValue({
+      personId,
       name: contribution?.name ?? "",
       amount: contribution ? contribution.expectedAmountCents / 100 : null,
       matchPattern: contribution?.matchPattern ?? "",
@@ -93,95 +113,33 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
     });
   }
 
-  const columns: ColumnsType<ContributionStatus> = [
-    { title: "Apport", render: (_, c) => c.contribution.name },
-    {
-      title: "État",
-      width: 150,
-      render: (_, c) => {
-        const state = STATE[c.state];
-        return (
-          // The tag carries a word, so state never rests on colour alone.
-          <Tag color={state.color} style={{ marginInlineEnd: 0 }}>
-            {state.label}
-          </Tag>
-        );
-      },
-    },
-    {
-      title: "Attendu",
-      align: "right",
-      width: 110,
-      render: (_, c) => (
-        <Text style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatCents(c.contribution.expectedAmountCents)}
-        </Text>
-      ),
-    },
-    {
-      title: "Reçu",
-      align: "right",
-      width: 110,
-      render: (_, c) => (
-        <Text
-          style={{ fontVariantNumeric: "tabular-nums" }}
-          type={c.receivedCents > 0 ? undefined : "secondary"}
-        >
-          {c.receivedCents ? formatCents(c.receivedCents) : "—"}
-        </Text>
-      ),
-    },
-    {
-      title: "",
-      width: 96,
-      align: "right",
-      render: (_, c) => (
-        <Flex justify="flex-end">
-          <Button
-            type="text"
-            size="small"
-            icon={<EditOutlined />}
-            aria-label="Modifier"
-            onClick={() => open(c.contribution.personId, c.contribution)}
-          />
-          <Tooltip title="Mettre en pause — l'apport cesse d'être attendu chaque mois">
-            <Button
-              type="text"
-              size="small"
-              icon={<PauseCircleOutlined />}
-              aria-label="Mettre en pause"
-              onClick={() =>
-                send(`/api/contributions/${c.contribution.id}`, "PATCH", { isActive: false })
-              }
-            />
-          </Tooltip>
-          <Popconfirm
-            title={`Supprimer « ${c.contribution.name} » ?`}
-            description="Les transactions ne bougent pas ; seul l'apport attendu disparaît."
-            okText="Supprimer"
-            cancelText="Annuler"
-            onConfirm={() => send(`/api/contributions/${c.contribution.id}`, "DELETE")}
-          >
-            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="Supprimer" />
-          </Popconfirm>
-        </Flex>
-      ),
-    },
-  ];
+  function setWindow(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("months", value);
+    router.push(`/apports?${params.toString()}`);
+  }
+
+  const defaultPerson = scope === ALL ? (persons[0]?.person.id ?? 0) : Number(scope);
 
   return (
     <Flex vertical gap={16}>
-      <div>
-        <Title level={3} style={{ margin: 0 }}>
-          Apports
-        </Title>
-        <Text type="secondary">
-          Les versements mensuels sur le compte commun. Une personne peut en avoir
-          plusieurs — un pour le loyer, un pour l&apos;énergie.
-        </Text>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Apports" }]}
+        description="Les versements sur le compte commun, et ceux qui ne sont pas arrivés."
+        actions={
+          persons.length > 0 && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => open(defaultPerson, null)}
+            >
+              Ajouter un apport
+            </Button>
+          )
+        }
+      />
 
-      {active.length === 0 ? (
+      {persons.length === 0 ? (
         <Card>
           <Empty
             description="Aucune personne active. Ajoutez des membres dans Paramètres → Foyer."
@@ -189,119 +147,125 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
           />
         </Card>
       ) : (
-        <Row gutter={[16, 16]}>
-          {active.map((p) => {
-            const pct =
-              p.expectedTotalCents > 0
-                ? Math.min(100, Math.round((p.receivedTotalCents / p.expectedTotalCents) * 100))
-                : 0;
-            const complete = p.expectedTotalCents > 0 && p.receivedTotalCents >= p.expectedTotalCents;
-            return (
-              <Col key={p.person.id} xs={24} xl={12}>
-                <Card
-                  title={p.person.name}
-                  extra={
-                    <Flex align="center" gap={10}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {complete ? "à jour" : "en attente"}
-                      </Text>
-                      <Button
-                        size="small"
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={() => open(p.person.id, null)}
-                      >
-                        Ajouter
-                      </Button>
-                    </Flex>
-                  }
-                >
-                  <Row gutter={16} style={{ marginBottom: 12 }}>
-                    <Col span={12}>
-                      <Statistic
-                        title="Reçu"
-                        value={formatCents(p.receivedTotalCents)}
-                        valueStyle={{ fontSize: 20, color: complete ? STATUS.good : undefined }}
-                      />
-                    </Col>
-                    <Col span={12}>
-                      <Statistic
-                        title="Attendu"
-                        value={formatCents(p.expectedTotalCents)}
-                        valueStyle={{ fontSize: 20 }}
-                      />
-                    </Col>
-                  </Row>
-                  <Progress
-                    percent={pct}
-                    showInfo={false}
-                    size={["100%", 6]}
-                    strokeColor={complete ? STATUS.good : STATUS.warning}
-                  />
-                  {p.contributions.length > 0 ? (
-                    <Table
-                      rowKey={(c) => c.contribution.id}
-                      size="small"
-                      columns={columns}
-                      dataSource={p.contributions}
-                      pagination={false}
-                      style={{ marginTop: 12 }}
-                    />
-                  ) : (
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      Aucun apport déclaré pour cette personne.
-                    </Text>
-                  )}
+        <>
+          <Row gutter={[16, 16]}>
+            <Col xs={12} lg={6}>
+              <Card size="small">
+                <Statistic title="Reçu" value={formatCents(totals.received)} />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  sur {months} mois
+                </Text>
+              </Card>
+            </Col>
+            <Col xs={12} lg={6}>
+              <Card size="small">
+                <Statistic title="Attendu" value={formatCents(totals.expected)} />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  sur la même période
+                </Text>
+              </Card>
+            </Col>
+            <Col xs={12} lg={6}>
+              <Card size="small">
+                <Statistic
+                  title="Non versés"
+                  value={totals.missed}
+                  valueStyle={{ color: totals.missed > 0 ? STATUS.serious : undefined }}
+                />
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {totals.missed > 0 ? "mois sans versement" : "aucun mois manquant"}
+                </Text>
+              </Card>
+            </Col>
+          </Row>
 
-                  {/* Paused apports are not this month's business, but they
-                      have to stay reachable or pausing one would be a way of
-                      losing it. */}
-                  {p.inactive.length > 0 && (
-                    <Flex vertical gap={6} style={{ marginTop: 12 }}>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        En pause ({p.inactive.length})
-                      </Text>
-                      {p.inactive.map((c) => (
-                        <Flex key={c.id} justify="space-between" align="center">
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            {c.name} · {formatCents(c.expectedAmountCents)}
-                          </Text>
-                          <Flex>
-                            <Tooltip title="Réactiver">
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<PlayCircleOutlined />}
-                                aria-label="Réactiver"
-                                onClick={() =>
-                                  send(`/api/contributions/${c.id}`, "PATCH", { isActive: true })
-                                }
-                              />
-                            </Tooltip>
-                            <Popconfirm
-                              title={`Supprimer « ${c.name} » ?`}
-                              okText="Supprimer"
-                              cancelText="Annuler"
-                              onConfirm={() => send(`/api/contributions/${c.id}`, "DELETE")}
-                            >
-                              <Button
-                                type="text"
-                                size="small"
-                                danger
-                                icon={<DeleteOutlined />}
-                                aria-label="Supprimer"
-                              />
-                            </Popconfirm>
-                          </Flex>
-                        </Flex>
-                      ))}
-                    </Flex>
-                  )}
+          <Flex justify="space-between" align="center" wrap gap={12}>
+            {persons.length > 1 ? (
+              <Segmented
+                value={scope}
+                onChange={(v) => setScope(String(v))}
+                options={[
+                  { value: ALL, label: "Tout le foyer" },
+                  ...persons.map((p) => ({ value: String(p.person.id), label: p.person.name })),
+                ]}
+              />
+            ) : (
+              <span />
+            )}
+            <Segmented value={String(months)} onChange={(v) => setWindow(String(v))} options={WINDOWS} />
+          </Flex>
+
+          {shown.map((p) => (
+            <Flex vertical gap={8} key={p.person.id}>
+              {scope === ALL && persons.length > 1 && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  {p.person.name}
+                </Text>
+              )}
+              {p.contributions.length === 0 && p.inactive.length === 0 ? (
+                <Card size="small">
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    Aucun apport déclaré pour {p.person.name}.
+                  </Text>
                 </Card>
-              </Col>
-            );
-          })}
-        </Row>
+              ) : (
+                p.contributions.map((c) => (
+                  <ApportRow
+                    key={c.contribution.id}
+                    history={c}
+                    onEdit={() => open(p.person.id, c.contribution)}
+                    onPause={() =>
+                      send(`/api/contributions/${c.contribution.id}`, "PATCH", { isActive: false })
+                    }
+                    onDelete={() => send(`/api/contributions/${c.contribution.id}`, "DELETE")}
+                  />
+                ))
+              )}
+
+              {p.inactive.length > 0 && (
+                <Card size="small" style={{ background: token.colorFillQuaternary }}>
+                  <Flex vertical gap={6}>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      En pause ({p.inactive.length})
+                    </Text>
+                    {p.inactive.map((c) => (
+                      <Flex key={c.id} justify="space-between" align="center">
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          {c.name} · {formatCents(c.expectedAmountCents)}
+                        </Text>
+                        <Flex>
+                          <Tooltip title="Réactiver">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<PlayCircleOutlined />}
+                              aria-label="Réactiver"
+                              onClick={() => send(`/api/contributions/${c.id}`, "PATCH", { isActive: true })}
+                            />
+                          </Tooltip>
+                          <Popconfirm
+                            title={`Supprimer « ${c.name} » ?`}
+                            okText="Supprimer"
+                            cancelText="Annuler"
+                            onConfirm={() => send(`/api/contributions/${c.id}`, "DELETE")}
+                          >
+                            <Button
+                              type="text"
+                              size="small"
+                              danger
+                              icon={<DeleteOutlined />}
+                              aria-label="Supprimer"
+                            />
+                          </Popconfirm>
+                        </Flex>
+                      </Flex>
+                    ))}
+                  </Flex>
+                </Card>
+              )}
+            </Flex>
+          ))}
+        </>
       )}
 
       <Modal
@@ -318,10 +282,9 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
           layout="vertical"
           style={{ paddingTop: 8 }}
           onFinish={async (v) => {
-            if (!editing) return;
             setBusy(true);
             const body = {
-              personId: editing.personId,
+              personId: v.personId as number,
               name: v.name as string,
               expectedAmountCents: Math.round(((v.amount as number) ?? 0) * 100),
               matchPattern: v.matchPattern as string,
@@ -330,7 +293,7 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
               isActive: true,
             };
             try {
-              const ok = editing.contribution
+              const ok = editing?.contribution
                 ? await send(`/api/contributions/${editing.contribution.id}`, "PATCH", body)
                 : await send("/api/contributions", "POST", body);
               if (ok) setEditing(null);
@@ -339,6 +302,13 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
             }
           }}
         >
+          <Form.Item
+            name="personId"
+            label="Personne"
+            rules={[{ required: true, message: "Personne requise" }]}
+          >
+            <Select options={persons.map((p) => ({ value: p.person.id, label: p.person.name }))} />
+          </Form.Item>
           <Form.Item name="name" label="Nom" rules={[{ required: true, message: "Nom requis" }]}>
             <Input placeholder="Courses" />
           </Form.Item>
@@ -375,6 +345,129 @@ export function ApportsView({ perPerson }: { perPerson: PersonWithStatus[] }) {
           </Form.Item>
         </Form>
       </Modal>
+    </Flex>
+  );
+}
+
+/**
+ * One apport: its record on the left, its figures on the right.
+ *
+ * The strip is the point of the row. Twelve months of "did it arrive" is a
+ * shape you read in one glance, and a gap in it is the thing this page exists
+ * to surface.
+ */
+function ApportRow({
+  history,
+  onEdit,
+  onPause,
+  onDelete,
+}: {
+  history: ContributionHistory;
+  onEdit: () => void;
+  onPause: () => void;
+  onDelete: () => void;
+}) {
+  const c = history.contribution;
+  return (
+    <Card size="small" styles={{ body: { padding: 16 } }}>
+      <Flex align="center" gap={20} wrap>
+        <MonthStrip history={history} />
+
+        <Flex align="center" gap={8} style={{ minWidth: 160, flex: 1 }}>
+          <Text strong>{c.name}</Text>
+          {history.missedCount > 0 && (
+            <Tag bordered={false} color={STATUS.serious}>
+              {history.missedCount} manquant{history.missedCount > 1 ? "s" : ""}
+            </Tag>
+          )}
+        </Flex>
+
+        <Figure label="Attendu" value={`${formatCents(c.expectedAmountCents)}/mois`} />
+        <Figure label="Reçu sur la période" value={formatCents(history.receivedCents)} strong />
+        <Figure
+          label="Dernier versement"
+          value={history.lastReceivedMonth ? formatMonthLabel(`${history.lastReceivedMonth}-01`) : "—"}
+        />
+
+        <Flex>
+          <Button type="text" size="small" icon={<EditOutlined />} aria-label="Modifier" onClick={onEdit} />
+          <Tooltip title="Mettre en pause — l'apport cesse d'être attendu">
+            <Button
+              type="text"
+              size="small"
+              icon={<PauseCircleOutlined />}
+              aria-label="Mettre en pause"
+              onClick={onPause}
+            />
+          </Tooltip>
+          <Popconfirm
+            title={`Supprimer « ${c.name} » ?`}
+            description="Les transactions ne bougent pas ; seul l'apport attendu disparaît."
+            okText="Supprimer"
+            cancelText="Annuler"
+            onConfirm={onDelete}
+          >
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} aria-label="Supprimer" />
+          </Popconfirm>
+        </Flex>
+      </Flex>
+    </Card>
+  );
+}
+
+const MONTH_COLOR: Record<MonthState, string | undefined> = {
+  received: MONEY.income,
+  anomaly: STATUS.warning,
+  missed: STATUS.serious,
+  pending: undefined,
+  before: undefined,
+};
+
+const MONTH_WORD: Record<MonthState, string> = {
+  received: "reçu",
+  anomaly: "montant inhabituel",
+  missed: "non versé",
+  pending: "en attente",
+  before: "pas encore en place",
+};
+
+function MonthStrip({ history }: { history: ContributionHistory }) {
+  const { token } = theme.useToken();
+  return (
+    <Flex gap={3} align="center">
+      {history.months.map((m) => (
+        <Tooltip
+          key={m.month}
+          title={`${formatMonthLabel(`${m.month}-01`)} — ${MONTH_WORD[m.state]}${
+            m.receivedCents ? ` · ${formatCents(m.receivedCents)}` : ""
+          }`}
+        >
+          <div
+            aria-label={`${m.month} ${MONTH_WORD[m.state]}`}
+            style={{
+              width: 9,
+              height: 22,
+              borderRadius: 2,
+              background:
+                MONTH_COLOR[m.state] ??
+                (m.state === "pending" ? token.colorFillSecondary : token.colorFillQuaternary),
+            }}
+          />
+        </Tooltip>
+      ))}
+    </Flex>
+  );
+}
+
+function Figure({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <Flex vertical gap={0} style={{ minWidth: 130 }}>
+      <Text type="secondary" style={{ fontSize: 11 }}>
+        {label}
+      </Text>
+      <Text strong={strong} style={{ fontVariantNumeric: "tabular-nums", fontSize: 15 }}>
+        {value}
+      </Text>
     </Flex>
   );
 }
