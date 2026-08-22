@@ -8,7 +8,6 @@ export const MerchantOverrideEntity = new EntitySchema<MerchantOverrideRow>({
     id,
     ...owner,
     merchantKey: { name: "merchant_key", type: "text" },
-    categoryId: { name: "category_id", type: Number, nullable: true },
     disabled: { type: Boolean, default: false },
     createdAt,
   },

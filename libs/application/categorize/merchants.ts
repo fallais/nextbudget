@@ -14,9 +14,6 @@ export type MerchantView = {
   /** Every pattern, regex included, for the "why did this match" column. */
   patterns: string[];
   categoryId: number | null;
-  defaultCategoryId: number | null;
-  defaultCategoryName: string;
-  overridden: boolean;
   disabled: boolean;
 };
 
@@ -30,24 +27,21 @@ export async function listMerchants(): Promise<MerchantView[]> {
       kindLabel: MERCHANT_KIND_LABELS[m.entry.kind],
       patterns: [...m.entry.patterns, ...(m.entry.regex ? [m.entry.regex] : [])],
       categoryId: m.categoryId,
-      defaultCategoryId: m.defaultCategoryId,
-      defaultCategoryName: MERCHANT_KIND_CATEGORY[m.entry.kind],
-      overridden: m.overridden,
       disabled: m.disabled,
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
 /**
- * Record what the user decided about a shipped merchant.
+ * Switch a shipped merchant off, or back on.
  *
- * Saying "no change and not disabled" is how the UI asks for the default back,
- * so it deletes rather than storing a row that says nothing — an override that
- * asserts today's shipped value would silently freeze it against tomorrow's.
+ * Back on deletes the row rather than storing one that says nothing — an
+ * override asserting today's shipped value would silently freeze it against
+ * tomorrow's.
  */
 export async function setMerchantOverride(
   merchantKey: string,
-  input: { categoryId: number | null; disabled: boolean },
+  input: { disabled: boolean },
   ownerId: number | null,
 ): Promise<void> {
   invariant(
@@ -56,30 +50,19 @@ export async function setMerchantOverride(
     "merchant.unknown",
   );
 
-  if (input.categoryId === null && !input.disabled) {
+  if (!input.disabled) {
     await merchantOverrides.deleteByKey(merchantKey);
     return;
   }
 
   const existing = await merchantOverrides.findByKey(merchantKey);
-  if (existing) {
-    await merchantOverrides.update(existing.id, {
-      categoryId: input.categoryId,
-      disabled: input.disabled,
-    });
-    return;
-  }
+  if (existing) return;
 
   await merchantOverrides.create({
     merchantKey,
-    categoryId: input.categoryId,
-    disabled: input.disabled,
+    disabled: true,
     ownerId,
     visibility: "shared",
   });
 }
 
-/** Back to what the catalogue says. */
-export async function clearMerchantOverride(merchantKey: string): Promise<boolean> {
-  return merchantOverrides.deleteByKey(merchantKey);
-}

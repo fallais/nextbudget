@@ -13,6 +13,4 @@ export interface MerchantOverrideRepository
   extends Repository<MerchantOverride, MerchantOverrideRow, NewMerchantOverride> {
   findByKey(merchantKey: string): Promise<MerchantOverride | null>;
   deleteByKey(merchantKey: string): Promise<boolean>;
-  /** A deleted category must not leave overrides pointing into the void. */
-  clearCategory(categoryId: number): Promise<void>;
 }

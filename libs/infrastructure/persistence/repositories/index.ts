@@ -114,13 +114,6 @@ class TypeOrmMerchantOverrideRepository
     return (result.affected ?? 0) > 0;
   }
 
-  async clearCategory(categoryId: number): Promise<void> {
-    // The merchant stays overridden — switched off if that is all it said,
-    // otherwise back to its kind's category, which is the honest default.
-    const repo = await this.repo();
-    await repo.delete({ categoryId, disabled: false });
-    await repo.update({ categoryId }, { categoryId: null });
-  }
 }
 
 export const merchantOverrides: MerchantOverrideRepository =

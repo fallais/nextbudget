@@ -33,22 +33,25 @@ export type MerchantEntry = {
   priority?: number;
 };
 
-/** What the user did to a shipped entry. */
+/**
+ * What the user did to a shipped entry: switched it off.
+ *
+ * The only decision on offer. Where a merchant files is the catalogue's to
+ * say — a kind maps to a category and that mapping travels with the release,
+ * so re-pointing one entry by hand would freeze it against the next
+ * correction. Disagreeing with the catalogue is what a rule of your own is
+ * for, and a rule outranks it.
+ */
 export type MerchantOverrideInput = {
   merchantKey: string;
-  /** Re-pointed here instead of its kind's category. `null` keeps the default. */
-  categoryId: number | null;
   /** Switched off entirely: the entry stops matching anything. */
   disabled: boolean;
 };
 
 export type ResolvedMerchant = {
   entry: MerchantEntry;
-  /** Where it files today — `null` when its category does not exist here. */
+  /** Where it files — `null` when its category does not exist here. */
   categoryId: number | null;
-  /** The category it would file into with no override. */
-  defaultCategoryId: number | null;
-  overridden: boolean;
   disabled: boolean;
 };
 
@@ -68,17 +71,11 @@ export function resolveMerchants(
 ): ResolvedMerchant[] {
   const byKey = new Map(overrides.map((o) => [o.merchantKey, o]));
 
-  return entries.map((entry) => {
-    const override = byKey.get(entry.key);
-    const defaultCategoryId = categoryIdByName(MERCHANT_KIND_CATEGORY[entry.kind]);
-    return {
-      entry,
-      defaultCategoryId,
-      categoryId: override?.categoryId ?? defaultCategoryId,
-      overridden: !!override,
-      disabled: override?.disabled ?? false,
-    };
-  });
+  return entries.map((entry) => ({
+    entry,
+    categoryId: categoryIdByName(MERCHANT_KIND_CATEGORY[entry.kind]),
+    disabled: byKey.get(entry.key)?.disabled ?? false,
+  }));
 }
 
 /**

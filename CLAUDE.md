@@ -191,10 +191,14 @@ then `source: "user"` before `"catalog"`.
   is the matching (`libs/domain/services/{categorization,merchant-catalog}.ts`).
   The *brands* are infrastructure: swapping `catalog/` for another country's
   changes no domain code. Assembly is application.
-- **Overrides, not edits.** `merchant_overrides (merchant_key, category_id,
-  disabled)` stores only what the user changed, so untouched entries keep
-  improving with each release and "réinitialiser" is a `DELETE`. Managed on a
-  category's page → `/api/merchants/[key]`.
+- **Off, or as shipped — never moved.** `merchant_overrides (merchant_key,
+  disabled)` stores only that one decision, so untouched entries keep improving
+  with each release and switching a merchant back on is a `DELETE`. Managed on
+  a category's page → `PUT /api/merchants/[key]`. There is deliberately **no
+  way to re-point a merchant at another category**: a kind maps to a category
+  and that mapping ships with the release, so a hand-moved entry would freeze
+  against the next correction. Disagreeing with the catalogue is what a `rules`
+  row is for, and `orderRules` puts `source: "user"` ahead of `"catalog"`.
 - **Seeding** is now categories only (`default-categories.ts`); `db:migrate`
   also prunes `rules` rows still identical to a catalogue entry, left behind by
   the YAML era. An edited rule differs, so it is kept — and still wins.

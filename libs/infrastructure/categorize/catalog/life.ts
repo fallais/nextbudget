@@ -54,7 +54,6 @@ export const LIFE: MerchantEntry[] = [
   { key: "neoness", name: "Neoness", kind: "sport_leisure", patterns: ["NEONESS"] },
   { key: "orange-bleue", name: "L'Orange Bleue", kind: "sport_leisure", patterns: ["ORANGE BLEUE"] },
   { key: "gigafit", name: "Gigafit", kind: "sport_leisure", patterns: ["GIGAFIT"] },
-  { key: "sport-generic", name: "Sport & bien-être (générique)", kind: "sport_leisure", patterns: ["SALLE DE SPORT", "PISCINE", "THERMES", "BOWLING", "PARC AQUATIQUE"] },
 
   // ── Hébergement & voyage ───────────────────────────────────────────────
   { key: "airbnb", name: "Airbnb", kind: "travel_stay", patterns: ["AIRBNB"] },

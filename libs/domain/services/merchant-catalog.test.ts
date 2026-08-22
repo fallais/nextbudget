@@ -35,8 +35,6 @@ describe("resolveMerchants", () => {
     const resolved = resolveMerchants(ENTRIES, byName, []);
     expect(resolved.find((m) => m.entry.key === "carrefour")).toMatchObject({
       categoryId: CATEGORY_IDS.Alimentation,
-      defaultCategoryId: CATEGORY_IDS.Alimentation,
-      overridden: false,
       disabled: false,
     });
   });
@@ -47,14 +45,16 @@ describe("resolveMerchants", () => {
     expect(categorize("PHARMACIE DU CENTRE")).toBeNull();
   });
 
-  it("re-points an entry the user moved, and remembers the default", () => {
+  it("files an entry where its kind says, whatever the user switched off", () => {
+    // Switching a merchant off is the only decision on offer, and it does not
+    // move it: where it files stays the catalogue's to say, so a later
+    // release can still correct the mapping.
     const resolved = resolveMerchants(ENTRIES, byName, [
-      { merchantKey: "carrefour", categoryId: CATEGORY_IDS.Loisirs, disabled: false },
+      { merchantKey: "carrefour", disabled: true },
     ]);
     expect(resolved.find((m) => m.entry.key === "carrefour")).toMatchObject({
-      categoryId: CATEGORY_IDS.Loisirs,
-      defaultCategoryId: CATEGORY_IDS.Alimentation,
-      overridden: true,
+      categoryId: CATEGORY_IDS.Alimentation,
+      disabled: true,
     });
   });
 });

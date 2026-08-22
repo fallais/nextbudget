@@ -33,9 +33,6 @@ export async function deleteCategory(categoryId: number): Promise<boolean> {
 
   await rules.deleteByCategory(categoryId);
   await budgets.deleteByCategory(categoryId);
-  // A merchant re-pointed here goes back to its catalogue default rather than
-  // keeping an id that no longer resolves to anything.
-  await merchantOverrides.clearCategory(categoryId);
   await transactions.clearCategory(categoryId);
   await fixedExpenses.clearCategory(categoryId);
 

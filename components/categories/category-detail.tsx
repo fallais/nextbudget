@@ -196,7 +196,7 @@ export function CategoryDetail({
         )}
       </Card>
 
-      <MerchantsPanel category={category} categories={categories} merchants={merchants} />
+      <MerchantsPanel category={category} merchants={merchants} />
 
       <CategoryForm open={editing} onOpenChange={setEditing} category={category} />
 
