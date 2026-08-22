@@ -266,7 +266,9 @@ export function AssetFormBody({
         name: v.name,
         kind: v.kind,
         type: v.type,
-        valueCents: derivedBalance ?? cents(v.value) ?? 0,
+        // Empty and underivable: a loan is worth what was borrowed until its
+        // schedule can say otherwise. Zero would be a paid-off credit.
+        valueCents: derivedBalance ?? cents(v.value) ?? (isLoan ? (cents(v.principal) ?? 0) : 0),
         accountId: v.accountId ?? null,
         notes: v.notes || null,
         ...(ownersOut ? { owners: ownersOut } : {}),
@@ -365,26 +367,13 @@ export function AssetFormBody({
           </Col>
         </Row>
 
-        {derivedBalance !== null ? (
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-            message={`Solde restant dû : ${formatCents(derivedBalance)}`}
-            description="Calculé depuis l'échéancier — il se met à jour tout seul à chaque échéance."
-          />
-        ) : (
+        {/* A loan's balance is an outcome, not an opening question — it is
+            asked for below, after the terms it is computed from. */}
+        {!isLoan && (
           <Form.Item
             name="value"
             label={kind === "liability" ? "Solde restant dû (€)" : "Valeur (€)"}
             rules={[{ required: true, message: "Montant requis" }]}
-            tooltip={
-              isLoan
-                ? help(
-                    "Renseignez capital, taux, durée et 1re échéance : le solde sera calculé depuis l'échéancier, sans avoir à le tenir à jour.",
-                  )
-                : undefined
-            }
           >
             <InputNumber style={{ width: "100%" }} min={0} addonAfter="€" />
           </Form.Item>
@@ -513,6 +502,36 @@ export function AssetFormBody({
                 message={`Crédit différé : ${deferral} mois entre la signature et la première échéance.`}
                 description="L'échéancier démarre à la première échéance ; les intérêts intercalaires ne sont pas encore comptés dans le coût."
               />
+            )}
+
+            {derivedBalance !== null ? (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message={`Solde restant dû : ${formatCents(derivedBalance)}`}
+                description="Calculé depuis l'échéancier — il se met à jour tout seul à chaque échéance, sans rien à saisir ici."
+              />
+            ) : (
+              <Form.Item
+                name="value"
+                label="Solde restant dû"
+                tooltip={help(
+                  "Presque toujours calculé : renseignez capital, taux, durée et 1re échéance et ce champ disparaît au profit du solde tiré de l'échéancier. Il ne reste à saisir que pour un prêt dont vous ne connaissez pas les conditions.",
+                )}
+                extra={
+                  cents(principal) != null
+                    ? `Laissé vide, le capital emprunté (${formatCents(cents(principal)!)}) est repris jusqu'à ce que l'échéancier prenne le relais.`
+                    : "Laissez vide si vous renseignez les conditions du prêt ci-dessus."
+                }
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  addonAfter="€"
+                  placeholder="calculé"
+                />
+              </Form.Item>
             )}
 
             {linkableAssets.length > 0 && (
