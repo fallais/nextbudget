@@ -73,7 +73,7 @@ auth already enforced:
 environment:
   NEXTBUDGET_OWNER_NAME: Propriétaire         # a login identifier
   NEXTBUDGET_OWNER_EMAIL: vous@example.com    # the other one (optional)
-  NEXTBUDGET_OWNER_PASSWORD: au-moins-8-caracteres
+  NEXTBUDGET_OWNER_PASSWORD: <votre-mot-de-passe>
 ```
 
 They are read only while the owner has no password, so a value left in the file

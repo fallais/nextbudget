@@ -1,0 +1,23 @@
+# Gitleaks configuration.
+#
+# The default rules, plus one allowance. `generic-api-key` fires on the
+# placeholder password in the shipped examples: a key named ...PASSWORD followed
+# by a hyphenated string reads like a credential, and the entropy is high enough
+# to convince it. The examples are the documentation, so they have to show the
+# shape of the value.
+#
+# Scoped as tightly as it can be: this one variable, and only when its value is
+# an obvious placeholder. A real password committed here still fails the build,
+# and so does every other secret the default rules know about. Gitleaks scans
+# the whole history, so the pre-2026-08 spelling stays listed even though no
+# working tree contains it any more.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Placeholder owner password in .env.example, docker-compose.yaml and the README"
+regexTarget = "line"
+regexes = [
+  '''NEXTBUDGET_OWNER_PASSWORD\s*[=:]\s*(<[^>]+>|au-moins-8-caracteres)''', # gitleaks:allow
+]
