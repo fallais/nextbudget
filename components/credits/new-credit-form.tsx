@@ -20,7 +20,7 @@ export function NewCreditForm({
   const router = useRouter();
 
   return (
-    <Flex vertical gap={16} style={{ maxWidth: 720 }}>
+    <Flex vertical gap={16}>
       <PageHeader
         crumbs={[{ label: "Crédits", href: "/credits" }, { label: "Nouveau crédit" }]}
         description="Reprenez les chiffres de votre offre de prêt. L'échéance et le TAEG sont recalculés au fur et à mesure pour vérifier la saisie."

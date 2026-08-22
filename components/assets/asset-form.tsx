@@ -17,6 +17,7 @@ import {
   Select,
   Typography,
 } from "antd";
+import { InfoCircleOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import {
   deferralMonthsBetween,
@@ -77,6 +78,17 @@ type Values = {
   shares: Record<number, number>;
   borrowerInsurance: Record<number, number | null>;
 };
+
+/**
+ * Help that is only read when asked for.
+ *
+ * A field explaining itself in a line under the input pushes the next field
+ * down and is read once, on the first visit; after that it is furniture. What
+ * stays as `extra` is the figures that change as you type — those are
+ * feedback, not help, and hiding the answer behind an icon would hide the
+ * point of the field.
+ */
+const help = (title: string) => ({ title, icon: <InfoCircleOutlined /> });
 
 /**
  * Create or edit an asset or a liability.
@@ -297,7 +309,16 @@ export function AssetFormBody({
         style={{ paddingTop: 8 }}
       >
         <Row gutter={12}>
-          {!lockKind && (
+          {lockKind ? (
+            // Locked, but still a *registered* field. An unrendered Form.Item
+            // contributes nothing to `onFinish`, so hiding this one behind
+            // `!lockKind` sent the credit form's POST with no `kind` at all —
+            // and creating a credit failed on a validation error about the
+            // very value the form had decided for you.
+            <Form.Item name="kind" hidden>
+              <Input />
+            </Form.Item>
+          ) : (
             <Col span={8}>
               <Form.Item name="kind" label="Nature">
                 <Segmented
@@ -345,9 +366,11 @@ export function AssetFormBody({
             name="value"
             label={kind === "liability" ? "Solde restant dû (€)" : "Valeur (€)"}
             rules={[{ required: true, message: "Montant requis" }]}
-            extra={
+            tooltip={
               isLoan
-                ? "Renseignez capital, taux, durée et 1re échéance pour qu'il soit calculé."
+                ? help(
+                    "Renseignez capital, taux, durée et 1re échéance : le solde sera calculé depuis l'échéancier, sans avoir à le tenir à jour.",
+                  )
                 : undefined
             }
           >
@@ -381,7 +404,9 @@ export function AssetFormBody({
                 <Form.Item
                   name="rate"
                   label="Taux nominal"
-                  extra="Pas le TAEG — celui-ci inclut déjà assurance et frais."
+                  tooltip={help(
+                    "Le taux du prêt seul. Pas le TAEG, qui inclut déjà l'assurance et les frais et se saisit juste à côté.",
+                  )}
                 >
                   <InputNumber style={{ width: "100%" }} min={0} step={0.01} addonAfter="%" />
                 </Form.Item>
@@ -390,9 +415,12 @@ export function AssetFormBody({
                 <Form.Item
                   name="taeg"
                   label="TAEG"
+                  tooltip={help(
+                    "Le TAEG de votre offre. Il ne sert qu'à vérifier la saisie : celui que vos conditions impliquent est recalculé et comparé au vôtre.",
+                  )}
                   extra={
                     taegGap === null
-                      ? "Sert uniquement de vérification."
+                      ? undefined
                       : taegGap <= 25
                         ? `Cohérent avec vos conditions (${((impliedTaeg ?? 0) / 100).toFixed(2)} % calculé).`
                         : `Vos conditions impliquent ${((impliedTaeg ?? 0) / 100).toFixed(2)} % — vérifiez taux, assurance ou frais.`
@@ -408,6 +436,9 @@ export function AssetFormBody({
                 <Form.Item
                   name="monthly"
                   label="Mensualité"
+                  tooltip={help(
+                    "Laissez vide pour la calculer depuis le capital, le taux et la durée. Renseignez-la pour imposer celle de votre offre.",
+                  )}
                   extra={
                     computedPayment !== null
                       ? `Calculée : ${formatCents(computedPayment)}`
@@ -476,7 +507,9 @@ export function AssetFormBody({
               <Form.Item
                 name="linkedAssetId"
                 label="Finance"
-                extra="Le bien que ce prêt a financé — la maison pour un crédit immobilier."
+                tooltip={help(
+                  "Le bien que ce prêt a financé — la maison pour un crédit immobilier. Le patrimoine les présente alors ensemble.",
+                )}
               >
                 <Select
                   allowClear
@@ -563,7 +596,10 @@ export function AssetForm({
       confirmLoading={saving}
       okText="Enregistrer"
       cancelText="Annuler"
-      width={640}
+      // A loan is twenty fields in two columns; 640px turned every row into a
+      // pair of cramped boxes.
+      width={960}
+      style={{ top: 24, maxWidth: "calc(100vw - 32px)" }}
       destroyOnHidden
     >
       <AssetFormBody
