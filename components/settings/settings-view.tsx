@@ -58,8 +58,10 @@ export function SettingsView({
   const { message } = App.useApp();
   const [accountForm] = Form.useForm();
   const [authForm] = Form.useForm();
+  const [memberForm] = Form.useForm();
   const [accountOpen, setAccountOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [memberOpen, setMemberOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function send(url: string, method: string, body?: unknown) {
@@ -147,7 +149,23 @@ export function SettingsView({
                   </Text>
                 </Card>
 
-                <Card size="small" title={`Membres (${members.length})`}>
+                <Card
+                  size="small"
+                  title={`Membres (${members.length})`}
+                  extra={
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        memberForm.setFieldsValue({ name: "" });
+                        setMemberOpen(true);
+                      }}
+                    >
+                      Ajouter
+                    </Button>
+                  }
+                >
                   <Flex vertical gap={8}>
                     {members.map((m) => (
                       <Flex key={m.id} justify="space-between" align="center">
@@ -291,6 +309,39 @@ export function SettingsView({
           </Form.Item>
           <Form.Item name="currency" hidden>
             <Input />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={memberOpen}
+        title="Nouveau membre"
+        onCancel={() => setMemberOpen(false)}
+        onOk={() => memberForm.submit()}
+        confirmLoading={busy}
+        okText="Créer"
+        cancelText="Annuler"
+      >
+        <Form
+          form={memberForm}
+          layout="vertical"
+          style={{ paddingTop: 8 }}
+          onFinish={async (v) => {
+            setBusy(true);
+            try {
+              if (await send("/api/persons", "POST", v)) setMemberOpen(false);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Form.Item
+            name="name"
+            label="Nom"
+            rules={[{ required: true, message: "Nom requis" }]}
+            extra="Un membre n'a pas besoin de connexion : c'est quelqu'un dont l'argent est suivi, pas un identifiant."
+          >
+            <Input placeholder="Camille" />
           </Form.Item>
         </Form>
       </Modal>
