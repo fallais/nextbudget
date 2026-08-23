@@ -2,6 +2,8 @@ import "server-only";
 import { assets } from "@infrastructure/persistence/repositories";
 import { geocode } from "@infrastructure/estimation/geocode";
 import { fetchComparables } from "@infrastructure/estimation/dvf";
+import type { AssetRepository } from "@domain/repositories";
+import type { ComparableSource, Geocoder } from "./ports";
 import {
   estimate,
   fitLandWeight,
@@ -84,11 +86,36 @@ export function toNewEstimation(
   };
 }
 
+/**
+ * What estimating needs, and nothing else it happens to sit next to.
+ *
+ * `Pick` rather than the whole `AssetRepository`: this use case reads one
+ * asset and appends one estimate, so that is what it asks for, and a stand-in
+ * is two functions rather than the twenty a full repository would demand.
+ */
+export type EstimationDeps = {
+  assets: Pick<AssetRepository, "findById" | "addEstimation">;
+  geocode: Geocoder;
+  fetchComparables: ComparableSource;
+};
+
+/**
+ * The real ones, as a default argument.
+ *
+ * Callers pass nothing and get the application wired up; a test passes its own
+ * and gets a use case that touches neither the database nor the network. No
+ * container, no registry, no indirection to read past — the seam is the
+ * parameter list.
+ */
+const LIVE: EstimationDeps = { assets, geocode, fetchComparables };
+
 export async function estimateAsset(
   assetId: number,
   now: Date = new Date(),
+  deps: EstimationDeps = LIVE,
 ): Promise<EstimationOutcome> {
-  const asset = await assets.findById(assetId);
+  const { assets: assetRepo, geocode: locate, fetchComparables: comparablesFor } = deps;
+  const asset = await assetRepo.findById(assetId);
   if (!asset) return { status: "not_found" };
 
   const row = asset.toRow();
@@ -98,10 +125,10 @@ export async function estimateAsset(
   if (!row.propertyKind) missing.push("propertyKind");
   if (missing.length > 0) return { status: "incomplete", missing };
 
-  const located = await geocode(row.address!);
+  const located = await locate(row.address!);
   if (!located) return { status: "not_geocoded" };
 
-  const market = await fetchComparables(
+  const market = await comparablesFor(
     located.departmentCode,
     located.cityCode,
     row.propertyKind!,
@@ -122,7 +149,7 @@ export async function estimateAsset(
   for (const radius of RADII_M) {
     const result = estimate(subject, market.comparables, radius, land);
     if (!result) continue;
-    const saved = await assets.addEstimation(
+    const saved = await assetRepo.addEstimation(
       toNewEstimation(assetId, result, located.label, subject),
     );
     return { status: "ok", estimate: result, address: located.label, saved: saved.toRow() };
