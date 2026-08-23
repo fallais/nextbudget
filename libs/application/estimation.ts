@@ -2,7 +2,7 @@ import "server-only";
 import { assets } from "@infrastructure/persistence/repositories";
 import { geocode } from "@infrastructure/estimation/geocode";
 import { fetchComparables } from "@infrastructure/estimation/dvf";
-import { estimate, type Estimate } from "@domain/services/estimation";
+import { estimate, fitLandWeight, type Estimate } from "@domain/services/estimation";
 
 /**
  * Estimating a property from the public record of what sold nearby.
@@ -52,20 +52,26 @@ export async function estimateAsset(
   const located = await geocode(row.address!);
   if (!located) return { status: "not_geocoded" };
 
-  const comparables = await fetchComparables(
+  const market = await fetchComparables(
     located.departmentCode,
     located.cityCode,
     row.propertyKind!,
     now,
   );
 
+  // Fitted once for the commune, not once per circle: it is a fact about the
+  // local market, and the three radii are three views of the same one.
+  const land = fitLandWeight(market.comparables, market.landRateCents, RADII_M);
+
   const subject = {
     surfaceM2: row.surfaceM2!,
+    landM2: row.landM2,
     latitude: located.latitude,
     longitude: located.longitude,
+    condition: row.propertyCondition,
   };
   for (const radius of RADII_M) {
-    const result = estimate(subject, comparables, radius);
+    const result = estimate(subject, market.comparables, radius, land);
     if (result) return { status: "ok", estimate: result, address: located.label };
   }
   return { status: "too_few_sales" };

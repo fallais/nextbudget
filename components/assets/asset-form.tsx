@@ -26,6 +26,8 @@ import {
   summarizeLoan,
 } from "@domain/services/amortization";
 import { Ownership, TOTAL_BPS, type OwnerShareRow } from "@domain/value-objects/share";
+import { PROPERTY_CONDITION_LABELS, PROPERTY_CONDITIONS } from "@domain/enums";
+import type { PropertyCondition } from "@domain/enums";
 import { formatCents } from "@shared/format";
 import type { FormInstance } from "antd";
 import type { AssetRow } from "@domain/entities";
@@ -74,7 +76,9 @@ type Values = {
   linkedAssetId: number | null;
   address: string | null;
   surfaceM2: number | null;
+  landM2: number | null;
   propertyKind: "maison" | "appartement" | null;
+  propertyCondition: PropertyCondition | null;
   accountId: number | null;
   notes: string | null;
   shareMode: "shared" | "mine" | "custom";
@@ -154,7 +158,9 @@ export function AssetFormBody({
     linkedAssetId: asset?.linkedAssetId ?? null,
     address: asset?.address ?? "",
     surfaceM2: asset?.surfaceM2 ?? null,
+    landM2: asset?.landM2 ?? null,
     propertyKind: asset?.propertyKind ?? null,
+    propertyCondition: asset?.propertyCondition ?? null,
     accountId: asset?.accountId ?? null,
     notes: asset?.notes ?? "",
     shareMode: owners.length === 0 ? "mine" : owners.length > 1 ? "shared" : "custom",
@@ -290,7 +296,9 @@ export function AssetFormBody({
       if (isProperty) {
         body.address = v.address?.trim() || null;
         body.surfaceM2 = v.surfaceM2 ?? null;
+        body.landM2 = v.landM2 ?? null;
         body.propertyKind = v.propertyKind ?? null;
+        body.propertyCondition = v.propertyCondition ?? null;
       }
 
       const res = await fetch(editing ? `/api/assets/${asset!.id}` : "/api/assets", {
@@ -590,6 +598,38 @@ export function AssetFormBody({
                   )}
                 >
                   <InputNumber style={{ width: "100%" }} min={1} max={100000} addonAfter="m²" />
+                </Form.Item>
+              </Col>
+            </Row>
+
+            <Row gutter={12}>
+              <Col span={12}>
+                <Form.Item
+                  name="landM2"
+                  label="Surface du terrain"
+                  tooltip={help(
+                    "La parcelle, hors terres agricoles. Facultative : elle ne sert que là où la taille du terrain pèse réellement sur les prix de la commune, ce que l'estimation vérifie sur les ventes locales avant d'en tenir compte.",
+                  )}
+                >
+                  <InputNumber style={{ width: "100%" }} min={1} max={10000000} addonAfter="m²" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  name="propertyCondition"
+                  label="État général"
+                  tooltip={help(
+                    "Votre appréciation, pas une donnée publique : les ventes enregistrées ne disent rien de l'état des biens. Elle décale l'estimation d'un pourcentage d'usage.",
+                  )}
+                >
+                  <Select
+                    allowClear
+                    placeholder="Non précisé"
+                    options={PROPERTY_CONDITIONS.map((c) => ({
+                      value: c,
+                      label: PROPERTY_CONDITION_LABELS[c],
+                    }))}
+                  />
                 </Form.Item>
               </Col>
             </Row>

@@ -3,11 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { App, Alert, Button, Card, Flex, Typography } from "antd";
-import { formatCents, formatDateShort } from "@shared/format";
+import { formatCents, formatDateShort, formatNumber } from "@shared/format";
+import { PROPERTY_CONDITION_LABELS } from "@domain/enums";
 import type { AssetRow } from "@domain/entities";
 import type { Estimate } from "@domain/services/estimation";
 
 const { Text } = Typography;
+
+/** An adjustment reads as a movement, so it always carries its sign. */
+function signed(cents: number): string {
+  return `${cents > 0 ? "+" : "\u2212"}${formatCents(Math.abs(cents))}`;
+}
 
 type Outcome =
   | { status: "ok"; estimate: Estimate; address: string }
@@ -24,6 +30,11 @@ type Outcome =
  * The figure comes with its own margins. A median over a dozen sales is an
  * order of magnitude, not a valuation, and printing one number alone would
  * claim otherwise.
+ *
+ * When either adjustment applies, the breakdown is shown rather than folded
+ * in. The two are not equally solid — the plot is measured and fitted against
+ * local sales, the condition is the owner's own word — and a single total
+ * would hide which part of it is which.
  */
 export function EstimationCard({ asset }: { asset: AssetRow }) {
   const router = useRouter();
@@ -32,6 +43,7 @@ export function EstimationCard({ asset }: { asset: AssetRow }) {
   const [busy, setBusy] = useState(false);
 
   const ready = !!asset.address?.trim() && !!asset.surfaceM2 && !!asset.propertyKind;
+  const unrefined = !asset.landM2 || !asset.propertyCondition;
 
   async function run() {
     setBusy(true);
@@ -94,6 +106,27 @@ export function EstimationCard({ asset }: { asset: AssetRow }) {
               soit {formatCents(outcome.estimate.pricePerM2Cents)}/m²
             </Text>
           </Flex>
+          {(outcome.estimate.landAdjustmentCents !== 0 ||
+            outcome.estimate.conditionAdjustmentCents !== 0) && (
+            <Flex vertical gap={2}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Ventes comparables {formatCents(outcome.estimate.marketCents)}
+              </Text>
+              {outcome.estimate.landAdjustmentCents !== 0 && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  Terrain de {formatNumber(asset.landM2!)} m² contre{" "}
+                  {formatNumber(outcome.estimate.comparableLandM2!)} m² alentour{" "}
+                  {signed(outcome.estimate.landAdjustmentCents)}
+                </Text>
+              )}
+              {outcome.estimate.conditionAdjustmentCents !== 0 && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  État « {PROPERTY_CONDITION_LABELS[asset.propertyCondition!].toLowerCase() } », que
+                  vous avez déclaré {signed(outcome.estimate.conditionAdjustmentCents)}
+                </Text>
+              )}
+            </Flex>
+          )}
           <Text type="secondary" style={{ fontSize: 12 }}>
             Fourchette {formatCents(outcome.estimate.lowCents)} –{" "}
             {formatCents(outcome.estimate.highCents)} · {outcome.estimate.sampleSize} ventes
@@ -103,6 +136,8 @@ export function EstimationCard({ asset }: { asset: AssetRow }) {
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
             {outcome.address} · d&apos;après les valeurs foncières publiées (DVF).
+            {unrefined &&
+              " Renseignez la surface du terrain et l'état général pour affiner le calcul."}
           </Text>
           <Flex>
             <Button

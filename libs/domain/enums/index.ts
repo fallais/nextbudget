@@ -7,3 +7,4 @@ export * from "./merchant-kind";
 export * from "./user-role";
 export * from "./visibility";
 export * from "./prepayment-mode";
+export * from "./property-condition";

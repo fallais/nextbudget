@@ -8,7 +8,13 @@ import {
   type Prepayment,
 } from "@domain/services/amortization";
 
-import type { AssetKind, AssetType, PropertyKind, Visibility } from "@domain/enums";
+import type {
+  AssetKind,
+  AssetType,
+  PropertyCondition,
+  PropertyKind,
+  Visibility,
+} from "@domain/enums";
 import { typesFor } from "@domain/enums";
 
 /** The persisted shape. Also what crosses to the UI, where classes cannot go. */
@@ -57,7 +63,14 @@ export interface AssetRow {
    */
   address: string | null;
   surfaceM2: number | null;
+  /**
+   * The plot, m². Optional, and only ever an improvement to an estimate: a
+   * commune where plot size does not move prices fits it away to nothing.
+   */
+  landM2: number | null;
   propertyKind: PropertyKind | null;
+  /** The owner's own judgement of the state it is in. Not a measurement. */
+  propertyCondition: PropertyCondition | null;
   accountId: number | null;
   /** The asset this liability finances (a mortgage → the house it bought). */
   linkedAssetId: number | null;
