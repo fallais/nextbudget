@@ -9,6 +9,7 @@ import {
   FixedExpense,
   MerchantOverride,
   Person,
+  RecurringDismissal,
   Rule,
   Transaction,
   User,
@@ -27,10 +28,12 @@ import {
   type NewFixedExpense,
   type NewMerchantOverride,
   type NewPerson,
+  type NewRecurringDismissal,
   type NewRule,
   type NewTransaction,
   type NewUser,
   type PersonRow,
+  type RecurringDismissalRow,
   type RuleRow,
   type TransactionRow,
   type UserRow,
@@ -45,6 +48,7 @@ import {
   FixedExpenseEntity,
   MerchantOverrideEntity,
   PersonEntity,
+  RecurringDismissalEntity,
   RuleEntity,
   ImportEntity,
   SettingEntity,
@@ -58,6 +62,7 @@ import type {
   ContributionRepository,
   FixedExpenseRepository,
   MerchantOverrideRepository,
+  RecurringDismissalRepository,
   RuleRepository,
   SettingsRepository,
   TransactionRepository,
@@ -169,6 +174,24 @@ export const fixedExpenses: FixedExpenseRepository = new TypeOrmFixedExpenseRepo
 export const persons = new TypeOrmRepository<Person, PersonRow, NewPerson>(PersonEntity, Person, {
   name: "ASC",
 });
+
+class TypeOrmRecurringDismissalRepository
+  extends TypeOrmRepository<RecurringDismissal, RecurringDismissalRow, NewRecurringDismissal>
+  implements RecurringDismissalRepository
+{
+  async findByKey(key: string): Promise<RecurringDismissal | null> {
+    const row = await (await this.repo()).findOne({ where: { key } });
+    return row ? RecurringDismissal.reconstitute(row) : null;
+  }
+
+  async deleteByKey(key: string): Promise<boolean> {
+    const result = await (await this.repo()).delete({ key });
+    return (result.affected ?? 0) > 0;
+  }
+}
+
+export const recurringDismissals: RecurringDismissalRepository =
+  new TypeOrmRecurringDismissalRepository(RecurringDismissalEntity, RecurringDismissal);
 
 class TypeOrmRuleRepository
   extends TypeOrmRepository<Rule, RuleRow, NewRule>

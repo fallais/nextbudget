@@ -43,6 +43,9 @@ export type { ImportRow } from "./import";
 export { Person } from "./person";
 export type { PersonRow, NewPerson } from "./person";
 
+export { RecurringDismissal } from "./recurring-dismissal";
+export type { RecurringDismissalRow, NewRecurringDismissal } from "./recurring-dismissal";
+
 export { Rule } from "./rule";
 export type { RuleRow, NewRule } from "./rule";
 

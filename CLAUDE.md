@@ -107,6 +107,19 @@ rather than twenty. There is no DI container: the seam is the parameter list.
   them, an apport being a transfer by definition. Pairing runs after every
   import and is narrow on purpose: same amount, opposite sign, two accounts,
   four days.
+- **Recurring detection** (`libs/domain/services/recurrence.ts`) groups the ledger
+  by `recurrenceKey()`, a stable name built by dropping digits, bank verbiage and
+  month names from the normalised label, then decides the cadence from the *gaps
+  between dates*, never from the amounts (EDF varies and is recurring; four
+  coffees in a fortnight are not). Nothing is written without confirmation: a
+  suggestion fills the create form through the URL. A refusal is a
+  `recurring_dismissals` row, keyed on the same key.
+- **Comparing a charge with itself** is always a rolling year against the year
+  before (`yearOnYear`), never this month against the same month last year: a
+  quarterly bill landing in one and not the other would read as a 100% rise.
+  `amountDrift` is the other half, comparing the charges themselves so a
+  subscription that stepped up in April is caught; both skip outliers by using
+  medians, so one catch-up bill is not reported as a permanent rise.
 - **Property estimation** is on demand only: BAN geocoder, then DVF's per-commune CSVs.
   Nothing is stored, and nothing leaves the machine on a page load.
 

@@ -138,6 +138,11 @@ export const updateTransactionSchema = z.object({
   categoryId: z.number().int().positive().nullable(),
 });
 
+/** A repeating charge waved away, named by its recurrence key. */
+export const recurringDismissalSchema = z.object({
+  key: z.string().trim().min(1).max(120),
+});
+
 /**
  * The lines being declared one transfer. One is allowed: money sent to an
  * account this app does not hold has no counterpart row to name, and still

@@ -6,7 +6,7 @@ import { App, Col, Form, Input, InputNumber, Modal, Row, Select, Switch } from "
 import type { FormInstance } from "antd";
 import type { CategoryRow, FixedExpenseRow } from "@domain/entities";
 
-type Values = {
+export type Values = {
   name: string;
   matchPattern: string;
   expectedAmount: number;
@@ -17,6 +17,16 @@ type Values = {
 };
 
 /**
+ * Values a suggested charge arrives with, before anyone has confirmed it.
+ *
+ * A detected charge is an offer, so it fills the form rather than writing a
+ * row: the amount is a median and the pattern a guess, and both are easier to
+ * correct here than to notice later on a page that says a charge was never
+ * paid.
+ */
+export type FixedExpenseDraft = Partial<Values>;
+
+/**
  * Create or edit a recurring charge.
  *
  * The matching pattern is asked for right under the name because it is the
@@ -25,12 +35,14 @@ type Values = {
  */
 export function FixedExpenseFormBody({
   expense,
+  draft,
   categories,
   onDone,
   footer,
   formRef,
 }: {
   expense?: FixedExpenseRow | null;
+  draft?: FixedExpenseDraft;
   categories: CategoryRow[];
   onDone?: (id: number | null) => void;
   footer?: (submitting: boolean) => React.ReactNode;
@@ -50,6 +62,7 @@ export function FixedExpenseFormBody({
     categoryId: expense?.categoryId ?? null,
     tolerancePct: expense?.tolerancePct ?? 10,
     isActive: expense?.isActive ?? true,
+    ...draft,
   };
 
   async function submit(v: Values) {

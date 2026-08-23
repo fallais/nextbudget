@@ -9,6 +9,12 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { FixedExpenseEntity, CategoryEntity, TransactionEntity } from "@infrastructure/persistence/schemas";
 import type { FixedExpenseRow, CategoryRow, TransactionRow } from "@domain/entities";
 import { compileRule } from "@domain/services/categorization";
+import {
+  amountDrift,
+  yearOnYear,
+  type AmountDrift,
+  type YearOnYear,
+} from "@domain/services/recurrence";
 import { visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
 import { getScope } from "@application/scope";
 
@@ -266,4 +272,154 @@ export async function listFixedExpenses(): Promise<FixedExpenseRow[]> {
     .addOrderBy("f.name", "ASC");
   applyOwnedScope(qb, "f", await getScope());
   return qb.getMany();
+}
+
+export type FixedExpenseTrend = {
+  fixedExpense: FixedExpenseRow;
+  category: CategoryRow | null;
+  /** Monthly buckets, oldest first, zeros included. */
+  series: FixedExpenseMonth[];
+  /** A rolling year against the one before. Null until two years are on file. */
+  yearOnYear: YearOnYear | null;
+  /** What one charge costs now against what it cost, occurrence to occurrence. */
+  drift: AmountDrift | null;
+  /** The last twelve months over twelve, whatever the cadence. */
+  monthlyCents: number;
+  /** How many times it was actually taken over the window. */
+  occurrences: number;
+};
+
+/** Two years, because a year on its own has nothing to be compared against. */
+const TREND_MONTHS = 24;
+
+/**
+ * What each charge has done to you over two years.
+ *
+ * A frais fixe is a figure you typed in once, and the interesting question is
+ * never whether this month matched it: it is that the water was 42 euros a
+ * quarter when you wrote it down and is 51 now. Both halves of that are here,
+ * and they answer different questions.
+ *
+ * `yearOnYear` compares a rolling year with the year before it, which is the
+ * only honest comparison for a bill: last month against the same month last
+ * year calls a quarterly charge a 100% rise whenever it lands in one month and
+ * not the other, and a monthly charge taken twice in March would report the
+ * rent doubling. `drift` compares the charges themselves, which is what
+ * catches a subscription that stepped up in April and has stayed there.
+ *
+ * One query for the whole list, matched in memory: the patterns are regexes
+ * and `contains` on a normalised label, which Postgres cannot index anyway.
+ */
+export async function getFixedExpenseTrends(
+  months = TREND_MONTHS,
+  now: Date = new Date(),
+): Promise<FixedExpenseTrend[]> {
+  const ds = await getDataSource();
+  const fxQb = ds
+    .getRepository(FixedExpenseEntity)
+    .createQueryBuilder("f")
+    .where("f.is_active = true")
+    .orderBy("f.name", "ASC");
+  applyOwnedScope(fxQb, "f", await getScope());
+  const fxList = await fxQb.getMany();
+  if (fxList.length === 0) return [];
+
+  const cats = await ds.getRepository(CategoryEntity).find();
+  const catMap = new Map(cats.map((c) => [c.id, c]));
+
+  const from = startOfMonth(subMonths(now, months - 1));
+  const txQb = ds
+    .getRepository(TransactionEntity)
+    .createQueryBuilder("t")
+    .where("t.date >= :from", { from: isoDate(from) })
+    .andWhere("t.date <= :to", { to: isoDate(endOfMonth(now)) });
+  applyAccountScope(txQb, "t", await visibleAccountIds(await getScope()));
+  const ledger = await txQb.getMany();
+
+  const buckets = Array.from({ length: months }, (_, i) =>
+    format(startOfMonth(subMonths(now, months - 1 - i)), "yyyy-MM"),
+  );
+
+  return fxList.map((fx) => {
+    const compiled = compileRule({
+      id: 0,
+      categoryId: 0,
+      pattern: fx.matchPattern,
+      matchType: fx.matchType,
+      amountCondition: "negative",
+      priority: 0,
+    });
+    const matched = compiled
+      ? ledger.filter((t) => compiled.test(t.normalizedDescription, t.amountCents))
+      : [];
+
+    const byMonth = new Map<string, { paidCents: number; count: number }>();
+    for (const t of matched) {
+      const key = t.date.slice(0, 7);
+      const bucket = byMonth.get(key) ?? { paidCents: 0, count: 0 };
+      bucket.paidCents += Math.abs(t.amountCents);
+      bucket.count += 1;
+      byMonth.set(key, bucket);
+    }
+    const series: FixedExpenseMonth[] = buckets.map((month) => ({
+      month,
+      paidCents: byMonth.get(month)?.paidCents ?? 0,
+      count: byMonth.get(month)?.count ?? 0,
+    }));
+
+    const lastYear = series.slice(-12).reduce((a, m) => a + m.paidCents, 0);
+    return {
+      fixedExpense: fx,
+      category: fx.categoryId != null ? (catMap.get(fx.categoryId) ?? null) : null,
+      series,
+      yearOnYear: yearOnYear(series.map((m) => ({ month: m.month, cents: m.paidCents }))),
+      drift: amountDrift(matched.map((t) => ({ date: t.date, amountCents: t.amountCents }))),
+      monthlyCents: Math.round(lastYear / 12),
+      occurrences: matched.length,
+    };
+  });
+}
+
+export type FixedExpensesTrendSummary = {
+  /** Everything these charges took over the last twelve months. */
+  recentCents: number;
+  /** And over the twelve before them. */
+  previousCents: number;
+  changePct: number | null;
+  /** The charge that rose most in euros, which is rarely the one that rose most in percent. */
+  steepest: { name: string; changeCents: number; changePct: number } | null;
+};
+
+/**
+ * The household total, and the one line responsible for most of it.
+ *
+ * Only charges with two full years behind them are counted, on both sides: a
+ * subscription taken out in March would otherwise arrive as a rise in the
+ * total when it is a new charge, and the figure would say your bills went up
+ * when what happened is that you bought something.
+ */
+export function summarizeTrends(trends: FixedExpenseTrend[]): FixedExpensesTrendSummary {
+  const comparable = trends.filter((t) => t.yearOnYear !== null);
+  const recentCents = comparable.reduce((a, t) => a + t.yearOnYear!.recentCents, 0);
+  const previousCents = comparable.reduce((a, t) => a + t.yearOnYear!.previousCents, 0);
+
+  let steepest: FixedExpensesTrendSummary["steepest"] = null;
+  for (const t of comparable) {
+    const changeCents = t.yearOnYear!.recentCents - t.yearOnYear!.previousCents;
+    if (changeCents > 0 && (steepest === null || changeCents > steepest.changeCents)) {
+      steepest = {
+        name: t.fixedExpense.name,
+        changeCents,
+        changePct: t.yearOnYear!.changePct,
+      };
+    }
+  }
+
+  return {
+    recentCents,
+    previousCents,
+    changePct:
+      previousCents === 0 ? null : ((recentCents - previousCents) / previousCents) * 100,
+    steepest,
+  };
 }

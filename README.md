@@ -40,7 +40,11 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
   out of income, expenses and budgets, while staying on the statement and in
   the balance.
 - **Budgets**: per-category monthly/weekly budgets with progress tracking.
-- **Fixed expenses** (Frais fixes): recurring charges and their schedule.
+- **Fixed expenses** (Frais fixes): recurring charges and their schedule, with
+  the ones you never wrote down **detected from your statements** and offered
+  as a filled-in form, and an **evolution** page showing what each charge costs
+  now against a year ago: how much the water, the energy or a subscription has
+  quietly gone up.
 - **Contributions** (Apports): track who paid what into shared accounts, for
   couples and households splitting expenses.
 - **Patrimoine / net worth**: track assets & liabilities (savings, real estate,

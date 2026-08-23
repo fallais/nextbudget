@@ -10,6 +10,7 @@ export type { ContributionRepository } from "./contribution-repository";
 export type { AssetRepository, AssetOwnerInput } from "./asset-repository";
 export type { UserRepository } from "./user-repository";
 export type { MerchantOverrideRepository } from "./merchant-override";
+export type { RecurringDismissalRepository } from "./recurring-dismissal-repository";
 export type {
   BudgetRepository,
   FixedExpenseRepository,

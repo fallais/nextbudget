@@ -20,6 +20,7 @@ import { ImportEntity } from "./import";
 import { MerchantOverrideEntity } from "./merchant-override";
 import { PersonEntity } from "./person";
 import { PrepaymentEntity } from "./prepayment";
+import { RecurringDismissalEntity } from "./recurring-dismissal";
 import { EstimationEntity } from "./estimation";
 import { RuleEntity } from "./rule";
 import { SessionEntity } from "./session";
@@ -39,6 +40,7 @@ export { ImportEntity } from "./import";
 export { MerchantOverrideEntity } from "./merchant-override";
 export { PersonEntity } from "./person";
 export { PrepaymentEntity } from "./prepayment";
+export { RecurringDismissalEntity } from "./recurring-dismissal";
 export { EstimationEntity } from "./estimation";
 export { RuleEntity } from "./rule";
 export { SessionEntity } from "./session";
@@ -65,4 +67,5 @@ export const ALL_ENTITIES = [
   PrepaymentEntity,
   EstimationEntity,
   ImportEntity,
+  RecurringDismissalEntity,
 ];

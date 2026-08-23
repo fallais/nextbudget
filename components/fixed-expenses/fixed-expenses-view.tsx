@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { Button, Card, Empty, Flex, Tooltip, Typography, theme } from "antd";
-import { PlusOutlined } from "@ant-design/icons";
+import { LineChartOutlined, PlusOutlined } from "@ant-design/icons";
 import { PageHeader } from "@/components/layout/page-header";
 import { STATUS } from "@shared/palette";
 import { formatCents } from "@shared/format";
 import { FixedExpenseItemRow } from "./fixed-expense-row";
+import { RecurringSuggestions } from "./recurring-suggestions";
 import { STATE_RANK } from "./fixed-expense-state";
 import type { FixedExpenseStatus, FixedExpensesSummary } from "@application/fixed-expenses";
+import type { RecurringCandidate } from "@application/recurring";
 
 const { Text } = Typography;
 
@@ -23,10 +25,15 @@ export function FixedExpensesView({
   statuses,
   summary,
   monthElapsedPct,
+  suggestions,
+  dismissedKeys,
 }: {
   statuses: FixedExpenseStatus[];
   summary: FixedExpensesSummary;
   monthElapsedPct: number;
+  /** Charges the ledger repeats that nobody has declared. */
+  suggestions: RecurringCandidate[];
+  dismissedKeys: string[];
 }) {
   const { token } = theme.useToken();
 
@@ -49,11 +56,16 @@ export function FixedExpensesView({
         crumbs={[{ label: "Frais fixes" }]}
         description="Les dépenses récurrentes attendues chaque mois — loyer, énergie, abonnements — et si elles sont bien passées."
         actions={
-          <Link href="/frais-fixes/nouveau">
-            <Button type="primary" icon={<PlusOutlined />}>
-              Ajouter une charge
-            </Button>
-          </Link>
+          <Flex gap={8}>
+            <Link href="/frais-fixes/evolution">
+              <Button icon={<LineChartOutlined />}>Évolution</Button>
+            </Link>
+            <Link href="/frais-fixes/nouveau">
+              <Button type="primary" icon={<PlusOutlined />}>
+                Ajouter une charge
+              </Button>
+            </Link>
+          </Flex>
         }
       />
 
@@ -147,6 +159,8 @@ export function FixedExpensesView({
           ))}
         </Flex>
       )}
+
+      <RecurringSuggestions candidates={suggestions} dismissedKeys={dismissedKeys} />
     </Flex>
   );
 }
