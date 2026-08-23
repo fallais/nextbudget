@@ -592,9 +592,9 @@ export function AssetFormBody({
               <Col span={12}>
                 <Form.Item
                   name="surfaceM2"
-                  label="Surface habitable"
+                  label="Surface bâtie"
                   tooltip={help(
-                    "La surface bâtie, comme elle figure à l'acte — c'est celle sur laquelle les ventes voisines sont comparées.",
+                    "La surface bâtie au sens du cadastre, celle que porte votre taxe foncière. Pas la surface Carrez ni la surface habitable, qui sont plus petites : les ventes voisines sont comparées sur la surface bâtie, et y opposer une surface habitable sous-estime l'estimation d'autant.",
                   )}
                 >
                   <InputNumber style={{ width: "100%" }} min={1} max={100000} addonAfter="m²" />
