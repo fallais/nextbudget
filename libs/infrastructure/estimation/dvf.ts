@@ -41,11 +41,21 @@ const RESIDENTIAL_CULTURES = new Set(["S", "J", "AB", "AG"]);
 /**
  * Below this the commune has not sold enough bare ground to price any.
  *
- * Deliberately high. A rate drawn from ten plots is an anecdote, and it is
- * used to move a house's valuation: Le Vésinet's ten sales imply 1 597 €/m²,
- * which is the sort of number that turns a garden into a wing of the house.
+ * It was twenty, which is the defensible number and the wrong one. Bare plots
+ * change hands often in a town and rarely in a village, so a high bar switches
+ * the plot adjustment off precisely where plots vary most: a rural commune can
+ * run three years on half a dozen of them while its houses sit on anything
+ * from 140 m² to four hectares. Twenty bought a quieter tail at the cost of
+ * never answering the question in the countryside.
+ *
+ * Five is not free. It lets in rates like Le Vésinet's, where thirteen sales
+ * of premium building plots imply 1 676 €/m², a figure no garden is worth; on
+ * five splits of eight communes that costs up to 3.8 points of median error
+ * where it goes wrong. What keeps it bounded is that the rate is only ever a
+ * ceiling — `fitLandWeight` decides how much of it applies, and answers zero
+ * when the local sales do not support it.
  */
-const MIN_LAND_SALES = 20;
+const MIN_LAND_SALES = 5;
 
 /**
  * Below this a sale of land is paperwork, not a price.

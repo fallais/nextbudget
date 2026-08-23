@@ -114,9 +114,17 @@ export function EstimationCard({ asset }: { asset: AssetRow }) {
               </Text>
               {outcome.estimate.landAdjustmentCents !== 0 && (
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  Terrain de {formatNumber(asset.landM2!)} m² contre{" "}
+                  Terrain de {formatNumber(outcome.estimate.creditedLandM2!)} m² contre{" "}
                   {formatNumber(outcome.estimate.comparableLandM2!)} m² alentour{" "}
                   {signed(outcome.estimate.landAdjustmentCents)}
+                  {outcome.estimate.creditedLandM2! < (asset.landM2 ?? 0) && (
+                    <>
+                      {" "}
+                      · retenu sur les {formatNumber(asset.landM2!)} m² du bien : aucune vente
+                      voisine ne porte sur un terrain plus grand, le prix au m² au-delà n&apos;est
+                      pas connu
+                    </>
+                  )}
                 </Text>
               )}
               {outcome.estimate.conditionAdjustmentCents !== 0 && (

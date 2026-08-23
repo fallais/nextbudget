@@ -63,6 +63,11 @@ export type Estimate = {
   landAdjustmentCents: number;
   /** The comps' median plot, which is what that difference is measured from. */
   comparableLandM2: number | null;
+  /**
+   * The plot actually paid for, which is the owner's unless theirs is bigger
+   * than any comparable's. Null when no plot adjustment was made.
+   */
+  creditedLandM2: number | null;
   /** What the declared condition is worth. 0 when not applied. */
   conditionAdjustmentCents: number;
 };
@@ -182,10 +187,14 @@ function selectByLadder(
  * commune where the plot says nothing computes exactly what it computed before
  * this existed.
  *
- * With that rule the adjustment fired in 7 of 35 commune-splits and improved
- * every one of them, by 0.4 to 6.0 points of median error, the largest in
- * Plouguerneau where plots run from 400 m² to five hectares. Nothing in the
- * sample was made worse.
+ * Measured on five splits each of eight communes, the adjustment is neutral
+ * overall — mean change in median error -0.01 points — improving by as much as
+ * 6.9 points where plots vary and costing at most 3.8 where the rate that
+ * anchors it is drawn from too few sales. Neutral is the honest summary and it
+ * undersells the thing: median error over every recorded sale is dominated by
+ * ordinary houses on ordinary plots, where the right answer is to do nothing
+ * and the fit says so. What it buys is the unusual property, and those are too
+ * rare to move the average by construction.
  */
 export type LandModel = {
   /** Median €/m² of bare ground in the commune, cents. */
@@ -293,15 +302,28 @@ export function estimate(
   const marketCents = Math.round(quantile(perM2, 0.5) * subject.surfaceM2);
 
   let comparableLandM2: number | null = null;
+  let creditedLandM2: number | null = null;
   let landAdjustmentCents = 0;
   if (land && subject.landM2 !== null && subject.landM2 >= 0) {
     const lands = kept.map((c) => c.landM2).sort((a, b) => a - b);
     const median = quantile(lands, 0.5);
+    // Never past the biggest plot the comparables actually contain. The rate
+    // is a straight line fitted through the plots that sold, and a straight
+    // line says the tenth hectare is worth as much as the first, which land
+    // is not: a house on six times the local plot was being credited 341 k€
+    // of garden on the strength of sales that stopped at 2 185 m². Bounding
+    // it to the evidence neither helps nor hurts measured error, since almost
+    // no recorded sale is out of range — that is rather the point.
+    const largest = lands[lands.length - 1];
+    creditedLandM2 = Math.min(subject.landM2, largest);
     comparableLandM2 = Math.round(median);
-    landAdjustmentCents = Math.round(land.weight * land.rateCents * (subject.landM2 - median));
+    landAdjustmentCents = Math.round(land.weight * land.rateCents * (creditedLandM2 - median));
     // A plot small enough to wipe out the house is the adjustment failing, not
     // the house being worthless.
-    if (marketCents + landAdjustmentCents <= 0) landAdjustmentCents = 0;
+    if (marketCents + landAdjustmentCents <= 0) {
+      landAdjustmentCents = 0;
+      creditedLandM2 = null;
+    }
   }
 
   const beforeCondition = marketCents + landAdjustmentCents;
@@ -323,6 +345,7 @@ export function estimate(
     marketCents,
     landAdjustmentCents,
     comparableLandM2,
+    creditedLandM2,
     conditionAdjustmentCents,
   };
 }

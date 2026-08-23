@@ -105,8 +105,13 @@ describe("estimate", () => {
     expect(e.comparableLandM2).toBeNull();
   });
 
+  /** Plots of 500, 500, 500, 1 000 and 1 500 m²: median 500, largest 1 500. */
+  const PLOTS = [500, 500, 500, 1000, 1500];
+
   it("pays for a plot bigger than the neighbours', and charges for a smaller one", () => {
-    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p) => sale(p, 100, 0, "2024-06-01", 500));
+    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p, i) =>
+      sale(p, 100, 0, "2024-06-01", PLOTS[i]),
+    );
     const land = { rateCents: 200_00, weight: 0.5 };
     const big = estimate({ ...HERE_PLAIN, surfaceM2: 100, landM2: 1500 }, onPlots, 1000, land)!;
     const small = estimate({ ...HERE_PLAIN, surfaceM2: 100, landM2: 100 }, onPlots, 1000, land)!;
@@ -120,6 +125,29 @@ describe("estimate", () => {
     expect(big.highCents - big.lowCents).toBe(small.highCents - small.lowCents);
   });
 
+  it("will not pay for more garden than any comparable sold with", () => {
+    // The rate is a straight line through the plots that changed hands. Past
+    // the largest of them it is extrapolation, and land does not keep its
+    // price by the hectare the way the line assumes.
+    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p, i) =>
+      sale(p, 100, 0, "2024-06-01", 400 + i * 100),
+    );
+    const land = { rateCents: 100_00, weight: 1 };
+    const huge = estimate({ ...HERE_PLAIN, surfaceM2: 100, landM2: 40_000 }, onPlots, 1000, land)!;
+    // Credited the biggest comparable plot, 800 m², not the 40 000 entered.
+    expect(huge.creditedLandM2).toBe(800);
+    expect(huge.landAdjustmentCents).toBe(Math.round((800 - 600) * 100_00));
+  });
+
+  it("pays for the whole plot when comparables reach that far", () => {
+    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p, i) =>
+      sale(p, 100, 0, "2024-06-01", 400 + i * 100),
+    );
+    const land = { rateCents: 100_00, weight: 1 };
+    const e = estimate({ ...HERE_PLAIN, surfaceM2: 100, landM2: 700 }, onPlots, 1000, land)!;
+    expect(e.creditedLandM2).toBe(700);
+  });
+
   it("refuses a plot adjustment that would wipe out the house", () => {
     const onPlots = [2800, 2900, 3000, 3100, 3200].map((p) => sale(p, 100, 0, "2024-06-01", 50_000));
     const land = { rateCents: 500_00, weight: 1 };
@@ -129,7 +157,9 @@ describe("estimate", () => {
   });
 
   it("applies the declared condition to the whole property, plot included", () => {
-    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p) => sale(p, 100, 0, "2024-06-01", 500));
+    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p, i) =>
+      sale(p, 100, 0, "2024-06-01", PLOTS[i]),
+    );
     const land = { rateCents: 200_00, weight: 0.5 };
     const e = estimate(
       { ...HERE_PLAIN, surfaceM2: 100, landM2: 1500, condition: "a_renover" },
@@ -149,7 +179,9 @@ describe("estimate", () => {
   });
 
   it("keeps the price per m² agreeing with the figure it prints", () => {
-    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p) => sale(p, 100, 0, "2024-06-01", 500));
+    const onPlots = [2800, 2900, 3000, 3100, 3200].map((p, i) =>
+      sale(p, 100, 0, "2024-06-01", PLOTS[i]),
+    );
     const e = estimate(
       { ...HERE_PLAIN, surfaceM2: 100, landM2: 1500, condition: "neuf" },
       onPlots,
