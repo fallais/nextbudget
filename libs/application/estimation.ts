@@ -2,8 +2,13 @@ import "server-only";
 import { assets } from "@infrastructure/persistence/repositories";
 import { geocode } from "@infrastructure/estimation/geocode";
 import { fetchComparables } from "@infrastructure/estimation/dvf";
-import { estimate, fitLandWeight, type Estimate } from "@domain/services/estimation";
-import type { EstimationRow } from "@domain/entities";
+import {
+  estimate,
+  fitLandWeight,
+  type Estimate,
+  type Subject,
+} from "@domain/services/estimation";
+import type { EstimationRow, NewEstimation } from "@domain/entities";
 
 /**
  * Estimating a property from the public record of what sold nearby.
@@ -41,6 +46,43 @@ export type EstimationOutcome =
   | { status: "incomplete"; missing: ("address" | "surfaceM2" | "propertyKind")[] }
   | { status: "not_geocoded" }
   | { status: "too_few_sales" };
+
+/**
+ * The row an estimate is stored as.
+ *
+ * Its own function so it can be checked. Nineteen fields copied across by hand
+ * is the kind of place where `lowCents: result.highCents` reads fine, passes
+ * every type check, and quietly writes the wrong number for as long as the
+ * database lives.
+ */
+export function toNewEstimation(
+  assetId: number,
+  result: Estimate,
+  address: string,
+  subject: Subject,
+): NewEstimation {
+  return {
+    assetId,
+    valueCents: result.valueCents,
+    pricePerM2Cents: result.pricePerM2Cents,
+    lowCents: result.lowCents,
+    highCents: result.highCents,
+    marketCents: result.marketCents,
+    landAdjustmentCents: result.landAdjustmentCents,
+    conditionAdjustmentCents: result.conditionAdjustmentCents,
+    comparableLandM2: result.comparableLandM2,
+    creditedLandM2: result.creditedLandM2,
+    sampleSize: result.sampleSize,
+    radiusM: result.radiusM,
+    oldestDate: result.oldestDate,
+    newestDate: result.newestDate,
+    address,
+    // The inputs as they stood, not as they will stand when this is read back.
+    surfaceM2: subject.surfaceM2,
+    landM2: subject.landM2,
+    condition: subject.condition,
+  };
+}
 
 export async function estimateAsset(
   assetId: number,
@@ -80,26 +122,9 @@ export async function estimateAsset(
   for (const radius of RADII_M) {
     const result = estimate(subject, market.comparables, radius, land);
     if (!result) continue;
-    const saved = await assets.addEstimation({
-      assetId,
-      valueCents: result.valueCents,
-      pricePerM2Cents: result.pricePerM2Cents,
-      lowCents: result.lowCents,
-      highCents: result.highCents,
-      marketCents: result.marketCents,
-      landAdjustmentCents: result.landAdjustmentCents,
-      conditionAdjustmentCents: result.conditionAdjustmentCents,
-      comparableLandM2: result.comparableLandM2,
-      creditedLandM2: result.creditedLandM2,
-      sampleSize: result.sampleSize,
-      radiusM: result.radiusM,
-      oldestDate: result.oldestDate,
-      newestDate: result.newestDate,
-      address: located.label,
-      surfaceM2: subject.surfaceM2,
-      landM2: subject.landM2,
-      condition: subject.condition,
-    });
+    const saved = await assets.addEstimation(
+      toNewEstimation(assetId, result, located.label, subject),
+    );
     return { status: "ok", estimate: result, address: located.label, saved: saved.toRow() };
   }
   return { status: "too_few_sales" };
