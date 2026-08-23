@@ -1,4 +1,4 @@
-import { assets } from "@infrastructure/persistence/repositories";
+import { deletePrepayment } from "@application/assets";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function DELETE(
   if (assetId === null || paymentId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await assets.deletePrepayment(assetId, paymentId);
+    const deleted = await deletePrepayment(assetId, paymentId);
     return deleted ? ok() : notFound("Remboursement introuvable");
   });
 }

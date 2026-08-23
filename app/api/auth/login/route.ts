@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { users } from "@infrastructure/persistence/repositories";
 import { loginSchema } from "@application/contracts/validation";
-import { verifyPassword, createSession } from "@application/auth";
+import { login } from "@application/auth";
 import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
@@ -14,16 +13,11 @@ export async function POST(request: Request) {
   const { identifier, password } = parsed.data;
 
   return handle(async () => {
-    const user = await users.findActiveByIdentifier(identifier);
-    const row = user?.toRow();
-
-    // One message for every failure — unknown account, no password set, wrong
-    // password — so this cannot be used to probe which names exist.
-    if (!row?.passwordHash || !(await verifyPassword(row.passwordHash, password))) {
+    // One message for every failure, decided by the use case: distinguishing
+    // them would turn this into a way of asking which names exist.
+    if (!(await login(identifier, password))) {
       return NextResponse.json({ error: "Identifiants invalides" }, { status: 401 });
     }
-
-    await createSession(row.id);
     return NextResponse.json({ ok: true });
   });
 }

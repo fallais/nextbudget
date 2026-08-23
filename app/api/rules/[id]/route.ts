@@ -1,4 +1,4 @@
-import { rules } from "@infrastructure/persistence/repositories";
+import { deleteRule, updateRule } from "@application/rules";
 import { ruleInputSchema, patchSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await rules.update(ruleId, parsed.data);
+    const updated = await updateRule(ruleId, parsed.data);
     return updated ? ok() : notFound("Règle introuvable");
   });
 }
@@ -23,7 +23,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (ruleId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await rules.delete(ruleId);
+    const deleted = await deleteRule(ruleId);
     return deleted ? ok() : notFound("Règle introuvable");
   });
 }

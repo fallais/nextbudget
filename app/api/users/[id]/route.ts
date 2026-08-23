@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { users } from "@infrastructure/persistence/repositories";
 import { userUpdateSchema } from "@application/contracts/validation";
 import { getCurrentUser, hashPassword, publicUser } from "@application/auth";
-import { changeUserRole, deleteUser } from "@application/users";
+import { deleteUser, updateUser } from "@application/users";
 import { badRequest, conflict, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
@@ -24,21 +23,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = userUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return badRequest(parsed.error);
 
-  const { password, ...rest } = parsed.data;
-
   return handle(async () => {
-    const guard = await changeUserRole(userId, rest);
-    if (!guard.ok) {
-      return guard.reason === "not_found"
-        ? notFound()
-        : conflict("Le dernier propriétaire ne peut pas être retiré");
-    }
-
-    const updated = await users.update(userId, {
-      ...rest,
-      ...(password ? { passwordHash: await hashPassword(password) } : {}),
-    });
-    return updated ? NextResponse.json(publicUser(updated.toRow())) : notFound();
+    const result = await updateUser(userId, parsed.data);
+    if (result.ok) return NextResponse.json(publicUser(result.user));
+    return result.reason === "not_found"
+      ? notFound()
+      : conflict("Le dernier propriétaire ne peut pas être retiré");
   }, "Cet email est déjà utilisé par un autre compte");
 }
 

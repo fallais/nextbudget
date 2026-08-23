@@ -1,4 +1,5 @@
-import { categories as categoryRepo, rules as ruleRepo } from "@infrastructure/persistence/repositories";
+import { listCategories } from "@application/categories";
+import { listRules } from "@application/rules";
 import { listMerchants } from "@application/categorize/merchants";
 import { getCategoryBreakdown } from "@application/stats";
 import { CategoriesView } from "@/components/categories/categories-view";
@@ -8,15 +9,14 @@ export const dynamic = "force-dynamic";
 
 export default async function CategoriesPage() {
   const [categoryEntities, ruleEntities, merchants, breakdown] = await Promise.all([
-    categoryRepo.findAll(),
-    ruleRepo.findAll(),
+    listCategories(),
+    listRules(),
     listMerchants(),
     getCategoryBreakdown("month"),
   ]);
 
   const ruleCounts = new Map<number, number>();
-  for (const rule of ruleEntities) {
-    const { categoryId } = rule.toRow();
+  for (const { categoryId } of ruleEntities) {
     ruleCounts.set(categoryId, (ruleCounts.get(categoryId) ?? 0) + 1);
   }
 
@@ -29,7 +29,6 @@ export default async function CategoriesPage() {
   const spent = new Map(breakdown.map((b) => [b.id, Math.abs(b.totalCents)]));
 
   const items = categoryEntities
-    .map((c) => c.toRow())
     .map((category) => ({
       category,
       ruleCount: ruleCounts.get(category.id) ?? 0,

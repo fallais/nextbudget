@@ -1,4 +1,4 @@
-import { fixedExpenses } from "@infrastructure/persistence/repositories";
+import { deleteFixedExpense, updateFixedExpense } from "@application/fixed-expenses";
 import { fixedExpenseInputSchema, patchSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await fixedExpenses.update(fxId, parsed.data);
+    const updated = await updateFixedExpense(fxId, parsed.data);
     return updated ? ok() : notFound("Charge fixe introuvable");
   });
 }
@@ -23,7 +23,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (fxId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await fixedExpenses.delete(fxId);
+    const deleted = await deleteFixedExpense(fxId);
     return deleted ? ok() : notFound("Charge fixe introuvable");
   });
 }

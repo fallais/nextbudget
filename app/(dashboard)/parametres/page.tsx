@@ -1,4 +1,4 @@
-import { transactions } from "@infrastructure/persistence/repositories";
+import { countTransactionsByAccount } from "@application/transactions";
 import { listMembers } from "@application/household";
 import { listAllAccounts } from "@application/queries";
 import { getHouseholdMode } from "@application/settings";
@@ -19,7 +19,7 @@ export default async function ParametresPage() {
     listMembers(),
     listAllAccounts(),
     // One grouped count rather than a query per account.
-    transactions.countByAccountGrouped(),
+    countTransactionsByAccount(),
     getCurrentUser(),
   ]);
 

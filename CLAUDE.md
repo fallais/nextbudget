@@ -21,15 +21,30 @@ Definition of done: typecheck, lint, test and build all green, then commit to
 
 ## Layering
 ```
-app/                 pages + route handlers    can use every layer
-components/          React                     @domain (types), @shared
+app/                 pages + route handlers    @application, @domain (types), @shared
+components/          React                     @domain + @application (types), @shared
 libs/domain/         entities, VOs, services   nothing. No I/O, no outward imports
 libs/application/    use cases                 @domain, @infrastructure
 libs/infrastructure/ persistence, auth, parsers, categorize, ingest, estimation
 libs/shared/         format, palette, theme    nothing
 ```
+The first and third rows are **enforced by eslint**, not just described: `app/` may not
+import `@infrastructure/*` except as a type, and `libs/domain/` may not import outward at
+all. Both were broken for a long time while the file said otherwise.
+
 Aliases `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*` live in
 tsconfig `paths` and are **mirrored in `vitest.config.mts`**, which does not read them.
+
+**Use cases take their dependencies.** Every use case ends with an optional `deps`
+parameter defaulting to the live wiring, so callers pass nothing and a test passes fakes:
+
+```ts
+export type EstimationDeps = { assets: Pick<AssetRepository, "findById" | "addEstimation">; ... };
+const LIVE: EstimationDeps = { assets, geocode, fetchComparables };
+export async function estimateAsset(id: number, now = new Date(), deps: EstimationDeps = LIVE)
+```
+`Pick` the repository down to the methods actually used, so a stand-in is two functions
+rather than twenty. There is no DI container: the seam is the parameter list.
 
 ## Rules that are easy to break
 - **Money is signed integer cents**, `bigint` in Postgres, exposed as JS numbers by a
@@ -46,9 +61,12 @@ tsconfig `paths` and are **mirrored in `vitest.config.mts`**, which does not rea
 - PATCH bodies use `patchSchema(xInputSchema)`, never `.partial()`: Zod 4 keeps
   `.default()` on a key made optional, so an omitted field would overwrite the stored value.
 - Route handlers parse input, call a use case, map the result to HTTP, and hold no
-  queries. Wrap writes in `handle()` from `app/api/_lib/respond.ts` so a broken
-  invariant surfaces as its French message. Pass `badRequest` a `ZodError`, not its
-  `.message`.
+  queries. **A decision taken in a handler is a decision nothing can test or reuse** —
+  stamping an owner, defaulting a visibility, hashing a password all belong in the use
+  case. Wrap writes in `handle()` from `app/api/_lib/respond.ts` so a broken invariant
+  surfaces as its French message. Pass `badRequest` a `ZodError`, not its `.message`.
+- A use case that has to refuse returns a result object (`{ ok: false, reason: ... }`),
+  never an HTTP status: which code that becomes is the edge's business.
 - Closed value sets are `as const` arrays in `libs/domain/enums`, not TS `enum`s.
 - French locale everywhere: `1 234,56 €`, `15 mai 2026`, `15/05/2026`.
 - No em dashes in prose, README or commit messages.

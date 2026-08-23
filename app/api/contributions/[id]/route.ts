@@ -1,4 +1,4 @@
-import { contributions } from "@infrastructure/persistence/repositories";
+import { deleteContribution, updateContribution } from "@application/contributions";
 import { contributionInputSchema, patchSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await contributions.update(contributionId, parsed.data);
+    const updated = await updateContribution(contributionId, parsed.data);
     return updated ? ok() : notFound("Apport introuvable");
   });
 }
@@ -23,7 +23,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (contributionId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await contributions.delete(contributionId);
+    const deleted = await deleteContribution(contributionId);
     return deleted ? ok() : notFound("Apport introuvable");
   });
 }

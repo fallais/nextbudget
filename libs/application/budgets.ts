@@ -12,6 +12,8 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { budgets } from "@infrastructure/persistence/repositories";
 import { BudgetEntity, CategoryEntity, TransactionEntity, FixedExpenseEntity } from "@infrastructure/persistence/schemas";
 import { invariant } from "@domain/errors";
+import type { BudgetRepository } from "@domain/repositories";
+import type { NewBudget } from "@domain/entities";
 import type { BudgetRow, CategoryRow } from "@domain/entities";
 import type { BudgetPeriod } from "@domain/enums";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
@@ -234,4 +236,28 @@ export async function getCategoriesWithFixedExpenseCount(): Promise<
     });
   }
   return map;
+}
+
+export type BudgetDeps = {
+  budgets: Pick<BudgetRepository, "update" | "delete">;
+};
+
+const LIVE_BUDGET: BudgetDeps = { budgets };
+
+/** Resolves `null` when no budget has that id. */
+export async function updateBudget(
+  budgetId: number,
+  patch: Partial<NewBudget>,
+  deps: BudgetDeps = LIVE_BUDGET,
+): Promise<BudgetRow | null> {
+  const updated = await deps.budgets.update(budgetId, patch);
+  return updated?.toRow() ?? null;
+}
+
+/** Resolves `false` when there was nothing to delete. */
+export async function deleteBudget(
+  budgetId: number,
+  deps: BudgetDeps = LIVE_BUDGET,
+): Promise<boolean> {
+  return deps.budgets.delete(budgetId);
 }

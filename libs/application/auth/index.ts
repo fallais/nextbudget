@@ -3,6 +3,10 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import type { UserRow } from "@domain/entities";
 import { getSessionUser } from "@infrastructure/auth/session";
+import { createSession } from "@infrastructure/auth/session";
+import { verifyPassword } from "@infrastructure/auth/password";
+import { users } from "@infrastructure/persistence/repositories";
+import type { UserRepository } from "@domain/repositories";
 
 export { createSession, destroySession, getSessionUser } from "@infrastructure/auth/session";
 export { hashPassword, verifyPassword } from "@infrastructure/auth/password";
@@ -66,4 +70,35 @@ export async function enableEnforcedAuth(
     // settings.key is the PK → save upserts.
     await manager.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
   });
+}
+
+export type LoginDeps = {
+  users: Pick<UserRepository, "findActiveByIdentifier">;
+  verifyPassword: (hash: string, plain: string) => Promise<boolean>;
+  createSession: (userId: number) => Promise<void>;
+};
+
+const LIVE_LOGIN: LoginDeps = { users, verifyPassword, createSession };
+
+/**
+ * Sign in, or refuse without saying why.
+ *
+ * One answer for every failure — unknown account, no password set, wrong
+ * password — because distinguishing them turns the form into a way of asking
+ * which names exist. That is a security property, and it belongs somewhere it
+ * can be tested rather than in a route handler where the next edit can widen
+ * it by accident.
+ */
+export async function login(
+  identifier: string,
+  password: string,
+  deps: LoginDeps = LIVE_LOGIN,
+): Promise<boolean> {
+  const user = await deps.users.findActiveByIdentifier(identifier);
+  const row = user?.toRow();
+  if (!row?.passwordHash || !(await deps.verifyPassword(row.passwordHash, password))) {
+    return false;
+  }
+  await deps.createSession(row.id);
+  return true;
 }

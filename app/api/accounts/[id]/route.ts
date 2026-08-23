@@ -1,5 +1,4 @@
-import { accounts } from "@infrastructure/persistence/repositories";
-import { deleteAccount } from "@application/accounts";
+import { deleteAccount, updateAccount } from "@application/accounts";
 import { accountUpdateSchema } from "@application/contracts/validation";
 import { badRequest, conflict, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -14,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await accounts.update(accountId, parsed.data);
+    const updated = await updateAccount(accountId, parsed.data);
     return updated ? ok() : notFound("Compte introuvable");
   });
 }

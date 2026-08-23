@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { ZodError } from "zod";
 import { describeValidationError } from "@application/contracts/validation-error";
 import { isDomainError } from "@domain/errors";
-import { isUniqueViolation } from "@infrastructure/persistence/errors";
+import { isUniqueViolation } from "@application/contracts/errors";
 
 /**
  * The HTTP edge: turning domain outcomes into status codes.

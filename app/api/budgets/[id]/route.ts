@@ -1,4 +1,4 @@
-import { budgets } from "@infrastructure/persistence/repositories";
+import { deleteBudget, updateBudget } from "@application/budgets";
 import { budgetUpdateSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await budgets.update(budgetId, parsed.data);
+    const updated = await updateBudget(budgetId, parsed.data);
     return updated ? ok() : notFound("Budget introuvable");
   });
 }
@@ -23,7 +23,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (budgetId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await budgets.delete(budgetId);
+    const deleted = await deleteBudget(budgetId);
     return deleted ? ok() : notFound("Budget introuvable");
   });
 }

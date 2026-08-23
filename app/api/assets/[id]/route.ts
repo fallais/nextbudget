@@ -1,6 +1,5 @@
-import { assets } from "@infrastructure/persistence/repositories";
+import { deleteAsset, updateAsset } from "@application/assets";
 import { assetUpdateSchema } from "@application/contracts/validation";
-import { Ownership } from "@domain/value-objects/share";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
@@ -13,14 +12,8 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = assetUpdateSchema.safeParse(await request.json());
   if (!parsed.success) return badRequest(parsed.error);
 
-  const { owners, ...assetData } = parsed.data;
-
   return handle(async () => {
-    // Ownership validates itself: a set that does not total 100% cannot be
-    // constructed, so an invalid split never reaches the database.
-    if (owners) Ownership.fromRows(owners);
-
-    const updated = await assets.updateWithOwners(assetId, assetData, owners);
+    const updated = await updateAsset(assetId, parsed.data);
     return updated ? ok() : notFound("Actif introuvable");
   });
 }
@@ -30,7 +23,7 @@ export async function DELETE(_request: Request, context: { params: Promise<{ id:
   if (assetId === null) return badRequest("ID invalide");
 
   return handle(async () => {
-    const deleted = await assets.deleteWithDependents(assetId);
+    const deleted = await deleteAsset(assetId);
     return deleted ? ok() : notFound("Actif introuvable");
   });
 }

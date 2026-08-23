@@ -1,5 +1,4 @@
-import { categories } from "@infrastructure/persistence/repositories";
-import { deleteCategory } from "@application/categories";
+import { deleteCategory, updateCategory } from "@application/categories";
 import { categoryInputSchema, patchSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -14,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await categories.update(catId, parsed.data);
+    const updated = await updateCategory(catId, parsed.data);
     return updated ? ok() : notFound("Catégorie introuvable");
   }, "Une catégorie avec ce nom existe déjà");
 }

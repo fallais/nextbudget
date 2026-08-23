@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { contributions } from "@infrastructure/persistence/repositories";
+import { createContribution } from "@application/contributions";
 import { listContributions } from "@application/contributions";
 import { contributionInputSchema } from "@application/contracts/validation";
-import { getCurrentUser } from "@application/auth";
 import { badRequest, handle } from "@/app/api/_lib/respond";
 
 export const runtime = "nodejs";
@@ -17,18 +16,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const created = await contributions.create({
-      ownerId: (await getCurrentUser())?.id ?? null,
-      visibility: "shared",
-      personId: parsed.data.personId,
-      name: parsed.data.name,
-      expectedAmountCents: parsed.data.expectedAmountCents,
-      matchPattern: parsed.data.matchPattern,
-      matchType: parsed.data.matchType,
-      tolerancePct: parsed.data.tolerancePct,
-      isActive: parsed.data.isActive,
-      notes: parsed.data.notes ?? null,
-    });
-    return NextResponse.json(created.toRow(), { status: 201 });
+    const created = await createContribution(parsed.data);
+    return NextResponse.json(created, { status: 201 });
   });
 }

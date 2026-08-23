@@ -67,8 +67,9 @@ import { TypeOrmUserRepository } from "./user-repository";
  *
  * Next.js route handlers have no DI container, and introducing one for a
  * single-database local-first app would be ceremony. Binding happens once here
- * instead, and use cases import these — so swapping an implementation is an
- * edit to this file, not a hunt through thirty routes.
+ * instead, and each use case names what it needs in a `deps` parameter that
+ * defaults to these — so the seam is real (a test passes its own) without a
+ * registry to resolve through or a decorator to read past.
  *
  * Instances are cheap and hold no connection: `TypeOrmRepository` resolves the
  * DataSource lazily per call, which is what keeps `next build` database-free.

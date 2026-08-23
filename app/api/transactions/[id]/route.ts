@@ -1,4 +1,4 @@
-import { transactions } from "@infrastructure/persistence/repositories";
+import { recategorizeTransaction } from "@application/transactions";
 import { updateTransactionSchema } from "@application/contracts/validation";
 import { badRequest, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,7 +13,7 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   if (!parsed.success) return badRequest(parsed.error);
 
   return handle(async () => {
-    const updated = await transactions.update(txId, { categoryId: parsed.data.categoryId });
+    const updated = await recategorizeTransaction(txId, parsed.data.categoryId);
     return updated ? ok() : notFound("Transaction introuvable");
   });
 }

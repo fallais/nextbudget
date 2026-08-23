@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
-import { categories as categoryRepo, rules as ruleRepo } from "@infrastructure/persistence/repositories";
+import { findCategory, listCategories } from "@application/categories";
+import { listRules } from "@application/rules";
 import { listMerchants } from "@application/categorize/merchants";
 import { getCategoryBreakdown } from "@application/stats";
 import { listTransactions } from "@application/queries";
@@ -22,17 +23,17 @@ export default async function CategoryDetailPage({
   const categoryId = Number.parseInt(id, 10);
   if (!Number.isInteger(categoryId)) notFound();
 
-  const category = await categoryRepo.findById(categoryId);
+  const category = await findCategory(categoryId);
   if (!category) notFound();
 
   const [allCategories, allRules, merchants, breakdown] = await Promise.all([
-    categoryRepo.findAll(),
-    ruleRepo.findAll(),
+    listCategories(),
+    listRules(),
     listMerchants(),
     getCategoryBreakdown("month"),
   ]);
 
-  const rows = allRules.map((r) => r.toRow()).filter((r) => r.categoryId === categoryId);
+  const rows = allRules.filter((r) => r.categoryId === categoryId);
   const spent = breakdown.find((b) => b.id === categoryId);
   // Same window as the spend beside it — two figures about different months
   // in one sentence would be worse than either alone.
@@ -44,8 +45,8 @@ export default async function CategoryDetailPage({
 
   return (
     <CategoryDetail
-      category={category.toRow()}
-      categories={allCategories.map((c) => c.toRow())}
+      category={category}
+      categories={allCategories}
       rules={rows}
       merchants={merchants}
       spentCents={Math.abs(spent?.totalCents ?? 0)}

@@ -1,5 +1,4 @@
-import { persons } from "@infrastructure/persistence/repositories";
-import { deletePerson, isUserLinkTaken } from "@application/household";
+import { deletePerson, updatePerson } from "@application/household";
 import { personInputSchema, patchSchema } from "@application/contracts/validation";
 import { badRequest, conflict, handle, notFound, ok, parseId } from "@/app/api/_lib/respond";
 
@@ -13,13 +12,12 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const parsed = patchSchema(personInputSchema).safeParse(await request.json());
   if (!parsed.success) return badRequest(parsed.error);
 
-  if (parsed.data.userId != null && (await isUserLinkTaken(parsed.data.userId, personId))) {
-    return conflict("Ce compte utilisateur est déjà lié à une autre personne");
-  }
-
   return handle(async () => {
-    const updated = await persons.update(personId, parsed.data);
-    return updated ? ok() : notFound("Personne introuvable");
+    const result = await updatePerson(personId, parsed.data);
+    if (result.ok) return ok();
+    return result.reason === "user_taken"
+      ? conflict("Ce compte utilisateur est déjà lié à une autre personne")
+      : notFound("Personne introuvable");
   });
 }
 

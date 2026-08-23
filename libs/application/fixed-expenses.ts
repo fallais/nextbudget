@@ -2,7 +2,18 @@ import "server-only";
 import { startOfMonth, endOfMonth, subMonths, format, formatISO } from "date-fns";
 import { getDataSource } from "@infrastructure/persistence/client";
 import { FixedExpenseEntity, CategoryEntity, TransactionEntity } from "@infrastructure/persistence/schemas";
-import type { FixedExpenseRow, CategoryRow, TransactionRow } from "@domain/entities";
+import type {
+  FixedExpense,
+  FixedExpenseRow,
+  CategoryRow,
+  NewFixedExpense,
+  TransactionRow,
+} from "@domain/entities";
+import type { FixedExpenseRepository } from "@domain/repositories";
+import type { z } from "zod";
+import { fixedExpenses } from "@infrastructure/persistence/repositories";
+import { getCurrentUser } from "./auth";
+import type { fixedExpenseInputSchema } from "./contracts/validation";
 import { compileRule } from "@domain/services/categorization";
 import { getScope, visibleAccountIds, applyAccountScope, applyOwnedScope } from "@application/scope";
 
@@ -261,3 +272,64 @@ export async function listFixedExpenses(): Promise<FixedExpenseRow[]> {
   applyOwnedScope(qb, "f", await getScope());
   return qb.getMany();
 }
+
+
+export type FixedExpenseDeps = {
+  fixedExpenses: Pick<FixedExpenseRepository, "create" | "update" | "delete">;
+  currentUserId: () => Promise<number | null>;
+};
+
+const LIVE: FixedExpenseDeps = {
+  fixedExpenses,
+  currentUserId: async () => (await getCurrentUser())?.id ?? null,
+};
+
+export type FixedExpenseInput = z.infer<typeof fixedExpenseInputSchema>;
+
+/**
+ * Record a bill that comes round every month.
+ *
+ * `liabilityId` is null on creation: linking a charge to the credit it repays
+ * happens later, from the credit, and letting it be set here would allow two
+ * places to disagree about which loan a charge belongs to.
+ */
+export async function createFixedExpense(
+  input: FixedExpenseInput,
+  deps: FixedExpenseDeps = LIVE,
+): Promise<FixedExpenseRow> {
+  const created = await deps.fixedExpenses.create({
+    ownerId: await deps.currentUserId(),
+    visibility: "shared",
+    name: input.name,
+    categoryId: input.categoryId,
+    liabilityId: null,
+    expectedAmountCents: input.expectedAmountCents,
+    tolerancePct: input.tolerancePct,
+    dueDay: input.dueDay,
+    matchPattern: input.matchPattern,
+    matchType: input.matchType,
+    isActive: input.isActive,
+    notes: input.notes ?? null,
+  });
+  return created.toRow();
+}
+
+/** Resolves `null` when no fixed expense has that id. */
+export async function updateFixedExpense(
+  fixedExpenseId: number,
+  patch: Partial<FixedExpenseInput>,
+  deps: FixedExpenseDeps = LIVE,
+): Promise<FixedExpenseRow | null> {
+  const updated = await deps.fixedExpenses.update(fixedExpenseId, patch);
+  return updated?.toRow() ?? null;
+}
+
+/** Resolves `false` when there was nothing to delete. */
+export async function deleteFixedExpense(
+  fixedExpenseId: number,
+  deps: FixedExpenseDeps = LIVE,
+): Promise<boolean> {
+  return deps.fixedExpenses.delete(fixedExpenseId);
+}
+
+export type { FixedExpense, NewFixedExpense };
