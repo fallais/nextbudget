@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -27,7 +28,7 @@ import { formatCents } from "@shared/format";
 import type { AccountRow } from "@domain/entities";
 import type { HouseholdMode } from "@application/settings";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export type SettingsMember = {
   id: number;
@@ -153,12 +154,10 @@ export function SettingsView({
 
   return (
     <Flex vertical gap={16} style={{ maxWidth: 1100 }}>
-      <div>
-        <Title level={3} style={{ margin: 0 }}>
-          Paramètres
-        </Title>
-        <Text type="secondary">Composition du foyer, comptes bancaires et confidentialité.</Text>
-      </div>
+      <PageHeader
+        crumbs={[{ label: "Paramètres" }]}
+        description="Composition du foyer, comptes bancaires et confidentialité."
+      />
 
       <Tabs
         defaultActiveKey="foyer"

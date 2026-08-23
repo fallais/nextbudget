@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { Col, Flex, Row, Typography } from "antd";
 import { PeriodSelector } from "@/components/layout/period-selector";
 import { ResteAVivreCard } from "./reste-a-vivre-card";
@@ -18,7 +19,7 @@ import type { FixedExpenseStatus, FixedExpensesSummary } from "@application/fixe
 import type { ActualNetCashflow, ResteAVivre } from "@application/reste-a-vivre";
 import type { PersonWithStatus } from "@application/contributions";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 /**
  * The dashboard, ordered by the questions people actually open a budget app to
@@ -68,17 +69,15 @@ export function DashboardView({
 
   return (
     <Flex vertical gap={16}>
-      <Flex justify="space-between" align="flex-start" wrap gap={12}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            Tableau de bord
-          </Title>
-          <Text type="secondary">Vue d&apos;ensemble · {periodLabel}</Text>
-        </div>
-        <Suspense fallback={null}>
-          <PeriodSelector />
-        </Suspense>
-      </Flex>
+      <PageHeader
+        crumbs={[{ label: "Tableau de bord" }]}
+        description={`Vue d'ensemble · ${periodLabel}`}
+        actions={
+          <Suspense fallback={null}>
+            <PeriodSelector />
+          </Suspense>
+        }
+      />
 
       {/* 1 — the headline */}
       <ResteAVivreCard data={resteAVivre} />

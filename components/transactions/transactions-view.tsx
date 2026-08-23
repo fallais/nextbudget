@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { PageHeader } from "@/components/layout/page-header";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   App,
@@ -29,7 +30,7 @@ import type {
   TransactionTotals,
 } from "@application/queries";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
 /**
@@ -161,19 +162,15 @@ export function TransactionsView({
 
   return (
     <Flex vertical gap={16}>
-      <Flex justify="space-between" align="flex-start" wrap gap={12}>
-        <div>
-          <Title level={3} style={{ margin: 0 }}>
-            Transactions
-          </Title>
-          <Text type="secondary">
-            {total.toLocaleString("fr-FR")} opération{total > 1 ? "s" : ""}
-          </Text>
-        </div>
-        <Button icon={<DownloadOutlined />} href={exportHref}>
-          Exporter
-        </Button>
-      </Flex>
+      <PageHeader
+        crumbs={[{ label: "Transactions" }]}
+        description={`${total.toLocaleString("fr-FR")} opération${total > 1 ? "s" : ""}`}
+        actions={
+          <Button icon={<DownloadOutlined />} href={exportHref}>
+            Exporter
+          </Button>
+        }
+      />
 
       <Card size="small">
         <Flex gap={10} wrap align="center">
