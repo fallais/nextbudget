@@ -5,18 +5,23 @@ import {
   endOfMonth,
   format,
   formatISO,
-  getDaysInMonth,
   startOfMonth,
   subMonths,
 } from "date-fns";
 import { getDataSource } from "@infrastructure/persistence/client";
 import { TransactionEntity } from "@infrastructure/persistence/schemas";
 import { nextOccurrences } from "@domain/services/recurrence";
+import { nextDueDate } from "@domain/services/cadence";
 import { projectBalance, type Projection, type ScheduledFlow } from "@domain/services/projection";
 import { titleCase } from "@shared/format";
 import { visibleAccountIds, applyAccountScope } from "./scope";
 import { excludeTransfers } from "./transfers";
-import { compiledFixedExpenseRules, getFixedExpensesWithStatus } from "./fixed-expenses";
+import {
+  compiledFixedExpenseRules,
+  getFixedExpensesWithStatus,
+  scheduleOf,
+  type FixedExpenseStatus,
+} from "./fixed-expenses";
 import { listRecurringIncome } from "./recurring";
 import { getAccountBalances } from "./queries";
 import { getScope } from "@application/scope";
@@ -105,31 +110,38 @@ async function dailyDiscretionaryCents(now: Date): Promise<number> {
 }
 
 /**
- * Every instalment of one charge inside the window.
+ * Every time one charge falls due inside the window.
  *
- * The month already settled is skipped, and one still owed with its due day
- * behind it is kept: money about to leave is not money saved. A charge with no
- * due day is put mid-month, which is the least wrong place for something the
- * statement has never told us the date of.
+ * Cadence-aware, and it has to be: a quarterly water bill scheduled monthly
+ * would take three times what it takes, and a yearly premium twelve. The
+ * period already settled is skipped, and one still owed with its due day
+ * behind it is kept, because money about to leave is not money saved.
  */
 function fixedExpenseFlows(
-  name: string,
-  expectedAmountCents: number,
-  dueDay: number | null,
-  paidThisMonth: boolean,
+  status: FixedExpenseStatus,
   from: string,
   to: string,
-  now: Date,
 ): ScheduledFlow[] {
+  const fx = status.fixedExpense;
   const flows: ScheduledFlow[] = [];
-  for (let i = 0; i < 3; i++) {
-    const month = addMonths(startOfMonth(now), i);
-    if (i === 0 && paidThisMonth) continue;
-    const day = Math.min(dueDay ?? 15, getDaysInMonth(month));
-    const date = format(new Date(month.getFullYear(), month.getMonth(), day), "yyyy-MM-dd");
-    if (date > to) break;
-    // Before the window only happens for this month's charge, still unpaid.
-    flows.push({ label: name, amountCents: -expectedAmountCents, date: date < from ? from : date });
+  const settled = status.state === "paid" || status.state === "anomaly";
+
+  // The live period, when it is still owed. Its due date may be behind us.
+  if (!settled && status.period.dueDate !== null && status.period.dueDate <= to) {
+    flows.push({
+      label: fx.name,
+      amountCents: -fx.expectedAmountCents,
+      date: status.period.dueDate,
+    });
+  }
+
+  // Then the ones after it, as far as the horizon reaches.
+  let cursor = status.period.dueDate ?? from;
+  for (let i = 0; i < 12; i++) {
+    const next = nextDueDate(scheduleOf(fx), cursor);
+    if (next === null || next > to) break;
+    if (next >= from) flows.push({ label: fx.name, amountCents: -fx.expectedAmountCents, date: next });
+    cursor = next;
   }
   return flows;
 }
@@ -160,19 +172,8 @@ export async function getCashflowProjection(now: Date = new Date()): Promise<Cas
 
   const flows: ScheduledFlow[] = [];
   for (const status of statuses) {
-    const fx = status.fixedExpense;
-    if (!fx.isActive) continue;
-    flows.push(
-      ...fixedExpenseFlows(
-        fx.name,
-        fx.expectedAmountCents,
-        fx.dueDay,
-        status.state === "paid" || status.state === "anomaly",
-        from,
-        to,
-        now,
-      ),
-    );
+    if (!status.fixedExpense.isActive) continue;
+    flows.push(...fixedExpenseFlows(status, from, to));
   }
 
   for (const candidate of income) {

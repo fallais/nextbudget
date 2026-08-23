@@ -2,6 +2,7 @@ export * from "./account-kind";
 export * from "./asset-type";
 export * from "./budget-period";
 export * from "./contribution-state";
+export * from "./expense-cadence";
 export * from "./match-type";
 export * from "./merchant-kind";
 export * from "./user-role";

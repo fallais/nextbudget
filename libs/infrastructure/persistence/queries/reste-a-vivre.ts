@@ -4,6 +4,7 @@ import { getDataSource } from "@infrastructure/persistence/client";
 import { TransactionEntity, CategoryEntity, FixedExpenseEntity, ContributionEntity, BudgetEntity } from "@infrastructure/persistence/schemas";
 import {visibleAccountIds, applyAccountScope, applyOwnedScope} from "./scope";
 import { excludeTransfers } from "./transfers";
+import { monthlyShareCents } from "@domain/services/cadence";
 import { getScope } from "@application/scope";
 
 export type ResteAVivreMode = "contributions" | "history";
@@ -72,14 +73,19 @@ export async function computeResteAVivre(now: Date = new Date()): Promise<ResteA
     mode = "history";
   }
 
+  // Summed in JS rather than in SQL, because the figures are not comparable
+  // until each is put on a monthly footing: a 150 euro premium taken every
+  // April commits 12,50 a month, and a SUM over the column would report a
+  // household with no room left that has plenty.
   const fxQb = ds
     .getRepository(FixedExpenseEntity)
     .createQueryBuilder("f")
-    .select("COALESCE(SUM(f.expected_amount_cents), 0)", "sum")
     .where("f.is_active = true");
   applyOwnedScope(fxQb, "f", scope);
-  const fxRow = await fxQb.getRawOne<{ sum: string }>();
-  const fixedTotal = Number(fxRow?.sum ?? 0);
+  const fixedTotal = (await fxQb.getMany()).reduce(
+    (total, fx) => total + monthlyShareCents(fx.expectedAmountCents, fx.cadence),
+    0,
+  );
 
   const budgetQb = ds
     .getRepository(BudgetEntity)

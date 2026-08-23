@@ -4,7 +4,8 @@ import Link from "next/link";
 import { Card, Flex, Tag, Typography, theme } from "antd";
 import { RightOutlined } from "@ant-design/icons";
 import { formatCents } from "@shared/format";
-import { FIXED_EXPENSE_STATE } from "./fixed-expense-state";
+import { FIXED_EXPENSE_STATE, describeDue } from "./fixed-expense-state";
+import { EXPENSE_CADENCE_LABELS } from "@domain/enums";
 import type { FixedExpenseStatus } from "@application/fixed-expenses";
 
 const { Text } = Typography;
@@ -34,6 +35,11 @@ export function FixedExpenseItemRow({ status }: { status: FixedExpenseStatus }) 
           <Flex vertical gap={0} style={{ minWidth: 170, flex: 1 }}>
             <Flex align="center" gap={8} wrap>
               <Text strong>{fx.name}</Text>
+              {fx.cadence !== "monthly" && (
+                <Tag bordered={false} style={{ marginInlineEnd: 0 }}>
+                  {EXPENSE_CADENCE_LABELS[fx.cadence]}
+                </Tag>
+              )}
               {paused && (
                 <Tag bordered={false} style={{ marginInlineEnd: 0 }}>
                   en pause
@@ -48,11 +54,14 @@ export function FixedExpenseItemRow({ status }: { status: FixedExpenseStatus }) 
 
           <Figure label="Attendu" value={formatCents(fx.expectedAmountCents)} strong />
           <Figure
-            label="Payé ce mois"
+            label={fx.cadence === "monthly" ? "Payé ce mois" : "Payé sur la période"}
             value={status.paidAmountCents ? formatCents(status.paidAmountCents) : "—"}
             color={status.state === "anomaly" ? state.color : undefined}
           />
-          <Figure label="Échéance" value={fx.dueDay ? `le ${fx.dueDay}` : "—"} />
+          <Figure
+            label={fx.cadence === "monthly" ? "Échéance" : "Prochaine"}
+            value={describeDue(fx, status.nextDueDate)}
+          />
 
           <RightOutlined style={{ color: token.colorTextQuaternary }} />
         </Flex>

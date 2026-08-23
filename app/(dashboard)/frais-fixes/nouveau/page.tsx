@@ -1,6 +1,7 @@
 import { listAllCategories } from "@application/queries";
 import { NewFixedExpenseForm } from "@/components/fixed-expenses/new-fixed-expense-form";
 import type { FixedExpenseDraft } from "@/components/fixed-expenses/fixed-expense-form";
+import { EXPENSE_CADENCES, type ExpenseCadence } from "@domain/enums";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,11 @@ function int(raw: string | undefined): number | undefined {
   if (!raw) return undefined;
   const n = Number.parseInt(raw, 10);
   return Number.isFinite(n) ? n : undefined;
+}
+
+/** Anything else in the URL is not a cadence, whoever put it there. */
+function cadence(raw: string | undefined): ExpenseCadence | undefined {
+  return EXPENSE_CADENCES.find((c) => c === raw);
 }
 
 /**
@@ -36,6 +42,8 @@ export default async function NewFixedExpensePage({
     Object.entries({
       name: get("name"),
       matchPattern: get("pattern"),
+      cadence: cadence(get("cadence")),
+      dueMonth: int(get("dueMonth")),
       expectedAmount: amountCents === undefined ? undefined : amountCents / 100,
       dueDay: int(get("dueDay")),
       categoryId: int(get("categoryId")),

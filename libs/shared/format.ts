@@ -54,6 +54,11 @@ export function formatDateShort(iso: string): string {
   return format(parseISO(iso), "dd/MM/yyyy", { locale: fr });
 }
 
+/** The name of a month, 1-12, as a charge's schedule says it: "octobre". */
+export function formatMonthName(month: number): string {
+  return format(new Date(2026, month - 1, 1), "MMMM", { locale: fr });
+}
+
 export function formatMonthLabel(iso: string): string {
   return format(parseISO(iso), "MMM yyyy", { locale: fr });
 }

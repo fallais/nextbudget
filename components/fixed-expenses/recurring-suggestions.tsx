@@ -8,16 +8,10 @@ import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, RiseOutlined } from "@ant-design/icons";
 import { formatCents, formatDateShort, formatMonthLabel, titleCase } from "@shared/format";
 import { STATUS } from "@shared/palette";
+import { EXPENSE_CADENCE_LABELS, needsDueMonth } from "@domain/enums";
 import type { RecurringCandidate } from "@application/recurring";
 
 const { Text } = Typography;
-
-const CADENCE_LABEL: Record<RecurringCandidate["recurrence"]["cadence"], string> = {
-  weekly: "Hebdomadaire",
-  monthly: "Mensuel",
-  quarterly: "Trimestriel",
-  yearly: "Annuel",
-};
 
 /**
  * Charges that repeat but were never written down.
@@ -93,8 +87,14 @@ export function RecurringSuggestions({
       pattern: c.suggestedPattern,
       amountCents: String(c.recurrence.medianAmountCents),
       tolerancePct: String(c.suggestedTolerancePct),
+      // Carried over, or a quarterly bill would be created as a monthly charge
+      // and reported unpaid two months in three.
+      cadence: c.recurrence.cadence,
     });
     if (c.recurrence.dueDay !== null) params.set("dueDay", String(c.recurrence.dueDay));
+    if (needsDueMonth(c.recurrence.cadence)) {
+      params.set("dueMonth", c.recurrence.nextDate.slice(5, 7));
+    }
     if (c.category) params.set("categoryId", String(c.category.id));
     return `/frais-fixes/nouveau?${params.toString()}`;
   }
@@ -108,7 +108,7 @@ export function RecurringSuggestions({
         <Flex vertical gap={2}>
           <Flex gap={8} align="center" wrap>
             <Text strong>{titleCase(c.key)}</Text>
-            <Tag style={{ marginInlineEnd: 0 }}>{CADENCE_LABEL[c.recurrence.cadence]}</Tag>
+            <Tag style={{ marginInlineEnd: 0 }}>{EXPENSE_CADENCE_LABELS[c.recurrence.cadence]}</Tag>
             {c.drift && (
               <Tooltip
                 title={`${formatCents(c.drift.fromCents)} → ${formatCents(c.drift.toCents)} depuis ${formatMonthLabel(c.drift.since.slice(0, 7))}`}

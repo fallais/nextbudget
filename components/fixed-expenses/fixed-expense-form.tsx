@@ -5,16 +5,31 @@ import { useRouter } from "next/navigation";
 import { App, Col, Form, Input, InputNumber, Modal, Row, Select, Switch } from "antd";
 import type { FormInstance } from "antd";
 import type { CategoryRow, FixedExpenseRow } from "@domain/entities";
+import {
+  EXPENSE_CADENCES,
+  EXPENSE_CADENCE_LABELS,
+  needsDueMonth,
+  type ExpenseCadence,
+} from "@domain/enums";
+import { formatMonthName } from "@shared/format";
 
 export type Values = {
   name: string;
   matchPattern: string;
+  /** Per occurrence: a yearly premium is the whole premium, not a twelfth. */
   expectedAmount: number;
+  cadence: ExpenseCadence;
   dueDay: number | null;
+  dueMonth: number | null;
   categoryId: number | null;
   tolerancePct: number;
   isActive: boolean;
 };
+
+const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({
+  value: i + 1,
+  label: formatMonthName(i + 1),
+}));
 
 /**
  * Values a suggested charge arrives with, before anyone has confirmed it.
@@ -53,12 +68,18 @@ export function FixedExpenseFormBody({
   const [form] = Form.useForm<Values>();
   const [saving, setSaving] = useState(false);
   const editing = !!expense;
+  // Watched, because which fields make sense depends on it: a weekly charge
+  // has no day of the month, and a quarterly one is nowhere without its anchor.
+  const cadence: ExpenseCadence =
+    Form.useWatch("cadence", form) ?? expense?.cadence ?? draft?.cadence ?? "monthly";
 
   const initial: Values = {
     name: expense?.name ?? "",
     matchPattern: expense?.matchPattern ?? "",
     expectedAmount: expense ? expense.expectedAmountCents / 100 : 0,
+    cadence: expense?.cadence ?? "monthly",
     dueDay: expense?.dueDay ?? null,
+    dueMonth: expense?.dueMonth ?? null,
     categoryId: expense?.categoryId ?? null,
     tolerancePct: expense?.tolerancePct ?? 10,
     isActive: expense?.isActive ?? true,
@@ -77,7 +98,9 @@ export function FixedExpenseFormBody({
             name: v.name,
             categoryId: v.categoryId ?? null,
             expectedAmountCents: Math.round(v.expectedAmount * 100),
-            dueDay: v.dueDay ?? null,
+            cadence: v.cadence,
+            dueDay: v.cadence === "weekly" ? null : (v.dueDay ?? null),
+            dueMonth: needsDueMonth(v.cadence) ? (v.dueMonth ?? null) : null,
             matchPattern: v.matchPattern,
             matchType: "contains" as const,
             tolerancePct: v.tolerancePct,
@@ -119,19 +142,53 @@ export function FixedExpenseFormBody({
       <Row gutter={12}>
         <Col span={12}>
           <Form.Item
+            name="cadence"
+            label="Fréquence"
+            tooltip="À quel rythme la charge revient. Le montant demandé est celui d'un prélèvement, pas d'un mois."
+          >
+            <Select
+              options={EXPENSE_CADENCES.map((c) => ({
+                value: c,
+                label: EXPENSE_CADENCE_LABELS[c],
+              }))}
+            />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
             name="expectedAmount"
-            label="Montant attendu"
+            label={cadence === "monthly" ? "Montant attendu" : "Montant par prélèvement"}
             rules={[{ required: true, message: "Montant requis" }]}
           >
             <InputNumber style={{ width: "100%" }} min={0} addonAfter="€" />
           </Form.Item>
         </Col>
-        <Col span={12}>
-          <Form.Item name="dueDay" label="Jour d'échéance">
-            <InputNumber style={{ width: "100%" }} min={1} max={31} placeholder="5" />
-          </Form.Item>
-        </Col>
       </Row>
+      {cadence !== "weekly" && (
+        <Row gutter={12}>
+          {needsDueMonth(cadence) && (
+            <Col span={12}>
+              <Form.Item
+                name="dueMonth"
+                label={cadence === "yearly" ? "Mois de l'échéance" : "Mois du 1er trimestre"}
+                tooltip={
+                  cadence === "yearly"
+                    ? "Le mois où la charge tombe chaque année."
+                    : "Le mois d'un des prélèvements : les suivants tombent tous les trois mois à partir de là."
+                }
+                rules={[{ required: true, message: "Mois requis" }]}
+              >
+                <Select options={MONTH_OPTIONS} placeholder="octobre" />
+              </Form.Item>
+            </Col>
+          )}
+          <Col span={12}>
+            <Form.Item name="dueDay" label="Jour d'échéance">
+              <InputNumber style={{ width: "100%" }} min={1} max={31} placeholder="5" />
+            </Form.Item>
+          </Col>
+        </Row>
+      )}
       <Row gutter={12}>
         <Col span={12}>
           <Form.Item name="categoryId" label="Catégorie">

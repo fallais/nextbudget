@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { summarizeTrends, type FixedExpenseTrend } from "./fixed-expenses";
+import {
+  summarizeFixedExpenses,
+  summarizeTrends,
+  type FixedExpenseStatus,
+  type FixedExpenseTrend,
+} from "./fixed-expenses";
+import type { ExpenseCadence } from "@domain/enums";
 
 function trend(
   name: string,
@@ -60,5 +66,67 @@ describe("what the fixed charges did over the year", () => {
     const summary = summarizeTrends([trend("EDF", { previousCents: 150_000, recentCents: 120_000 })]);
     expect(summary.comparison?.changePct).toBeCloseTo(-20, 5);
     expect(summary.steepest).toBeNull();
+  });
+});
+
+
+function status(
+  name: string,
+  cadence: ExpenseCadence,
+  expectedAmountCents: number,
+  over: Partial<FixedExpenseStatus> = {},
+): FixedExpenseStatus {
+  return {
+    fixedExpense: { name, cadence, expectedAmountCents, isActive: true } as FixedExpenseStatus["fixedExpense"],
+    category: null,
+    matched: [],
+    paidAmountCents: 0,
+    state: "pending",
+    variancePct: null,
+    period: { start: "2026-08-01", end: "2026-08-31", dueDate: "2026-08-15" },
+    nextDueDate: "2026-09-15",
+    dueThisMonth: true,
+    ...over,
+  };
+}
+
+describe("the month's picture, with charges of every cadence", () => {
+  it("counts what this month owes, not what every charge costs", () => {
+    // The water was taken in August and is not September's business; putting
+    // it in September's "reste à payer" reports money leaving that is not
+    // going anywhere for another two months.
+    const summary = summarizeFixedExpenses([
+      status("Loyer", "monthly", 90_000),
+      status("Eau", "quarterly", 5_100, { dueThisMonth: false, state: "paid" }),
+    ]);
+    expect(summary.total).toBe(1);
+    expect(summary.expectedTotalCents).toBe(90_000);
+  });
+
+  it("keeps a late charge in view even once its period has moved on", () => {
+    const summary = summarizeFixedExpenses([
+      status("Ordures", "yearly", 15_000, { dueThisMonth: false, state: "overdue" }),
+    ]);
+    expect(summary.total).toBe(1);
+    expect(summary.overdue).toBe(1);
+  });
+
+  it("shares every cadence out per month for the commitment figure", () => {
+    // 900 a month, 51 a quarter and 150 a year is 900 + 17 + 12,50.
+    const summary = summarizeFixedExpenses([
+      status("Loyer", "monthly", 90_000),
+      status("Eau", "quarterly", 5_100, { dueThisMonth: false }),
+      status("Ordures", "yearly", 15_000, { dueThisMonth: false }),
+    ]);
+    expect(summary.monthlyCommitmentCents).toBe(90_000 + 1_700 + 1_250);
+    expect(summary.otherCadences).toBe(2);
+  });
+
+  it("leaves a paused charge out of both figures", () => {
+    const paused = status("Ancienne assurance", "yearly", 20_000);
+    paused.fixedExpense = { ...paused.fixedExpense, isActive: false };
+    const summary = summarizeFixedExpenses([paused]);
+    expect(summary.total).toBe(0);
+    expect(summary.monthlyCommitmentCents).toBe(0);
   });
 });

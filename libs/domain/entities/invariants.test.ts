@@ -156,7 +156,9 @@ describe("FixedExpense", () => {
     liabilityId: null,
     expectedAmountCents: 8000,
     tolerancePct: 10,
+    cadence: "monthly" as const,
     dueDay: 5,
+    dueMonth: null,
     matchPattern: "EDF",
     matchType: "contains" as const,
     isActive: true,
@@ -176,6 +178,27 @@ describe("FixedExpense", () => {
     // 31 is allowed even though not every month has one: the status logic
     // clamps it rather than the entity refusing a legitimate direct debit.
     expect(FixedExpense.create({ ...ok, dueDay: 31 }).toRow().dueDay).toBe(31);
+  });
+
+  it("refuses a quarterly or yearly charge that does not say which month", () => {
+    // "Every three months" does not say which three. Without the anchor the
+    // app would guess, and report arrears on a bill not due for two months.
+    refuses(() => FixedExpense.create({ ...ok, cadence: "quarterly" }));
+    refuses(() => FixedExpense.create({ ...ok, cadence: "yearly" }));
+    expect(
+      FixedExpense.create({ ...ok, cadence: "yearly", dueMonth: 10 }).toRow().dueMonth,
+    ).toBe(10);
+  });
+
+  it("keeps the due month inside a year", () => {
+    refuses(() => FixedExpense.create({ ...ok, cadence: "yearly", dueMonth: 0 }));
+    refuses(() => FixedExpense.create({ ...ok, cadence: "yearly", dueMonth: 13 }));
+  });
+
+  it("lets a weekly charge stand without a day of the month", () => {
+    expect(
+      FixedExpense.create({ ...ok, cadence: "weekly", dueDay: null }).toRow().cadence,
+    ).toBe("weekly");
   });
 });
 

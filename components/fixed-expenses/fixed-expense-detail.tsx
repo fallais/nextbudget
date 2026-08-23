@@ -9,7 +9,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { STATUS } from "@shared/palette";
 import { formatCents, formatDateShort, formatMonthLabel } from "@shared/format";
 import { FixedExpenseForm } from "./fixed-expense-form";
-import { FIXED_EXPENSE_STATE } from "./fixed-expense-state";
+import { FIXED_EXPENSE_STATE, describeDue, describeSchedule } from "./fixed-expense-state";
 import type { CategoryRow } from "@domain/entities";
 import type { FixedExpenseMonth, FixedExpenseStatus } from "@application/fixed-expenses";
 
@@ -57,7 +57,7 @@ export function FixedExpenseDetail({
     <Flex vertical gap={16}>
       <PageHeader
         crumbs={[{ label: "Frais fixes", href: "/frais-fixes" }, { label: fx.name }]}
-        description={`${formatCents(fx.expectedAmountCents)} attendus${fx.dueDay ? ` le ${fx.dueDay} du mois` : " chaque mois"}, reconnus au libellé « ${fx.matchPattern} ».`}
+        description={`${formatCents(fx.expectedAmountCents)} attendus ${describeSchedule(fx)}, reconnus au libellé « ${fx.matchPattern} ».`}
         actions={
           <Flex gap={8}>
             <Button icon={<EditOutlined />} onClick={() => setEditing(true)}>
@@ -83,7 +83,7 @@ export function FixedExpenseDetail({
           <Flex justify="space-between" align="flex-start" wrap gap={16}>
             <Flex vertical gap={2}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Payé ce mois
+                {fx.cadence === "monthly" ? "Payé ce mois" : "Payé sur la période en cours"}
               </Text>
               <Text
                 strong
@@ -114,8 +114,14 @@ export function FixedExpenseDetail({
             </Flex>
 
             <Flex gap={32} wrap>
-              <Figure label="Attendu" value={formatCents(fx.expectedAmountCents)} />
-              <Figure label="Échéance" value={fx.dueDay ? `le ${fx.dueDay}` : "—"} />
+              <Figure
+                label={fx.cadence === "monthly" ? "Attendu" : "Attendu par prélèvement"}
+                value={formatCents(fx.expectedAmountCents)}
+              />
+              <Figure
+                label={fx.cadence === "monthly" ? "Échéance" : "Prochaine échéance"}
+                value={describeDue(fx, status.nextDueDate)}
+              />
               <Figure label="Tolérance" value={`${fx.tolerancePct} %`} />
               <Figure label="Catégorie" value={status.category?.name ?? "—"} />
             </Flex>
@@ -123,7 +129,7 @@ export function FixedExpenseDetail({
         </Flex>
       </Card>
 
-      <Card title="Les douze derniers mois">
+      <Card title={history.length > 12 ? "Les deux dernières années" : "Les douze derniers mois"}>
         <History history={history} expectedCents={fx.expectedAmountCents} />
       </Card>
 

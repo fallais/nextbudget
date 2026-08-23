@@ -44,7 +44,9 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
   out of income, expenses and budgets, while staying on the statement and in
   the balance.
 - **Budgets**: per-category monthly/weekly budgets with progress tracking.
-- **Fixed expenses** (Frais fixes): recurring charges and their schedule, with
+- **Fixed expenses** (Frais fixes): recurring charges **weekly, monthly,
+  quarterly or yearly**, each judged over its own period, so the water every
+  quarter and the taxe d'ordures every October are tracked like the rent, with
   the ones you never wrote down **detected from your statements** and offered
   as a filled-in form, and an **evolution** page showing what each charge costs
   now against a year ago: how much the water, the energy or a subscription has

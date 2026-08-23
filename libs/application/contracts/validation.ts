@@ -113,12 +113,18 @@ export const contributionInputSchema = z.object({
   notes: z.string().max(500).nullable().optional(),
 });
 
+export const expenseCadenceSchema = z.enum(["weekly", "monthly", "quarterly", "yearly"]);
+
 export const fixedExpenseInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   categoryId: z.number().int().positive().nullable(),
+  /** Per occurrence, not per month: a yearly premium stores the whole premium. */
   expectedAmountCents: z.number().int().positive(),
   tolerancePct: z.number().int().min(0).max(100).default(10),
+  cadence: expenseCadenceSchema.default("monthly"),
   dueDay: z.number().int().min(1).max(31).nullable(),
+  /** Anchors a quarterly or yearly charge; the entity refuses one without it. */
+  dueMonth: z.number().int().min(1).max(12).nullable().optional(),
   matchPattern: z.string().trim().min(1).max(256),
   matchType: fixedExpenseMatchTypeSchema.default("contains"),
   isActive: z.boolean().default(true),

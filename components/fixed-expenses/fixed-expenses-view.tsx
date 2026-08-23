@@ -90,9 +90,15 @@ export function FixedExpensesView({
               </Flex>
 
               <Flex gap={32} wrap>
-                <Figure label="Attendu" value={formatCents(summary.expectedTotalCents)} />
+                <Figure label="Attendu ce mois" value={formatCents(summary.expectedTotalCents)} />
                 <Figure label="Payé" value={formatCents(summary.paidTotalCents)} />
-                <Figure label="Suivies" value={String(summary.total)} />
+                {/* Not the same figure once a charge is not monthly: what the
+                    household is committed to per month, cadences shared out. */}
+                <Figure
+                  label="Engagé par mois"
+                  value={formatCents(summary.monthlyCommitmentCents)}
+                />
+                <Figure label="Échéant ce mois" value={String(summary.total)} />
               </Flex>
             </Flex>
 
@@ -132,13 +138,24 @@ export function FixedExpensesView({
               </div>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {summary.paid} charge{summary.paid > 1 ? "s" : ""} payée
-                {summary.paid > 1 ? "s" : ""} sur {summary.total}, pour un mois écoulé à{" "}
-                {monthElapsedPct} %.
+                {summary.paid > 1 ? "s" : ""} sur {summary.total} échéant ce mois, pour un mois
+                écoulé à {monthElapsedPct} %.
                 {late > 0 && ` ${late} en retard.`}
                 {odd > 0 && ` ${odd} au montant inhabituel.`}
+                {summary.otherCadences > 0 &&
+                  ` ${summary.otherCadences} charge${summary.otherCadences > 1 ? "s" : ""} non mensuelle${summary.otherCadences > 1 ? "s" : ""}, comptée${summary.otherCadences > 1 ? "s" : ""} sur ${summary.otherCadences > 1 ? "leurs" : "sa"} propre${summary.otherCadences > 1 ? "s" : ""} période${summary.otherCadences > 1 ? "s" : ""}.`}
               </Text>
             </Flex>
           </Flex>
+        </Card>
+      )}
+
+      {summary.total === 0 && rows.length > 0 && (
+        <Card size="small">
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            Aucune échéance ce mois-ci. Vos charges sont trimestrielles ou annuelles :{" "}
+            {formatCents(summary.monthlyCommitmentCents)} par mois une fois réparties.
+          </Text>
         </Card>
       )}
 

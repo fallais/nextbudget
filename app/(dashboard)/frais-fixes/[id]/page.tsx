@@ -10,8 +10,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * One charge: this month against what was expected, then a year of it — which
- * is where an indexed rent or a subscription that crept up becomes visible.
+ * One charge: its current period against what was expected, then the history,
+ * which is where an indexed rent or a subscription that crept up shows.
+ *
+ * A yearly charge gets two years of it, because one year of a yearly charge is
+ * a single bar with nothing to compare it against.
  */
 export default async function FixedExpenseDetailPage({
   params,
@@ -26,7 +29,7 @@ export default async function FixedExpenseDetailPage({
   if (!status) notFound();
 
   const [history, categories] = await Promise.all([
-    getFixedExpenseHistory(expenseId),
+    getFixedExpenseHistory(expenseId, status.fixedExpense.cadence === "yearly" ? 24 : 12),
     listAllCategories(),
   ]);
 

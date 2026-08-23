@@ -107,6 +107,14 @@ rather than twenty. There is no DI container: the seam is the parameter list.
   them, an apport being a transfer by definition. Pairing runs after every
   import and is narrow on purpose: same amount, opposite sign, two accounts,
   four days.
+- **A frais fixe has a cadence** (`weekly | monthly | quarterly | yearly`), and
+  `expected_amount_cents` is **per occurrence**, not per month. Two consequences,
+  both easy to get wrong: anything asking "was it paid" asks inside
+  `currentPeriod()` from `@domain/services/cadence`, never inside the calendar
+  month, or a yearly charge reads as eleven months of arrears; anything adding
+  charges together first calls `monthlyShareCents()`, or a 150 euro premium
+  counts as 150 a month. Quarterly and yearly need `due_month` to be placed at
+  all, and the entity refuses one without it.
 - **Recurring detection** (`libs/domain/services/recurrence.ts`) groups the ledger
   by `recurrenceKey()`, a stable name built by dropping digits, bank verbiage and
   month names from the normalised label, then decides the cadence from the *gaps
