@@ -53,6 +53,37 @@ const eslintConfig = [
   },
   {
     /**
+     * The application layer orchestrates; it does not write SQL.
+     *
+     * Reaching for `getDataSource` or an entity schema here is how sixty-four
+     * raw queries accumulated while CLAUDE.md said all persistence went
+     * through a repository. Writes go through a repository port. Reads that
+     * are genuinely read models — a figure shaped for a screen, with no
+     * aggregate to rebuild — live in `@infrastructure/persistence/queries` and
+     * are re-exported, which keeps the query out of this layer without
+     * inventing an entity per dashboard tile.
+     */
+    files: ["libs/application/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@infrastructure/persistence/client",
+                "@infrastructure/persistence/schemas",
+              ],
+              message:
+                "Use a repository port, or put the query in @infrastructure/persistence/queries.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    /**
      * The domain depends on nothing. It is the one layer where that is
      * absolute: entities and services must be reachable without a database, a
      * network, or a framework being present.

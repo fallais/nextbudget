@@ -24,13 +24,21 @@ Definition of done: typecheck, lint, test and build all green, then commit to
 app/                 pages + route handlers    @application, @domain (types), @shared
 components/          React                     @domain + @application (types), @shared
 libs/domain/         entities, VOs, services   nothing. No I/O, no outward imports
-libs/application/    use cases                 @domain, @infrastructure
+libs/application/    use cases                 @domain, @infrastructure (not client/schemas)
 libs/infrastructure/ persistence, auth, parsers, categorize, ingest, estimation
 libs/shared/         format, palette, theme    nothing
 ```
-The first and third rows are **enforced by eslint**, not just described: `app/` may not
-import `@infrastructure/*` except as a type, and `libs/domain/` may not import outward at
-all. Both were broken for a long time while the file said otherwise.
+Three of these are **enforced by eslint**, not just described: `app/` may not import
+`@infrastructure/*` except as a type, `libs/application/` may not import
+`persistence/client` or `persistence/schemas`, and `libs/domain/` may not import outward
+at all. All three were broken for a long time while this file said otherwise.
+
+**Command and query are not symmetric.** Writes go through a repository port, because
+that is where the invariants are. Reads that are genuinely read models — a figure shaped
+for a screen, with no aggregate to rebuild — live in `libs/infrastructure/persistence/queries/`
+and are re-exported by a thin `@application` module. That keeps SQL out of the
+application layer without inventing an entity per dashboard tile. A thin facade there is
+the design, not an omission.
 
 Aliases `@domain/*`, `@application/*`, `@infrastructure/*`, `@shared/*`, `@/*` live in
 tsconfig `paths` and are **mirrored in `vitest.config.mts`**, which does not read them.
@@ -50,10 +58,11 @@ rather than twenty. There is no DI container: the seam is the parameter list.
 - **Money is signed integer cents**, `bigint` in Postgres, exposed as JS numbers by a
   column transformer. Format only at the UI edge (`libs/shared/format.ts`).
 - Every `app/api/**/route.ts` must `export const runtime = "nodejs"` (TypeORM and pg).
-- **All persistence goes through a repository.** Ports in `libs/domain/repositories`
-  (interfaces only), implementations and the composition root in
-  `libs/infrastructure/persistence/repositories`. Nothing in `app/` may call `repo()`,
-  `getDataSource()` or `createQueryBuilder()`.
+- **All persistence goes through a repository or a read model.** Ports in
+  `libs/domain/repositories` (interfaces only), implementations and the composition root
+  in `libs/infrastructure/persistence/repositories`; read models in
+  `libs/infrastructure/persistence/queries`. Neither `app/` nor `libs/application/` may
+  call `getDataSource()` or `createQueryBuilder()`.
 - **No migrations.** `synchronize: true` derives the schema from
   `libs/infrastructure/persistence/schemas`, so connecting is the migration. Reads use
   `reconstitute` (a stored row was valid when written), writes go through the entity's

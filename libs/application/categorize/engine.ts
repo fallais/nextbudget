@@ -1,9 +1,13 @@
 import "server-only";
 import { IsNull } from "typeorm";
-import { getDataSource } from "@infrastructure/persistence/client";
-import { merchantOverrides, transactions } from "@infrastructure/persistence/repositories";
+import {
+  categories,
+  contributions,
+  merchantOverrides,
+  rules,
+  transactions,
+} from "@infrastructure/persistence/repositories";
 import type { TransactionRepository } from "@domain/repositories";
-import { RuleEntity, TransactionEntity, CategoryEntity, ContributionEntity } from "@infrastructure/persistence/schemas";
 import { MERCHANT_CATALOG } from "@infrastructure/categorize/catalog";
 import {
   compileRule,
@@ -39,20 +43,24 @@ export { compileRule, matchCategoryId, type CompiledRule } from "@domain/service
  * your overrides on ours.
  */
 export async function loadActiveCompiledRules(): Promise<CompiledRule[]> {
-  const ds = await getDataSource();
-
-  const [ruleRows, categories, overrideRows, activeContribs] = await Promise.all([
-    ds.getRepository(RuleEntity).find({ where: { isActive: true }, order: { priority: "ASC" } }),
-    ds.getRepository(CategoryEntity).find(),
+  const [allRules, allCategories, overrideRows, allContribs] = await Promise.all([
+    rules.findAll(),
+    categories.findAll(),
     merchantOverrides.findAll(),
-    ds.getRepository(ContributionEntity).find({ where: { isActive: true } }),
+    contributions.findAll(),
   ]);
+
+  // Filtered here rather than in SQL: both sets are small, and the final
+  // ordering is `orderRules`, so what comes back in what order does not matter.
+  const ruleRows = allRules.map((r) => r.toRow()).filter((r) => r.isActive);
+  const categoryRows = allCategories.map((c) => c.toRow());
+  const activeContribs = allContribs.map((c) => c.toRow()).filter((c) => c.isActive);
 
   const userRules = ruleRows
     .map((r) => compileRule(r))
     .filter((r): r is CompiledRule => r !== null);
 
-  const idByName = new Map(categories.map((c) => [c.name, c.id]));
+  const idByName = new Map(categoryRows.map((c) => [c.name, c.id]));
   const catalogRules = compileMerchants(
     resolveMerchants(
       MERCHANT_CATALOG,
@@ -63,7 +71,7 @@ export async function loadActiveCompiledRules(): Promise<CompiledRule[]> {
 
   // Any positive transaction matching an active contribution pattern is an
   // apport; that has to outrank the merchant it was paid to.
-  const apports = categories.find((c) => c.name === "Apports");
+  const apports = categoryRows.find((c) => c.name === "Apports");
   const contribRules = apports ? compileContributionsAsRules(apports.id, activeContribs) : [];
 
   return orderRules([...contribRules, ...userRules, ...catalogRules]);
@@ -71,12 +79,11 @@ export async function loadActiveCompiledRules(): Promise<CompiledRule[]> {
 
 /** The catalogue as it stands for this install — what the Marchands screen shows. */
 export async function resolveCatalog(): Promise<ResolvedMerchant[]> {
-  const ds = await getDataSource();
-  const [categories, overrideRows] = await Promise.all([
-    ds.getRepository(CategoryEntity).find(),
+  const [allCategories, overrideRows] = await Promise.all([
+    categories.findAll(),
     merchantOverrides.findAll(),
   ]);
-  const idByName = new Map(categories.map((c) => [c.name, c.id]));
+  const idByName = new Map(allCategories.map((c) => [c.toRow().name, c.toRow().id]));
   return resolveMerchants(
     MERCHANT_CATALOG,
     (name) => idByName.get(name) ?? null,
