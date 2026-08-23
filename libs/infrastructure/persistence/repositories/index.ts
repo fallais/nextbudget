@@ -64,6 +64,7 @@ import type {
   ImportRepository,
   ImportOutcome,
 } from "@domain/repositories";
+import type { TransferLeg } from "@domain/services/transfers";
 import { getDataSource } from "@infrastructure/persistence/client";
 import { isUniqueViolation } from "@infrastructure/persistence/errors";
 import { TypeOrmRepository } from "./typeorm-repository";
@@ -193,6 +194,44 @@ class TypeOrmTransactionRepository
 
   async setCategory(transactionId: number, categoryId: number | null): Promise<void> {
     await (await this.repo()).update(transactionId, { categoryId });
+  }
+
+  async findUnlinkedLegs(from?: string | null, to?: string | null): Promise<TransferLeg[]> {
+    const qb = (await this.repo())
+      .createQueryBuilder("t")
+      .select("t.id", "id")
+      .addSelect("t.account_id", "accountId")
+      .addSelect("t.date", "date")
+      .addSelect("t.amount_cents", "amountCents")
+      .where("t.transfer_group_id IS NULL");
+    // `date` is ISO text, which orders lexicographically — the same property
+    // the month buckets elsewhere rely on.
+    if (from) qb.andWhere("t.date >= :from", { from });
+    if (to) qb.andWhere("t.date <= :to", { to });
+    const raw = await qb.getRawMany<{
+      id: number;
+      accountId: number;
+      date: string;
+      amountCents: string;
+    }>();
+    return raw.map((r) => ({
+      id: Number(r.id),
+      accountId: Number(r.accountId),
+      date: r.date,
+      amountCents: Number(r.amountCents),
+    }));
+  }
+
+  async findByTransferGroup(groupId: string): Promise<TransactionRow[]> {
+    return (await this.repo()).find({ where: { transferGroupId: groupId } as never });
+  }
+
+  async setTransferGroup(transactionIds: number[], groupId: string | null): Promise<number> {
+    if (transactionIds.length === 0) return 0;
+    const result = await (await this.repo()).update(transactionIds, {
+      transferGroupId: groupId,
+    } as never);
+    return result.affected ?? 0;
   }
 
   async countFingerprintsInRange(accountId: number, from: string, to: string) {

@@ -138,6 +138,21 @@ export const updateTransactionSchema = z.object({
   categoryId: z.number().int().positive().nullable(),
 });
 
+/**
+ * The lines being declared one transfer. One is allowed: money sent to an
+ * account this app does not hold has no counterpart row to name, and still
+ * has to stop counting as spending.
+ */
+export const transferInputSchema = z.object({
+  transactionIds: z.array(z.number().int().positive()).min(1).max(10),
+});
+
+/** Optional span to search. Omitted, detection reads the whole ledger. */
+export const transferDetectSchema = z.object({
+  from: z.string().date(),
+  to: z.string().date(),
+}).nullable();
+
 export const transactionFilterSchema = z.object({
   from: z.string().date().nullish(),
   to: z.string().date().nullish(),

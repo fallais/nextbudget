@@ -78,6 +78,7 @@ describe("Transaction", () => {
     hash: "abc123",
     sourceFile: null,
     raw: null,
+    transferGroupId: null,
   };
 
   it("needs an ISO date, not whatever the file happened to contain", () => {

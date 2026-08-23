@@ -24,6 +24,7 @@ import type { NewBudget } from "@domain/entities";
 import type { BudgetRow, CategoryRow } from "@domain/entities";
 import type { BudgetPeriod } from "@domain/enums";
 import { visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
+import { excludeTransfers } from "./transfers";
 import { getScope } from "@application/scope";
 
 // Month bucket from an ISO 'yyyy-MM-dd' text date → 'yyyy-MM' (Postgres-portable).
@@ -79,6 +80,7 @@ async function statusOf(
     .andWhere("t.date <= :end", { end })
     .andWhere("t.amount_cents < 0");
   applyAccountScope(qb, "t", accIds);
+  excludeTransfers(qb, "t");
   const row = await qb.getRawOne<{ sum: string }>();
   const spent = Math.abs(Number(row?.sum ?? 0));
 
@@ -180,6 +182,7 @@ export async function getCategoryMonthlySpend(
     .andWhere("t.date >= :from", { from: isoDate(from) })
     .andWhere("t.date <= :to", { to: isoDate(endOfMonth(now)) });
   applyAccountScope(qb, "t", await visibleAccountIds(await getScope()));
+  excludeTransfers(qb, "t");
   const rows = await qb.groupBy(MONTH).getRawMany<{ month: string; sum: string }>();
 
   const byMonth = new Map(rows.map((r) => [r.month, Math.abs(Number(r.sum))]));

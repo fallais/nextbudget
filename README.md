@@ -35,6 +35,10 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
   amount conditions) over a catalogue of ~390 French and European merchants that
   ships with the app. Your own rules always win, and any shipped merchant can be
   moved to another category or switched off without editing it.
+- **Internal transfers** (Virements): moving money to your own savings account
+  is not spending. Both legs are recognised automatically on import and left
+  out of income, expenses and budgets, while staying on the statement and in
+  the balance.
 - **Budgets**: per-category monthly/weekly budgets with progress tracking.
 - **Fixed expenses** (Frais fixes): recurring charges and their schedule.
 - **Contributions** (Apports): track who paid what into shared accounts, for

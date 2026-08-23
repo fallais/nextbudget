@@ -1,4 +1,5 @@
 import type { Transaction, TransactionRow, NewTransaction } from "@domain/entities";
+import type { TransferLeg } from "@domain/services/transfers";
 import type { Repository } from "./repository";
 
 export interface TransactionRepository
@@ -43,6 +44,25 @@ export interface TransactionRepository
 
   /** Re-file one transaction. `null` puts it back to uncategorised. */
   setCategory(transactionId: number, categoryId: number | null): Promise<void>;
+
+  /**
+   * Lines that could still turn out to be a leg of a transfer: not already
+   * part of one, and inside the span worth looking at.
+   *
+   * A projection rather than whole rows. Pairing needs four fields, and after
+   * a few years of statements the ones it will never match — every card
+   * payment ever made — outnumber the ones it will by two orders of magnitude.
+   */
+  findUnlinkedLegs(from?: string | null, to?: string | null): Promise<TransferLeg[]>;
+
+  /** The legs of one transfer, so unlinking can say what it let go of. */
+  findByTransferGroup(groupId: string): Promise<TransactionRow[]>;
+
+  /**
+   * Attach these lines to one transfer, or detach them with `null`.
+   * Resolves how many rows it changed.
+   */
+  setTransferGroup(transactionIds: number[], groupId: string | null): Promise<number>;
 
   /**
    * Detach every transaction from a category, for when that category is

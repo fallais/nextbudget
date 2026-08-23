@@ -97,7 +97,11 @@ export function ImportView({
 
       const res = await fetch("/api/ingest", { method: "POST", body });
       const data = (await res.json().catch(() => null)) as
-        | { totals?: { new: number; duplicate: number; error: number }; error?: string }
+        | {
+            totals?: { new: number; duplicate: number; error: number };
+            transfersDetected?: number;
+            error?: string;
+          }
         | null;
       if (!res.ok) {
         message.error(data?.error ?? "Échec de l'import");
@@ -106,8 +110,10 @@ export function ImportView({
       // Duplicates are normal, not a failure: re-importing an overlapping
       // statement is the usual way people catch up, and the dedup hash is what
       // makes that safe.
+      const transfers = data?.transfersDetected ?? 0;
       message.success(
-        `${data?.totals?.new ?? 0} importée(s) · ${data?.totals?.duplicate ?? 0} doublon(s) ignoré(s)`,
+        `${data?.totals?.new ?? 0} importée(s) · ${data?.totals?.duplicate ?? 0} doublon(s) ignoré(s)` +
+          (transfers > 0 ? ` · ${transfers} virement(s) interne(s) reconnu(s)` : ""),
       );
       reset();
       router.refresh();

@@ -8,6 +8,7 @@ import type { ColumnMapping, CsvPreview } from "@infrastructure/ingest/parsers/c
 import { transactionHash } from "@infrastructure/ingest/hash";
 import { fingerprintKey, planImport, type Fingerprintable } from "@infrastructure/ingest/dedup";
 import { loadActiveCompiledRules, matchCategoryId } from "@application/categorize/engine";
+import { detectTransfers } from "@application/transfers";
 
 export type UploadedFile = {
   filename: string;
@@ -28,7 +29,12 @@ export type IngestFileResult = {
 export type IngestRunResult = {
   files: IngestFileResult[];
   totals: { files: number; new: number; duplicate: number; error: number };
+  /** Pairs of legs the run recognised as moves between your own accounts. */
+  transfersDetected: number;
 };
+
+/** The span a statement covers, which is what bounds the search for pairs. */
+type DateSpan = { from: string; to: string };
 
 /** A column mapping per filename — how the confirm step overrules detection. */
 export type MappingsByFile = Record<string, Partial<ColumnMapping>>;
@@ -118,24 +124,34 @@ async function existingOccurrences(
   return new Map(raw.map((r) => [fingerprintKey(r), r.count]));
 }
 
+/**
+ * One file, plus the span of dates it turned out to cover.
+ *
+ * The span is not decoration: it is what keeps the search for transfer pairs
+ * proportional to the statement just read rather than to every statement ever
+ * imported.
+ */
 async function ingestOne(
   file: UploadedFile,
   accountId: number,
   mapping: Partial<ColumnMapping> = {},
-): Promise<IngestFileResult> {
+): Promise<{ result: IngestFileResult; span: DateSpan | null }> {
   const { filename, buffer } = file;
   const parserId = detectParser(filename);
 
   if (!parserId) {
     return {
-      filename,
-      parser: null,
-      status: "error",
-      rowsTotal: 0,
-      rowsNew: 0,
-      rowsDuplicate: 0,
-      rowsError: 0,
-      errorMessage: "Format de fichier non reconnu",
+      span: null,
+      result: {
+        filename,
+        parser: null,
+        status: "error",
+        rowsTotal: 0,
+        rowsNew: 0,
+        rowsDuplicate: 0,
+        rowsError: 0,
+        errorMessage: "Format de fichier non reconnu",
+      },
     };
   }
 
@@ -153,14 +169,17 @@ async function ingestOne(
         errorMessage: message,
       });
       return {
-        filename,
-        parser: parserId,
-        status: "error",
-        rowsTotal: 0,
-        rowsNew: 0,
-        rowsDuplicate: 0,
-        rowsError: parsed.errors.length,
-        errorMessage: message,
+        span: null,
+        result: {
+          filename,
+          parser: parserId,
+          status: "error",
+          rowsTotal: 0,
+          rowsNew: 0,
+          rowsDuplicate: 0,
+          rowsError: parsed.errors.length,
+          errorMessage: message,
+        },
       };
     }
 
@@ -193,6 +212,9 @@ async function ingestOne(
         hash,
         sourceFile: filename,
         raw: (row.raw ?? null) as Record<string, unknown> | null,
+        // Pairing needs both legs on file, and the counterpart may arrive in
+        // this very run. It happens once, after the whole upload is written.
+        transferGroupId: null,
       };
       if (await transactions.insertImported(value)) rowsNew++;
       else rowsDuplicate++;
@@ -209,14 +231,20 @@ async function ingestOne(
       errorMessage: rowsError > 0 ? `${rowsError} ligne(s) en erreur` : null,
     });
 
+    const dates = parsed.rows.map((r) => r.date);
     return {
-      filename,
-      parser: parserId,
-      status,
-      rowsTotal: parsed.rows.length + rowsError,
-      rowsNew,
-      rowsDuplicate,
-      rowsError,
+      span: dates.length
+        ? { from: dates.reduce((a, b) => (a < b ? a : b)), to: dates.reduce((a, b) => (a > b ? a : b)) }
+        : null,
+      result: {
+        filename,
+        parser: parserId,
+        status,
+        rowsTotal: parsed.rows.length + rowsError,
+        rowsNew,
+        rowsDuplicate,
+        rowsError,
+      },
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -225,14 +253,17 @@ async function ingestOne(
       errorMessage: message,
     });
     return {
-      filename,
-      parser: parserId,
-      status: "error",
-      rowsTotal: 0,
-      rowsNew: 0,
-      rowsDuplicate: 0,
-      rowsError: 0,
-      errorMessage: message,
+      span: null,
+      result: {
+        filename,
+        parser: parserId,
+        status: "error",
+        rowsTotal: 0,
+        rowsNew: 0,
+        rowsDuplicate: 0,
+        rowsError: 0,
+        errorMessage: message,
+      },
     };
   }
 }
@@ -244,16 +275,33 @@ export async function ingestUploads(
 ): Promise<IngestRunResult> {
   const accountId = await resolveAccount(targetAccountId);
   const results: IngestFileResult[] = [];
+  const spans: DateSpan[] = [];
   for (const f of files) {
-    results.push(await ingestOne(f, accountId, mappings[f.filename] ?? {}));
+    const { result, span } = await ingestOne(f, accountId, mappings[f.filename] ?? {});
+    results.push(result);
+    if (span) spans.push(span);
   }
+
+  // After every file, not after each one: the debit and the credit of a
+  // transfer often arrive in the same upload, one statement per account, and
+  // pairing halfway through would only find the legs written so far.
+  const written = results.reduce((a, r) => a + r.rowsNew, 0);
+  const span = spans.length
+    ? {
+        from: spans.map((s) => s.from).reduce((a, b) => (a < b ? a : b)),
+        to: spans.map((s) => s.to).reduce((a, b) => (a > b ? a : b)),
+      }
+    : null;
+  const transfers = written > 0 && span ? await detectTransfers(span) : { pairs: 0 };
+
   return {
     files: results,
     totals: {
       files: results.length,
-      new: results.reduce((a, r) => a + r.rowsNew, 0),
+      new: written,
       duplicate: results.reduce((a, r) => a + r.rowsDuplicate, 0),
       error: results.reduce((a, r) => a + r.rowsError, 0),
     },
+    transfersDetected: transfers.pairs,
   };
 }

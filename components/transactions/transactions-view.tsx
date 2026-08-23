@@ -15,10 +15,11 @@ import {
   Select,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
-import { DownloadOutlined, SearchOutlined } from "@ant-design/icons";
+import { DownloadOutlined, SearchOutlined, SwapOutlined } from "@ant-design/icons";
 import dayjs, { type Dayjs } from "dayjs";
 import { Money } from "@/components/money";
 import { formatCents, formatDateShort } from "@shared/format";
@@ -70,6 +71,8 @@ export function TransactionsView({
   const [pending, startTransition] = useTransition();
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [saving, setSaving] = useState<number | null>(null);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [busy, setBusy] = useState(false);
 
   /** Every filter is a URL parameter; empty values drop out so links stay short. */
   function apply(changes: Record<string, string | undefined>) {
@@ -102,6 +105,70 @@ export function TransactionsView({
     }
   }
 
+  const selectedRows = rows.filter((r) => selected.includes(r.id));
+
+  /**
+   * Declare the selection one move between your own accounts.
+   *
+   * Both legs at once when both are on file; one alone when the other account
+   * is not tracked here, which the API allows on purpose.
+   */
+  async function linkSelected() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/transfers", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ transactionIds: selected }),
+      });
+      const data = (await res.json().catch(() => null)) as { error?: string } | null;
+      if (!res.ok) {
+        message.error(data?.error ?? "Échec du marquage");
+        return;
+      }
+      message.success("Virement interne : exclu des dépenses et des revenus");
+      setSelected([]);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Put the selected legs back in the spending figures, transfer by transfer. */
+  async function unlinkSelected() {
+    const groups = [...new Set(selectedRows.map((r) => r.transferGroupId).filter(Boolean))];
+    setBusy(true);
+    try {
+      for (const groupId of groups) {
+        await fetch(`/api/transfers/${groupId}`, { method: "DELETE" });
+      }
+      message.success("Opérations remises dans les dépenses");
+      setSelected([]);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** For statements imported before the app knew what a transfer was. */
+  async function detectTransfers() {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/transfers/detect", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as { pairs?: number } | null;
+      if (!res.ok) {
+        message.error("Échec de la détection");
+        return;
+      }
+      const pairs = data?.pairs ?? 0;
+      if (pairs === 0) message.info("Aucun nouveau virement interne trouvé");
+      else message.success(`${pairs} virement(s) interne(s) reconnu(s)`);
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const from = searchParams.get("from");
   const to = searchParams.get("to");
   const range: [Dayjs, Dayjs] | undefined =
@@ -114,7 +181,25 @@ export function TransactionsView({
       width: 100,
       render: (d: string) => <Text type="secondary">{formatDateShort(d)}</Text>,
     },
-    { title: "Libellé", dataIndex: "description", ellipsis: true },
+    {
+      title: "Libellé",
+      dataIndex: "description",
+      ellipsis: true,
+      render: (_, row) => (
+        <Flex gap={8} align="center">
+          <Text ellipsis>{row.description}</Text>
+          {row.transferGroupId && (
+            // Said out loud, because this row is missing from the figures on
+            // the dashboard and there would otherwise be no way to know why.
+            <Tooltip title="Virement entre vos comptes : ni dépense ni revenu">
+              <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                Virement
+              </Tag>
+            </Tooltip>
+          )}
+        </Flex>
+      ),
+    },
     {
       title: "Compte",
       dataIndex: "account",
@@ -166,9 +251,14 @@ export function TransactionsView({
         crumbs={[{ label: "Transactions" }]}
         description={`${total.toLocaleString("fr-FR")} opération${total > 1 ? "s" : ""}`}
         actions={
-          <Button icon={<DownloadOutlined />} href={exportHref}>
-            Exporter
-          </Button>
+          <Flex gap={8}>
+            <Button icon={<SwapOutlined />} loading={busy} onClick={detectTransfers}>
+              Détecter les virements
+            </Button>
+            <Button icon={<DownloadOutlined />} href={exportHref}>
+              Exporter
+            </Button>
+          </Flex>
         }
       />
 
@@ -276,9 +366,40 @@ export function TransactionsView({
         </Flex>
       </Card>
 
+      {selected.length > 0 && (
+        <Card size="small">
+          <Flex gap={12} align="center" wrap>
+            <Text strong>
+              {selected.length} opération{selected.length > 1 ? "s" : ""} sélectionnée
+              {selected.length > 1 ? "s" : ""}
+            </Text>
+            {selectedRows.some((r) => r.transferGroupId) ? (
+              <Button icon={<SwapOutlined />} loading={busy} onClick={unlinkSelected}>
+                Ce ne sont pas des virements
+              </Button>
+            ) : (
+              <Button icon={<SwapOutlined />} loading={busy} onClick={linkSelected}>
+                Marquer comme virement interne
+              </Button>
+            )}
+            <Button type="link" onClick={() => setSelected([])}>
+              Annuler
+            </Button>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              Un virement entre vos comptes ne compte ni comme dépense ni comme revenu, mais
+              reste sur le relevé et dans le solde.
+            </Text>
+          </Flex>
+        </Card>
+      )}
+
       <Card styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
+          rowSelection={{
+            selectedRowKeys: selected,
+            onChange: (keys) => setSelected(keys as number[]),
+          }}
           size="small"
           loading={pending}
           columns={columns}

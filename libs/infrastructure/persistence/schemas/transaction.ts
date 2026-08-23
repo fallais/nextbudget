@@ -16,12 +16,15 @@ export const TransactionEntity = new EntitySchema<TransactionRow>({
     hash: { type: "text" },
     sourceFile: { name: "source_file", type: "text", nullable: true },
     raw: { type: "jsonb", nullable: true },
+    transferGroupId: { name: "transfer_group_id", type: "text", nullable: true },
     createdAt,
   },
   indices: [
     { name: "transactions_date_idx", columns: ["date"] },
     { name: "transactions_category_idx", columns: ["categoryId"] },
     { name: "transactions_account_idx", columns: ["accountId"] },
+    // Every flow figure filters on this column, and most rows are null.
+    { name: "transactions_transfer_group_idx", columns: ["transferGroupId"] },
     // Dedup is per account, not global. The hash stays a pure content
     // fingerprint — two people can genuinely pay the same merchant the same
     // amount on the same day from different accounts, and a global unique

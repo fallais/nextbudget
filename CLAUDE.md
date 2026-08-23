@@ -99,6 +99,14 @@ rather than twenty. There is no DI container: the seam is the parameter list.
   balance. `mode: "duration"` keeps the instalment, `"payment"` redraws it.
   `Asset.outstandingCents` derives the balance from the schedule and must be given the
   prepayments, or it reports a debt already paid down.
+- **Internal transfers**: a line with `transfer_group_id` is one leg of a move
+  between your own accounts. Both legs share the id; a leg whose counterpart is
+  not tracked here has one alone. Flow figures drop them (`excludeTransfers` in
+  `queries/transfers.ts`: period summary, monthly totals, category breakdown,
+  budgets, reste a vivre); balances, the ledger and **apports matching** keep
+  them, an apport being a transfer by definition. Pairing runs after every
+  import and is narrow on purpose: same amount, opposite sign, two accounts,
+  four days.
 - **Property estimation** is on demand only: BAN geocoder, then DVF's per-commune CSVs.
   Nothing is stored, and nothing leaves the machine on a page load.
 

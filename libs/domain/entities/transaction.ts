@@ -16,6 +16,16 @@ export interface TransactionRow {
   hash: string;
   sourceFile: string | null;
   raw: Record<string, unknown> | null;
+  /**
+   * The move between your own accounts this line is a leg of, or null.
+   *
+   * Both legs of a transfer carry the same id, and a leg whose counterpart
+   * lives in an account this app does not hold carries one on its own. The
+   * figures that answer "what did we earn and spend" leave these rows out:
+   * the money never left the household. The figures that answer "what is in
+   * the account" keep them, because it did leave the account.
+   */
+  transferGroupId: string | null;
   createdAt: Date;
 }
 
@@ -66,6 +76,11 @@ export class Transaction extends AggregateRoot<TransactionRow> {
 
   get isCategorized(): boolean {
     return this.row.categoryId !== null;
+  }
+
+  /** A leg of a move between your own accounts: spending nothing, earning nothing. */
+  get isTransfer(): boolean {
+    return this.row.transferGroupId !== null;
   }
 
 }

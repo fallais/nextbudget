@@ -3,6 +3,7 @@ import { startOfMonth, endOfMonth, subMonths, formatISO } from "date-fns";
 import { getDataSource } from "@infrastructure/persistence/client";
 import { TransactionEntity, CategoryEntity, FixedExpenseEntity, ContributionEntity, BudgetEntity } from "@infrastructure/persistence/schemas";
 import {visibleAccountIds, applyAccountScope, applyOwnedScope} from "./scope";
+import { excludeTransfers } from "./transfers";
 import { getScope } from "@application/scope";
 
 export type ResteAVivreMode = "contributions" | "history";
@@ -62,6 +63,8 @@ export async function computeResteAVivre(now: Date = new Date()): Promise<ResteA
         .andWhere("t.date <= :end", { end })
         .andWhere("t.amount_cents > 0");
       applyAccountScope(incomeQb, "t", accIds);
+      // Money moved in from your own savings is not income, however it is filed.
+      excludeTransfers(incomeQb, "t");
       const row = await incomeQb.getRawOne<{ sum: string }>();
       avgIncome = Math.round(Number(row?.sum ?? 0) / monthsAveraged);
     }
@@ -136,6 +139,7 @@ export async function computeActualNetCashflow(
     .where("t.date >= :start", { start })
     .andWhere("t.date <= :end", { end });
   applyAccountScope(qb, "t", accIds);
+  excludeTransfers(qb, "t");
   const row = await qb.getRawOne<{ entries: string; exits: string; count: string }>();
   const entries = Number(row?.entries ?? 0);
   const exits = Number(row?.exits ?? 0);
