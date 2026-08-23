@@ -10,6 +10,7 @@ npm run build      # production build (no database needed)
 npm run typecheck  # tsc --noEmit
 npm run lint       # eslint
 npm run test       # vitest, no database
+npm run test:coverage # same, plus lcov in coverage/ for Codecov
 npm run db:migrate # sync schema from entities, seed defaults (idempotent)
 npm run auth:reset # break-glass: back to open mode, or `-- <password>` to set one
 ```

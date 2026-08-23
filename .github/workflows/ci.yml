@@ -42,6 +42,14 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage/lcov.info
+          # A failed upload is a broken pipeline, not a warning to scroll past:
+          # silent gaps are how a coverage trend quietly stops meaning anything.
+          fail_ci_if_error: true
       - run: npm run db:migrate # validates synchronize + seed against Postgres
       - run: npm run build

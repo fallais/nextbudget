@@ -1,0 +1,47 @@
+# Codecov configuration.
+#
+# Measured over `libs/` only — see the `coverage` block in `vitest.config.mts`
+# for why `app/` and `components/` are out of scope rather than sitting at zero.
+
+coverage:
+  status:
+    project:
+      default:
+        # No fixed bar. The suite covers the domain well and the persistence
+        # layer not at all, so any single target would be either meaningless or
+        # permanently red. "Do not make it worse" is the rule worth enforcing.
+        target: auto
+        threshold: 1%
+    patch:
+      default:
+        # New code is a different matter: it is being written now, by someone
+        # who has the context to test it.
+        target: 70%
+        threshold: 0%
+
+# Per-layer figures, so the number tracks the architecture rather than
+# averaging a well-tested domain against an untested adapter.
+component_management:
+  individual_components:
+    - component_id: domain
+      name: domain
+      paths: [libs/domain/**]
+    - component_id: application
+      name: application
+      paths: [libs/application/**]
+    - component_id: infrastructure
+      name: infrastructure
+      paths: [libs/infrastructure/**]
+    - component_id: shared
+      name: shared
+      paths: [libs/shared/**]
+
+comment:
+  layout: "condensed_header, diff, components"
+  require_changes: true
+
+ignore:
+  - app/**
+  - components/**
+  - scripts/**
+  - "**/*.test.ts"

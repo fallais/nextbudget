@@ -11,6 +11,7 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
 [![CI](https://github.com/fallais/nextbudget/actions/workflows/ci.yml/badge.svg)](https://github.com/fallais/nextbudget/actions/workflows/ci.yml)
 [![docker](https://github.com/fallais/nextbudget/actions/workflows/docker.yml/badge.svg)](https://github.com/fallais/nextbudget/actions/workflows/docker.yml)
 [![CodeQL](https://github.com/fallais/nextbudget/actions/workflows/codeql.yml/badge.svg)](https://github.com/fallais/nextbudget/actions/workflows/codeql.yml)
+[![codecov](https://codecov.io/gh/fallais/nextbudget/branch/main/graph/badge.svg)](https://codecov.io/gh/fallais/nextbudget)
 
 [![License: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-1D6EF2.svg)](LICENSE)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-0E2348?logo=nextdotjs&logoColor=white)](https://nextjs.org)

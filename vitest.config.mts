@@ -28,5 +28,36 @@ export default {
   test: {
     include: ["libs/**/*.test.ts"],
     environment: "node",
+    coverage: {
+      provider: "v8",
+      // `text` for the terminal, `lcov` for Codecov, `json-summary` so the
+      // number can be read back without parsing a report.
+      reporter: ["text", "lcov", "json-summary"],
+      reportsDirectory: "coverage",
+      /**
+       * Measured over `libs/` only, and honestly within it.
+       *
+       * `app/` and `components/` are excluded because nothing here can run
+       * them: the suite has no jsdom and no Next runtime, so including them
+       * would report zero for half the repository and say nothing about
+       * whether the tests are any good. They are covered by the build,
+       * typecheck and the manual checks, not by this number.
+       *
+       * What is *not* excluded is the persistence layer, even though it needs
+       * a database this suite does not have. It is genuinely untested, and a
+       * coverage number that hides its own gaps is worth less than a low one.
+       */
+      include: ["libs/**/*.ts"],
+      exclude: [
+        "libs/**/*.test.ts",
+        "libs/shared/testing/**",
+        // Type-only modules: no statements to cover, and counting them as
+        // fully covered would flatter the total.
+        "libs/domain/repositories/**",
+        "libs/domain/enums/**",
+        "libs/domain/entities/index.ts",
+        "libs/infrastructure/persistence/schemas/**",
+      ],
+    },
   },
 } satisfies { test: TestUserConfig; resolve: { alias: Record<string, string> } };
