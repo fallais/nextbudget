@@ -1,22 +1,25 @@
 import "server-only";
-import { getDataSource } from "@infrastructure/persistence/client";
-import { SettingEntity, UserEntity } from "@infrastructure/persistence/schemas";
 import type { UserRow } from "@domain/entities";
 import { getSessionUser } from "@infrastructure/auth/session";
 import { createSession } from "@infrastructure/auth/session";
 import { verifyPassword } from "@infrastructure/auth/password";
-import { users } from "@infrastructure/persistence/repositories";
-import type { UserRepository } from "@domain/repositories";
+import { settings, users } from "@infrastructure/persistence/repositories";
+import type { SettingsRepository, UserRepository } from "@domain/repositories";
+
+export type AuthDeps = {
+  settings: Pick<SettingsRepository, "get" | "enableEnforcedAuth">;
+  users: Pick<UserRepository, "findOwner">;
+};
+
+const LIVE_AUTH: AuthDeps = { settings, users };
 
 export { createSession, destroySession, getSessionUser } from "@infrastructure/auth/session";
 export { hashPassword, verifyPassword } from "@infrastructure/auth/password";
 
 export type AuthMode = "open" | "enforced";
 
-export async function getAuthMode(): Promise<AuthMode> {
-  const ds = await getDataSource();
-  const row = await ds.getRepository(SettingEntity).findOne({ where: { key: "authMode" } });
-  return row?.value === "enforced" ? "enforced" : "open";
+export async function getAuthMode(deps: AuthDeps = LIVE_AUTH): Promise<AuthMode> {
+  return (await deps.settings.get("authMode")) === "enforced" ? "enforced" : "open";
 }
 
 /** Strip the password hash before returning a user over the wire. */
@@ -32,9 +35,9 @@ export function publicUser(u: UserRow) {
   };
 }
 
-export async function getOwner(): Promise<UserRow | null> {
-  const ds = await getDataSource();
-  return ds.getRepository(UserEntity).findOne({ where: { role: "owner" } });
+export async function getOwner(deps: AuthDeps = LIVE_AUTH): Promise<UserRow | null> {
+  const owner = await deps.users.findOwner();
+  return owner?.toRow() ?? null;
 }
 
 /**
@@ -42,9 +45,9 @@ export async function getOwner(): Promise<UserRow | null> {
  * - `open` mode: the single owner (no login required).
  * - `enforced` mode: the user behind a valid session cookie, or null.
  */
-export async function getCurrentUser(): Promise<UserRow | null> {
-  const mode = await getAuthMode();
-  if (mode === "open") return getOwner();
+export async function getCurrentUser(deps: AuthDeps = LIVE_AUTH): Promise<UserRow | null> {
+  const mode = await getAuthMode(deps);
+  if (mode === "open") return getOwner(deps);
   return getSessionUser();
 }
 
@@ -60,16 +63,9 @@ export async function enableEnforcedAuth(
   ownerId: number,
   passwordHash: string,
   email?: string,
+  deps: AuthDeps = LIVE_AUTH,
 ): Promise<void> {
-  const ds = await getDataSource();
-  await ds.transaction(async (manager) => {
-    await manager.getRepository(UserEntity).update(ownerId, {
-      passwordHash,
-      ...(email ? { email } : {}),
-    });
-    // settings.key is the PK → save upserts.
-    await manager.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
-  });
+  await deps.settings.enableEnforcedAuth(ownerId, passwordHash, email);
 }
 
 export type LoginDeps = {

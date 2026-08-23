@@ -1,6 +1,6 @@
 import "server-only";
-import { getDataSource } from "@infrastructure/persistence/client";
-import { SettingEntity } from "@infrastructure/persistence/schemas";
+import { settings } from "@infrastructure/persistence/repositories";
+import type { SettingsRepository } from "@domain/repositories";
 
 /**
  * App configuration lives in the `settings` table and is edited from the UI,
@@ -13,14 +13,17 @@ import { SettingEntity } from "@infrastructure/persistence/schemas";
 /** `solo` hides couple-specific UI; `couple` surfaces it. */
 export type HouseholdMode = "solo" | "couple";
 
-export async function getHouseholdMode(): Promise<HouseholdMode> {
-  const ds = await getDataSource();
-  const row = await ds.getRepository(SettingEntity).findOne({ where: { key: "household" } });
-  return row?.value === "couple" ? "couple" : "solo";
+export type SettingsDeps = { settings: SettingsRepository };
+
+const LIVE: SettingsDeps = { settings };
+
+export async function getHouseholdMode(deps: SettingsDeps = LIVE): Promise<HouseholdMode> {
+  return (await deps.settings.get("household")) === "couple" ? "couple" : "solo";
 }
 
-export async function setHouseholdMode(mode: HouseholdMode): Promise<void> {
-  const ds = await getDataSource();
-  // settings.key is the PK → save upserts.
-  await ds.getRepository(SettingEntity).save({ key: "household", value: mode });
+export async function setHouseholdMode(
+  mode: HouseholdMode,
+  deps: SettingsDeps = LIVE,
+): Promise<void> {
+  await deps.settings.set("household", mode);
 }

@@ -15,3 +15,4 @@ export type {
   FixedExpenseRepository,
   RuleRepository,
 } from "./category-dependents";
+export type { SettingsRepository } from "./settings-repository";

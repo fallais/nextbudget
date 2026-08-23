@@ -5,6 +5,14 @@ export interface UserRepository extends Repository<User, UserRow, NewUser> {
   /** Login accepts either an email or a name; inactive accounts never match. */
   findActiveByIdentifier(identifier: string): Promise<User | null>;
 
+  /**
+   * The household's owner.
+   *
+   * In `open` mode this is the acting user, with no login involved, which is
+   * what makes the whole app usable without accounts.
+   */
+  findOwner(): Promise<User | null>;
+
   /** Guards the "last owner" rule — the household must keep someone who can administer it. */
   countActiveOwners(): Promise<number>;
 

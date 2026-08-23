@@ -28,6 +28,11 @@ export class TypeOrmUserRepository
     return row ? User.reconstitute(row) : null;
   }
 
+  async findOwner(): Promise<User | null> {
+    const row = await (await this.repo()).findOne({ where: { role: "owner" } as never });
+    return row ? User.reconstitute(row) : null;
+  }
+
   async countActiveOwners(): Promise<number> {
     return (await this.repo()).count({ where: { role: "owner", isActive: true } as never });
   }

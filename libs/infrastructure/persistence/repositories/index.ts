@@ -1,4 +1,5 @@
 import "server-only";
+import { IsNull } from "typeorm";
 import {
   Account,
   Asset,
@@ -44,6 +45,7 @@ import {
   MerchantOverrideEntity,
   PersonEntity,
   RuleEntity,
+  SettingEntity,
   TransactionEntity,
   UserEntity,
 } from "@infrastructure/persistence/schemas";
@@ -55,8 +57,10 @@ import type {
   FixedExpenseRepository,
   MerchantOverrideRepository,
   RuleRepository,
+  SettingsRepository,
   TransactionRepository,
 } from "@domain/repositories";
+import { getDataSource } from "@infrastructure/persistence/client";
 import { TypeOrmRepository } from "./typeorm-repository";
 import { TypeOrmAssetRepository } from "./asset-repository";
 import { TypeOrmUserRepository } from "./user-repository";
@@ -177,6 +181,15 @@ class TypeOrmTransactionRepository
   extends TypeOrmRepository<Transaction, TransactionRow, NewTransaction>
   implements TransactionRepository
 {
+  async findForCategorization(onlyUncategorized: boolean): Promise<TransactionRow[]> {
+    const repo = await this.repo();
+    return onlyUncategorized ? repo.find({ where: { categoryId: IsNull() } }) : repo.find();
+  }
+
+  async setCategory(transactionId: number, categoryId: number | null): Promise<void> {
+    await (await this.repo()).update(transactionId, { categoryId });
+  }
+
   async countByAccount(accountId: number): Promise<number> {
     return (await this.repo()).countBy({ accountId } as never);
   }
@@ -207,3 +220,32 @@ export const transactions: TransactionRepository = new TypeOrmTransactionReposit
 export const users: UserRepository = new TypeOrmUserRepository(UserEntity, User, {
   id: "ASC",
 });
+
+class TypeOrmSettingsRepository implements SettingsRepository {
+  async get(key: string): Promise<string | null> {
+    const ds = await getDataSource();
+    const row = await ds.getRepository(SettingEntity).findOne({ where: { key } });
+    // The column is jsonb, so anything could be in there; narrowing to what the
+    // port promises is this adapter's job, not its callers'.
+    return typeof row?.value === "string" ? row.value : null;
+  }
+
+  // settings.key is the PK → save upserts.
+  async set(key: string, value: string): Promise<void> {
+    const ds = await getDataSource();
+    await ds.getRepository(SettingEntity).save({ key, value });
+  }
+
+  async enableEnforcedAuth(ownerId: number, passwordHash: string, email?: string): Promise<void> {
+    const ds = await getDataSource();
+    await ds.transaction(async (manager) => {
+      await manager.getRepository(UserEntity).update(ownerId, {
+        passwordHash,
+        ...(email ? { email } : {}),
+      });
+      await manager.getRepository(SettingEntity).save({ key: "authMode", value: "enforced" });
+    });
+  }
+}
+
+export const settings: SettingsRepository = new TypeOrmSettingsRepository();

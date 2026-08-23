@@ -1,7 +1,8 @@
 import "server-only";
 import { IsNull } from "typeorm";
 import { getDataSource } from "@infrastructure/persistence/client";
-import { merchantOverrides } from "@infrastructure/persistence/repositories";
+import { merchantOverrides, transactions } from "@infrastructure/persistence/repositories";
+import type { TransactionRepository } from "@domain/repositories";
 import { RuleEntity, TransactionEntity, CategoryEntity, ContributionEntity } from "@infrastructure/persistence/schemas";
 import { MERCHANT_CATALOG } from "@infrastructure/categorize/catalog";
 import {
@@ -89,15 +90,18 @@ export type RecategorizeResult = {
   cleared: number;
 };
 
-export async function recategorizeAll(options?: {
-  onlyUncategorized?: boolean;
-}): Promise<RecategorizeResult> {
-  const ds = await getDataSource();
+export type RecategorizeDeps = {
+  transactions: Pick<TransactionRepository, "findForCategorization" | "setCategory">;
+};
+
+const LIVE_RECATEGORIZE: RecategorizeDeps = { transactions };
+
+export async function recategorizeAll(
+  options?: { onlyUncategorized?: boolean },
+  deps: RecategorizeDeps = LIVE_RECATEGORIZE,
+): Promise<RecategorizeResult> {
   const compiled = await loadActiveCompiledRules();
-  const txRepo = ds.getRepository(TransactionEntity);
-  const rows = options?.onlyUncategorized
-    ? await txRepo.find({ where: { categoryId: IsNull() } })
-    : await txRepo.find();
+  const rows = await deps.transactions.findForCategorization(!!options?.onlyUncategorized);
 
   let updated = 0;
   let cleared = 0;
@@ -106,7 +110,7 @@ export async function recategorizeAll(options?: {
     if (next !== tx.categoryId) {
       if (next === null) cleared++;
       else updated++;
-      await txRepo.update(tx.id, { categoryId: next });
+      await deps.transactions.setCategory(tx.id, next);
     }
   }
   return { scanned: rows.length, updated, cleared };
