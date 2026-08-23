@@ -38,7 +38,8 @@ export function TrendsView({
   const line = PALETTES.bleu.series[mode][0];
 
   const rows = [...trends].sort((a, b) => b.monthlyCents - a.monthlyCents);
-  const changeCents = summary.recentCents - summary.previousCents;
+  const comparison = summary.comparison;
+  const changeCents = comparison ? comparison.recentCents - comparison.previousCents : 0;
 
   const columns: ColumnsType<FixedExpenseTrend> = [
     {
@@ -85,7 +86,7 @@ export function TrendsView({
       responsive: ["lg"],
       render: (_, t) => (
         <Text type="secondary" style={{ fontVariantNumeric: "tabular-nums" }}>
-          {formatCents(t.yearOnYear?.recentCents ?? t.monthlyCents * 12)}
+          {formatCents(t.lastYearCents)}
         </Text>
       ),
     },
@@ -158,30 +159,34 @@ export function TrendsView({
             <Text strong style={{ fontSize: 30, fontVariantNumeric: "tabular-nums" }}>
               {formatCents(summary.recentCents)}
             </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              contre {formatCents(summary.previousCents)} les 12 mois précédents
-            </Text>
+            {comparison && (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                dont {formatCents(comparison.recentCents)} comparables, contre{" "}
+                {formatCents(comparison.previousCents)} les 12 mois précédents
+              </Text>
+            )}
           </Flex>
 
-          {summary.changePct !== null && (
+          {comparison && (
             <Flex vertical gap={1}>
               <Text type="secondary" style={{ fontSize: 12 }}>
-                Variation
+                Variation sur un an
               </Text>
               <Text
                 strong
                 style={{
                   fontSize: 30,
                   fontVariantNumeric: "tabular-nums",
-                  color: summary.changePct > 0 ? STATUS.critical : STATUS.good,
+                  color: comparison.changePct > 0 ? STATUS.critical : STATUS.good,
                 }}
               >
-                {summary.changePct > 0 ? "+" : ""}
-                {summary.changePct.toFixed(1)} %
+                {comparison.changePct > 0 ? "+" : ""}
+                {comparison.changePct.toFixed(1)} %
               </Text>
               <Text type="secondary" style={{ fontSize: 12 }}>
                 {changeCents > 0 ? "+" : ""}
-                {formatCents(changeCents)} sur l'année
+                {formatCents(changeCents)} sur {comparison.charges} charge
+                {comparison.charges > 1 ? "s" : ""}
               </Text>
             </Flex>
           )}
@@ -203,10 +208,10 @@ export function TrendsView({
           )}
         </Flex>
 
-        {summary.changePct === null && (
+        {!comparison && (
           <Text type="secondary" style={{ fontSize: 12 }}>
-            La comparaison annuelle demande deux ans de relevés. Elle apparaîtra dès que vos
-            charges auront deux exercices complets derrière elles.
+            La comparaison annuelle demande deux ans de relevés pour une même charge. Elle
+            apparaîtra dès que vos charges auront deux exercices complets derrière elles.
           </Text>
         )}
       </Card>

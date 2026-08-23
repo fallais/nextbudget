@@ -114,12 +114,28 @@ rather than twenty. There is no DI container: the seam is the parameter list.
   coffees in a fortnight are not). Nothing is written without confirmation: a
   suggestion fills the create form through the URL. A refusal is a
   `recurring_dismissals` row, keyed on the same key.
+- **A suggestion is not a decision.** A detected charge only becomes a frais fixe
+  through the create form, prefilled via the URL. Two filters keep the list
+  readable: the amount must be statable (`hasPredictableAmount`, spread under
+  50%), and the merchant must not be one of `EVERYDAY_KINDS` in the catalogue,
+  because a full tank costs the same every month and no amount rule separates it
+  from a subscription.
+- **Cash-flow projection** (`libs/domain/services/projection.ts`) walks day by
+  day from the summed *anchored* balances to the end of the month (the next one
+  when under 10 days remain). What is identifiable on a statement is scheduled
+  on its date (active frais fixes, detected recurring income); everything else
+  is a daily figure, the median of the last three complete months of spending
+  **that no declared charge matches**. That exclusion is the whole rule: schedule
+  a charge and it must leave the average, or the rent is counted twice. The low
+  point matters more than the last day.
 - **Comparing a charge with itself** is always a rolling year against the year
   before (`yearOnYear`), never this month against the same month last year: a
   quarterly bill landing in one and not the other would read as a 100% rise.
   `amountDrift` is the other half, comparing the charges themselves so a
   subscription that stepped up in April is caught; both skip outliers by using
-  medians, so one catch-up bill is not reported as a permanent rise.
+  medians, so one catch-up bill is not reported as a permanent rise. Both
+  windows must carry the charge about as often, or twelve months of rent against
+  the three that exist reports a 300% rise.
 - **Property estimation** is on demand only: BAN geocoder, then DVF's per-commune CSVs.
   Nothing is stored, and nothing leaves the machine on a page load.
 

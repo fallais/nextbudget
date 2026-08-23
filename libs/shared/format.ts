@@ -24,6 +24,19 @@ export function formatCentsCompact(cents: number): string {
   return currencyFormatter.format(v);
 }
 
+/**
+ * "veolia eau" → "Veolia Eau".
+ *
+ * Recurrence keys are built by machine and read by people: lowercase, they
+ * look like references sitting next to charges someone named by hand.
+ */
+export function titleCase(text: string): string {
+  return text
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export function formatNumber(n: number): string {
   return numberFormatter.format(n);
 }

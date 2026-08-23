@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Col, Flex, Row, Typography } from "antd";
 import { PeriodSelector } from "@/components/layout/period-selector";
 import { ResteAVivreCard } from "./reste-a-vivre-card";
+import { ProjectionCard } from "./projection-card";
 import { StatTiles } from "./stat-tiles";
 import { CategoryDonut } from "./category-donut";
 import { BalanceChart } from "./balance-chart";
@@ -18,6 +19,7 @@ import type { CategoryBudgetStatus } from "@application/budgets";
 import type { FixedExpenseStatus, FixedExpensesSummary } from "@application/fixed-expenses";
 import type { ActualNetCashflow, ResteAVivre } from "@application/reste-a-vivre";
 import type { PersonWithStatus } from "@application/contributions";
+import type { CashflowProjection } from "@application/projection";
 
 const { Text } = Typography;
 
@@ -26,6 +28,7 @@ const { Text } = Typography;
  * answer:
  *
  *   1. Can I spend?        → reste à vivre, with its arithmetic visible
+ *   1b. Does it hold?      → the balance projected to the end of the month
  *   2. Am I on track?      → four compact figures for the period
  *   3. What is eating it?  → category split and the balance trend
  *   4. What is coming?     → budgets near their limit, charges still due
@@ -48,6 +51,7 @@ export function DashboardView({
   fxStatuses,
   fxSummary,
   resteAVivre,
+  projection,
   perPerson,
   soldeNet,
   periodLabel,
@@ -60,6 +64,7 @@ export function DashboardView({
   fxStatuses: FixedExpenseStatus[];
   fxSummary: FixedExpensesSummary;
   resteAVivre: ResteAVivre;
+  projection: CashflowProjection;
   perPerson: PersonWithStatus[];
   soldeNet: ActualNetCashflow;
   periodLabel: string;
@@ -81,6 +86,9 @@ export function DashboardView({
 
       {/* 1 — the headline */}
       <ResteAVivreCard data={resteAVivre} />
+
+      {/* 1b — and does it hold to the end of the month */}
+      <ProjectionCard projection={projection} />
 
       {/* 2 — the period at a glance */}
       <StatTiles summary={summary} soldeNet={soldeNet} periodLabel={periodLabel} />

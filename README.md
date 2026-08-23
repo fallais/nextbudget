@@ -28,6 +28,10 @@ Self-hosted, privacy-respecting, French/EU-first. Your data stays on infrastruct
 
 - **Dashboard** (Tableau de bord): monthly income/expense overview and charts.
 - **Transactions**: searchable, filterable ledger, manual edits, CSV export.
+- **Cash-flow projection**: the balance walked forward to the end of the month,
+  from your fixed charges at their due dates, the income that recurs, and the
+  median of your everyday spending. Shows the low point, which is rarely the
+  last day.
 - **Import** (Importer): drag-and-drop `.csv` / `.tsv` / `.txt` bank statements,
   parsed in-memory. Duplicate transactions are detected by a content hash, so
   re-importing overlapping files is safe.

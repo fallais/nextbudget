@@ -274,6 +274,36 @@ export async function listFixedExpenses(): Promise<FixedExpenseRow[]> {
   return qb.getMany();
 }
 
+/**
+ * The active charges as matchers, for the two places that need to recognise a
+ * declared charge on the statement.
+ *
+ * A projection schedules them by name and must keep them out of its everyday
+ * average, and the suggestions list must not offer one that is already
+ * tracked. Both are the same question, and answering it twice in two files is
+ * how they come to disagree.
+ */
+export async function compiledFixedExpenseRules() {
+  const ds = await getDataSource();
+  const qb = ds
+    .getRepository(FixedExpenseEntity)
+    .createQueryBuilder("f")
+    .where("f.is_active = true");
+  applyOwnedScope(qb, "f", await getScope());
+  return (await qb.getMany())
+    .map((f) =>
+      compileRule({
+        id: f.id,
+        categoryId: 0,
+        pattern: f.matchPattern,
+        matchType: f.matchType,
+        amountCondition: "negative",
+        priority: 0,
+      }),
+    )
+    .filter((rule) => rule !== null);
+}
+
 export type FixedExpenseTrend = {
   fixedExpense: FixedExpenseRow;
   category: CategoryRow | null;
@@ -283,7 +313,9 @@ export type FixedExpenseTrend = {
   yearOnYear: YearOnYear | null;
   /** What one charge costs now against what it cost, occurrence to occurrence. */
   drift: AmountDrift | null;
-  /** The last twelve months over twelve, whatever the cadence. */
+  /** What it took over the last twelve months. Known even when the year before is not. */
+  lastYearCents: number;
+  /** The same figure over twelve, whatever the cadence. */
   monthlyCents: number;
   /** How many times it was actually taken over the window. */
   occurrences: number;
@@ -367,25 +399,34 @@ export async function getFixedExpenseTrends(
       count: byMonth.get(month)?.count ?? 0,
     }));
 
-    const lastYear = series.slice(-12).reduce((a, m) => a + m.paidCents, 0);
+    const lastYearCents = series.slice(-12).reduce((a, m) => a + m.paidCents, 0);
     return {
       fixedExpense: fx,
       category: fx.categoryId != null ? (catMap.get(fx.categoryId) ?? null) : null,
       series,
       yearOnYear: yearOnYear(series.map((m) => ({ month: m.month, cents: m.paidCents }))),
       drift: amountDrift(matched.map((t) => ({ date: t.date, amountCents: t.amountCents }))),
-      monthlyCents: Math.round(lastYear / 12),
+      lastYearCents,
+      monthlyCents: Math.round(lastYearCents / 12),
       occurrences: matched.length,
     };
   });
 }
 
 export type FixedExpensesTrendSummary = {
-  /** Everything these charges took over the last twelve months. */
+  /** Everything these charges took over the last twelve months. Always known. */
   recentCents: number;
-  /** And over the twelve before them. */
-  previousCents: number;
-  changePct: number | null;
+  /**
+   * The year-on-year figure, over the charges that have two full years behind
+   * them. Null when none has, which is most of the first two years.
+   */
+  comparison: {
+    recentCents: number;
+    previousCents: number;
+    changePct: number;
+    /** How many charges the comparison covers, of the ones listed. */
+    charges: number;
+  } | null;
   /** The charge that rose most in euros, which is rarely the one that rose most in percent. */
   steepest: { name: string; changeCents: number; changePct: number } | null;
 };
@@ -393,15 +434,17 @@ export type FixedExpensesTrendSummary = {
 /**
  * The household total, and the one line responsible for most of it.
  *
- * Only charges with two full years behind them are counted, on both sides: a
- * subscription taken out in March would otherwise arrive as a rise in the
- * total when it is a new charge, and the figure would say your bills went up
- * when what happened is that you bought something.
+ * The total is over everything: what these charges took in a year is knowable
+ * from a year of statements. The comparison is not, and is kept separate for
+ * that reason: it counts only charges with a full year on each side, or a
+ * subscription taken out in March would arrive as a rise in the household
+ * total when it is a new charge, and the figure would say the bills went up
+ * when what happened is that something was bought.
  */
 export function summarizeTrends(trends: FixedExpenseTrend[]): FixedExpensesTrendSummary {
   const comparable = trends.filter((t) => t.yearOnYear !== null);
-  const recentCents = comparable.reduce((a, t) => a + t.yearOnYear!.recentCents, 0);
   const previousCents = comparable.reduce((a, t) => a + t.yearOnYear!.previousCents, 0);
+  const comparableRecent = comparable.reduce((a, t) => a + t.yearOnYear!.recentCents, 0);
 
   let steepest: FixedExpensesTrendSummary["steepest"] = null;
   for (const t of comparable) {
@@ -416,10 +459,16 @@ export function summarizeTrends(trends: FixedExpenseTrend[]): FixedExpensesTrend
   }
 
   return {
-    recentCents,
-    previousCents,
-    changePct:
-      previousCents === 0 ? null : ((recentCents - previousCents) / previousCents) * 100,
+    recentCents: trends.reduce((a, t) => a + t.lastYearCents, 0),
+    comparison:
+      previousCents === 0
+        ? null
+        : {
+            recentCents: comparableRecent,
+            previousCents,
+            changePct: ((comparableRecent - previousCents) / previousCents) * 100,
+            charges: comparable.length,
+          },
     steepest,
   };
 }

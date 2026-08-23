@@ -3,15 +3,17 @@ import { startOfMonth, subMonths, formatISO } from "date-fns";
 import { getDataSource } from "@infrastructure/persistence/client";
 import {
   CategoryEntity,
-  FixedExpenseEntity,
   RecurringDismissalEntity,
   TransactionEntity,
 } from "@infrastructure/persistence/schemas";
 import type { CategoryRow } from "@domain/entities";
-import { compileRule } from "@domain/services/categorization";
+import { MERCHANT_CATALOG } from "@infrastructure/categorize/catalog";
+import { compileMerchants } from "@domain/services/merchant-catalog";
 import {
   amountDrift,
   detectRecurrence,
+  EVERYDAY_KINDS,
+  hasPredictableAmount,
   monthlyCostCents,
   recurrenceKey,
   suggestPattern,
@@ -19,8 +21,9 @@ import {
   type AmountDrift,
   type Recurrence,
 } from "@domain/services/recurrence";
-import { visibleAccountIds, applyAccountScope, applyOwnedScope } from "./scope";
+import { visibleAccountIds, applyAccountScope } from "./scope";
 import { excludeTransfers } from "./transfers";
+import { compiledFixedExpenseRules } from "./fixed-expenses";
 import { getScope } from "@application/scope";
 
 /**
@@ -162,23 +165,16 @@ export async function listRecurringCharges(
   const rows = await ledger(months, now, "out");
   if (rows.length === 0) return [];
 
-  const fxQb = ds
-    .getRepository(FixedExpenseEntity)
-    .createQueryBuilder("f")
-    .where("f.is_active = true");
-  applyOwnedScope(fxQb, "f", await getScope());
-  const declared = (await fxQb.getMany())
-    .map((f) =>
-      compileRule({
-        id: 0,
-        categoryId: 0,
-        pattern: f.matchPattern,
-        matchType: f.matchType,
-        amountCondition: "negative",
-        priority: 0,
-      }),
-    )
-    .filter((r) => r !== null);
+  const declared = await compiledFixedExpenseRules();
+  // Compiled the same way the categorisation engine compiles them, so "is this
+  // a supermarket" is answered once, in one place.
+  const everyday = compileMerchants(
+    MERCHANT_CATALOG.filter((entry) => EVERYDAY_KINDS.has(entry.kind)).map((entry) => ({
+      entry,
+      categoryId: 0,
+      disabled: false,
+    })),
+  );
 
   const dismissed = new Set(
     (await ds.getRepository(RecurringDismissalEntity).find()).map((d) => d.key),
@@ -191,6 +187,13 @@ export async function listRecurringCharges(
     if (dismissed.has(key)) continue;
     const recurrence = detectRecurrence(group);
     if (!recurrence) continue;
+    // A supermarket visited every Saturday repeats as faithfully as a
+    // subscription. What separates them is that one has an expected amount
+    // and the other does not, which is exactly what a frais fixe needs.
+    if (!hasPredictableAmount(group, recurrence.medianAmountCents)) continue;
+    if (group.some((row) => everyday.some((rule) => rule.test(row.normalized, row.amountCents)))) {
+      continue;
+    }
     if (group.some((row) => declared.some((rule) => rule.test(row.normalized, row.amountCents)))) {
       continue;
     }

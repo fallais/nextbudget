@@ -14,6 +14,7 @@ import {
   computeActualNetCashflow,
   computeResteAVivre,
 } from "@application/reste-a-vivre";
+import { getCashflowProjection } from "@application/projection";
 import { getContributionsByPersonWithStatus } from "@application/contributions";
 import { PERIOD_LABELS, isPeriodKey, type PeriodKey } from "@domain/value-objects/period";
 
@@ -45,6 +46,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     resteAVivre,
     perPerson,
     soldeNet,
+    projection,
   ] = await Promise.all([
     getPeriodSummary(period),
     getBalanceEvolution(12),
@@ -55,6 +57,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
     computeResteAVivre(),
     getContributionsByPersonWithStatus(),
     computeActualNetCashflow(),
+    getCashflowProjection(),
   ]);
 
   return (
@@ -67,6 +70,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Se
       fxStatuses={fxStatuses}
       fxSummary={summarizeFixedExpenses(fxStatuses)}
       resteAVivre={resteAVivre}
+      projection={projection}
       perPerson={perPerson}
       soldeNet={soldeNet}
       periodLabel={PERIOD_LABELS[period].toLowerCase()}

@@ -1,4 +1,5 @@
 import { addDays, addMonths, differenceInCalendarDays, formatISO, parseISO } from "date-fns";
+import type { MerchantKind } from "@domain/enums";
 
 /**
  * How a repeating charge behaves: whether it repeats at all, when the next one
@@ -41,15 +42,28 @@ const CADENCES: readonly CadenceSpec[] = [
 /** Share of the gaps that must sit inside the window for the cadence to hold. */
 const CONSISTENCY = 0.6;
 
+/**
+ * How many charges back "what this costs" looks.
+ *
+ * Not all of them. A subscription that went from 13,49 to 15,99 in April has
+ * been at the new price for months, and a median over two years would answer
+ * 13,49: a charge created at that figure would report every payment since as
+ * unusual. Six is long enough that one odd bill does not move the answer, and
+ * short enough that last year's price cannot win a vote against this year's.
+ */
+const RECENT = 6;
+
 export type Recurrence = {
   cadence: Cadence;
   occurrences: number;
   /**
-   * The typical amount, as an absolute value.
+   * What it costs now, as an absolute value.
    *
-   * The middle observed amount rather than the mean: one catch-up bill twice
-   * the usual size would drag an average with it and describe a charge that
-   * has never once been taken.
+   * The middle of the last few charges. The middle rather than the mean,
+   * because one catch-up bill twice the usual size would drag an average with
+   * it and describe a charge that has never once been taken; the last few
+   * rather than all of them, because a price that changed in April is the
+   * price now.
    */
   medianAmountCents: number;
   /** Day of the month it lands on. Null when the cadence is weekly. */
@@ -94,6 +108,15 @@ export function recurrenceKey(normalizedDescription: string): string | null {
   return tokens.slice(0, KEY_TOKENS).join(" ").toLowerCase();
 }
 
+/** The last few charges, oldest first. Input must already be sorted by date. */
+function recentOf(sorted: readonly Occurrence[]): readonly Occurrence[] {
+  return sorted.slice(-RECENT);
+}
+
+function byDate(occurrences: readonly Occurrence[]): Occurrence[] {
+  return [...occurrences].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+}
+
 /** The middle value: always one that actually happened, unlike a mean. */
 function median(values: readonly number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -125,7 +148,7 @@ function specOf(cadence: Cadence): CadenceSpec {
  */
 export function detectRecurrence(occurrences: readonly Occurrence[]): Recurrence | null {
   if (occurrences.length < 2) return null;
-  const sorted = [...occurrences].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sorted = byDate(occurrences);
 
   const gaps: number[] = [];
   for (let i = 1; i < sorted.length; i++) {
@@ -146,7 +169,7 @@ export function detectRecurrence(occurrences: readonly Occurrence[]): Recurrence
   return {
     cadence: spec.cadence,
     occurrences: sorted.length,
-    medianAmountCents: median(sorted.map((o) => Math.abs(o.amountCents))),
+    medianAmountCents: median(recentOf(sorted).map((o) => Math.abs(o.amountCents))),
     dueDay: spec.cadence === "weekly" ? null : median(sorted.map((o) => Number(o.date.slice(8, 10)))),
     firstDate: sorted[0].date,
     lastDate: last.date,
@@ -202,28 +225,91 @@ export function monthlyCostCents(recurrence: Pick<Recurrence, "cadence" | "media
 }
 
 /**
+ * How far this charge actually wanders, as a percentage of what it costs.
+ *
+ * The second-widest deviation over the recent charges, not the widest: one
+ * catch-up bill or one estimated meter reading should not describe the charge
+ * for good. Over the recent ones for the same reason the typical amount is,
+ * or a price that stepped up would be read as wild variation for a year.
+ */
+export function amountSpreadPct(
+  occurrences: readonly Occurrence[],
+  medianAmountCents: number,
+): number {
+  if (occurrences.length < 2 || medianAmountCents === 0) return 0;
+  const deviations = recentOf(byDate(occurrences))
+    .map((o) => Math.abs(Math.abs(o.amountCents) - medianAmountCents))
+    .sort((a, b) => b - a);
+  const widest = deviations[Math.min(1, deviations.length - 1)];
+  return (widest / medianAmountCents) * 100;
+}
+
+/**
+ * Kinds of merchant a repeating charge is never made of.
+ *
+ * Amount and cadence cannot separate a monthly full tank from a subscription:
+ * a tank costs about the same every time and is bought on a rhythm. What
+ * separates them is what the merchant *is*, and the catalogue already knows,
+ * in the vocabulary `@domain/enums/merchant-kind` is written in.
+ *
+ * Stated as what a charge is never made of rather than what it is made of, so
+ * that an unknown merchant stays suggestible. Your landlord and your mutuelle
+ * are not in any catalogue, and they are exactly the charges worth finding.
+ */
+export const EVERYDAY_KINDS: ReadonlySet<MerchantKind> = new Set<MerchantKind>([
+  "grocery",
+  "bakery",
+  "restaurant",
+  "fast_food",
+  "food_delivery",
+  "coffee",
+  "fuel",
+  "toll_parking",
+  "ride_hailing",
+  "cash",
+]);
+
+/**
+ * Past this, an amount cannot honestly be called expected.
+ *
+ * Bills sit well under it, even the ones that move: an energy bill swinging
+ * between summer and winter lands around a quarter, a quarterly water bill
+ * around a fifth. The weekly shop is nowhere near, which is the point: a
+ * merchant you visit on a rhythm is not a fixed charge, and offering to make
+ * one of it is how a suggestions list stops being read.
+ */
+export const PREDICTABLE_SPREAD_PCT = 50;
+
+/**
+ * Whether "expected amount" means anything for this charge.
+ *
+ * A frais fixe is a figure plus a tolerance, and it flags anything outside it.
+ * A charge that is 17 euros one month and 85 the next has no such figure, so
+ * declaring one would produce a line permanently reported as unusual.
+ */
+export function hasPredictableAmount(
+  occurrences: readonly Occurrence[],
+  medianAmountCents: number,
+): boolean {
+  return amountSpreadPct(occurrences, medianAmountCents) <= PREDICTABLE_SPREAD_PCT;
+}
+
+/**
  * How far the amount is allowed to wander before the charge is called unusual.
  *
- * A frais fixe flags anything outside its tolerance, so one figure cannot
- * serve both a subscription billed to the centime and an energy bill that
- * doubles in January. Ten percent on EDF means a red badge most of the year,
- * and a badge that is always on is one nobody reads.
+ * One figure cannot serve both a subscription billed to the centime and an
+ * energy bill that doubles in January. Ten percent on EDF means a red badge
+ * most of the year, and a badge that is always on is one nobody reads.
  *
- * Taken from what the charge has actually done: the second-widest deviation
- * from the typical amount, so a single catch-up bill does not set the
- * tolerance for everything after it. Rounded up to five, and never outside
- * 5-50: below that any bill looks unusual, above it nothing ever does.
+ * Rounded up to five, and never outside 5-50: below that any bill looks
+ * unusual, above it nothing ever does.
  */
 export function suggestedTolerancePct(
   occurrences: readonly Occurrence[],
   medianAmountCents: number,
 ): number {
   if (occurrences.length < 2 || medianAmountCents === 0) return 10;
-  const deviations = occurrences
-    .map((o) => Math.abs(Math.abs(o.amountCents) - medianAmountCents))
-    .sort((a, b) => b - a);
-  const widest = deviations[Math.min(1, deviations.length - 1)];
-  const pct = (widest / medianAmountCents) * 100;
+  const pct = amountSpreadPct(occurrences, medianAmountCents);
   return Math.min(50, Math.max(5, Math.ceil(pct / 5) * 5));
 }
 
@@ -267,7 +353,7 @@ export function amountDrift(
   minPct: number = DRIFT_MIN_PCT,
 ): AmountDrift | null {
   if (occurrences.length < 4) return null;
-  const sorted = [...occurrences].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const sorted = byDate(occurrences);
 
   const window = Math.min(3, Math.floor(sorted.length / 2));
   const recent = sorted.slice(-window);
@@ -297,16 +383,30 @@ export type YearOnYear = {
  * one and not the other, and a monthly charge taken twice in March would say
  * the rent doubled. A rolling year contains exactly one of everything.
  *
- * Takes the series newest-last, one bucket per month, zeros included. Null when
- * there is not a full two years to compare, or when the earlier year is empty:
- * a charge that started this year has not risen, it has begun.
+ * Takes the series newest-last, one bucket per month, zeros included.
+ *
+ * Null unless both years are really there, and that is the part worth stating.
+ * Someone who started importing fifteen months ago has twelve months of rent
+ * against three, and dividing one by the other reports a rent that rose 300 %.
+ * It did not: the earlier year is mostly a period before the statements begin.
+ * So the two windows must hold the charge about as often as each other, and
+ * when they do not the answer is that there is nothing to compare yet.
  */
 export function yearOnYear(series: readonly { month: string; cents: number }[]): YearOnYear | null {
   if (series.length < 24) return null;
+  const recent = series.slice(-12);
+  const previous = series.slice(-24, -12);
+
   const sum = (rows: readonly { cents: number }[]) => rows.reduce((a, r) => a + Math.abs(r.cents), 0);
-  const recentCents = sum(series.slice(-12));
-  const previousCents = sum(series.slice(-24, -12));
+  const active = (rows: readonly { cents: number }[]) => rows.filter((r) => r.cents !== 0).length;
+
+  const previousCents = sum(previous);
   if (previousCents === 0) return null;
+  // Fewer months carrying the charge on the earlier side means the history
+  // runs out part way through it, not that the charge was cheaper.
+  if (active(previous) < active(recent)) return null;
+
+  const recentCents = sum(recent);
   return {
     recentCents,
     previousCents,

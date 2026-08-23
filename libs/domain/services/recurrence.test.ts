@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   amountDrift,
   detectRecurrence,
+  hasPredictableAmount,
   monthlyCostCents,
   suggestedTolerancePct,
   suggestPattern,
@@ -270,5 +271,84 @@ describe("how much a charge is allowed to wander", () => {
       amountCents,
     }));
     expect(suggestedTolerancePct(occ, 3_000)).toBe(5);
+  });
+});
+
+describe("what a repeating charge costs now", () => {
+  it("answers with the current price, not the one it had two years ago", () => {
+    // Nine months at 13,49 and six at 15,99. A median over all of them says
+    // 13,49, and a charge created at that figure reports every payment since
+    // April as unusual.
+    const netflix = [
+      ...monthly("2025-06", 9, -1_349, 3),
+      ...monthly("2026-03", 6, -1_599, 3),
+    ];
+    expect(detectRecurrence(netflix)?.medianAmountCents).toBe(1_599);
+  });
+
+  it("still ignores a single outlier", () => {
+    const withCatchUp = monthly("2026-01", 6, -3_000).map((o, i) =>
+      i === 3 ? { ...o, amountCents: -12_000 } : o,
+    );
+    expect(detectRecurrence(withCatchUp)?.medianAmountCents).toBe(3_000);
+  });
+});
+
+describe("whether an amount can be called expected", () => {
+  it("accepts a bill that moves with the seasons", () => {
+    // Real EDF over a year: about a quarter either side of the middle.
+    const edf = [-9_600, -14_200, -11_400, -10_800, -13_100, -9_900].map((amountCents, i) => ({
+      date: `2026-0${i + 1}-12`,
+      amountCents,
+    }));
+    expect(hasPredictableAmount(edf, 11_400)).toBe(true);
+  });
+
+  it("refuses the weekly shop", () => {
+    // Seventeen euros one week and eighty-five the next is a habit, not a
+    // charge, and no expected amount describes it.
+    const courses = [-1_677, -8_477, -3_120, -5_454, -2_054, -8_431].map((amountCents, i) => ({
+      date: `2026-0${i + 1}-07`,
+      amountCents,
+    }));
+    expect(hasPredictableAmount(courses, 5_454)).toBe(false);
+  });
+
+  it("judges on the recent charges, so a price rise is not read as chaos", () => {
+    const stepped = [
+      ...monthly("2025-06", 9, -1_349, 3),
+      ...monthly("2026-03", 6, -1_599, 3),
+    ];
+    expect(hasPredictableAmount(stepped, 1_599)).toBe(true);
+  });
+});
+
+describe("comparing a year with an incomplete one", () => {
+  const full = (cents: number) =>
+    Array.from({ length: 12 }, (_, i) => ({ month: `m${i}`, cents }));
+
+  it("refuses to compare twelve months of rent against three", () => {
+    // Someone who started importing fifteen months ago. Dividing one window by
+    // the other says the rent rose 300 %; what actually happened is that the
+    // statements begin in month ten.
+    const partial = [...Array.from({ length: 9 }, (_, i) => ({ month: `p${i}`, cents: 0 })),
+      ...Array.from({ length: 3 }, (_, i) => ({ month: `q${i}`, cents: -90_000 }))];
+    expect(yearOnYear([...partial, ...full(-90_000)])).toBeNull();
+  });
+
+  it("still reports a charge that ended, which really is a fall", () => {
+    const stopped = [
+      ...Array.from({ length: 6 }, (_, i) => ({ month: `r${i}`, cents: -3_000 })),
+      ...Array.from({ length: 6 }, (_, i) => ({ month: `s${i}`, cents: 0 })),
+    ];
+    const result = yearOnYear([...full(-3_000), ...stopped]);
+    expect(result?.changePct).toBeCloseTo(-50, 5);
+  });
+
+  it("compares a quarterly bill that landed four times on each side", () => {
+    const quarterly = (cents: number) =>
+      Array.from({ length: 12 }, (_, i) => ({ month: `m${i}`, cents: i % 3 === 0 ? cents : 0 }));
+    const result = yearOnYear([...quarterly(-4_200), ...quarterly(-5_100)]);
+    expect(result).toMatchObject({ previousCents: 16_800, recentCents: 20_400 });
   });
 });

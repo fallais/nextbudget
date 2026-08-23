@@ -16,6 +16,7 @@ function trend(
         }
       : null,
     drift: null,
+    lastYearCents: yoy?.recentCents ?? 0,
     monthlyCents: 0,
     occurrences: 0,
   };
@@ -28,33 +29,36 @@ describe("what the fixed charges did over the year", () => {
       trend("EDF", { previousCents: 120_000, recentCents: 158_000 }),
     ]);
     expect(summary.recentCents).toBe(1_085_000);
-    expect(summary.previousCents).toBe(1_020_000);
-    expect(summary.changePct).toBeCloseTo(6.37, 1);
+    expect(summary.comparison?.previousCents).toBe(1_020_000);
+    expect(summary.comparison?.changePct).toBeCloseTo(6.37, 1);
     // The rent rose more in percent terms than nothing, but EDF cost more.
     expect(summary.steepest?.name).toBe("EDF");
     expect(summary.steepest?.changeCents).toBe(38_000);
   });
 
-  it("leaves out a charge with no year to compare, in both totals", () => {
-    // A subscription taken out in March is a new charge, not a rise. Counting
-    // it would report bills going up when what happened is a purchase.
+  it("keeps a charge with no year to compare out of the comparison, not the total", () => {
+    // A subscription taken out in March is a new charge, not a rise: counting
+    // it in the comparison would report bills going up when what happened is a
+    // purchase. What it cost this year is still perfectly knowable.
+    const newOne = trend("Nouveau streaming", null);
+    newOne.lastYearCents = 12_000;
     const summary = summarizeTrends([
       trend("Loyer", { previousCents: 900_000, recentCents: 900_000 }),
-      trend("Nouveau streaming", null),
+      newOne,
     ]);
-    expect(summary.recentCents).toBe(900_000);
-    expect(summary.changePct).toBe(0);
+    expect(summary.recentCents).toBe(912_000);
+    expect(summary.comparison).toMatchObject({ recentCents: 900_000, changePct: 0, charges: 1 });
   });
 
   it("says nothing rather than dividing by an empty year", () => {
     const summary = summarizeTrends([]);
-    expect(summary.changePct).toBeNull();
+    expect(summary.comparison).toBeNull();
     expect(summary.steepest).toBeNull();
   });
 
   it("names no steepest rise when everything fell", () => {
     const summary = summarizeTrends([trend("EDF", { previousCents: 150_000, recentCents: 120_000 })]);
-    expect(summary.changePct).toBeCloseTo(-20, 5);
+    expect(summary.comparison?.changePct).toBeCloseTo(-20, 5);
     expect(summary.steepest).toBeNull();
   });
 });

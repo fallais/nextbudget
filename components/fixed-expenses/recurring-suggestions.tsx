@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { App, Button, Card, Flex, Table, Tag, Tooltip, Typography } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { PlusOutlined, RiseOutlined } from "@ant-design/icons";
-import { formatCents, formatDateShort, formatMonthLabel } from "@shared/format";
+import { formatCents, formatDateShort, formatMonthLabel, titleCase } from "@shared/format";
 import { STATUS } from "@shared/palette";
 import type { RecurringCandidate } from "@application/recurring";
 
@@ -18,14 +18,6 @@ const CADENCE_LABEL: Record<RecurringCandidate["recurrence"]["cadence"], string>
   quarterly: "Trimestriel",
   yearly: "Annuel",
 };
-
-/** "veolia eau" reads as a reference; "Veolia Eau" reads as a bill. */
-function titleCase(key: string): string {
-  return key
-    .split(" ")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
 
 /**
  * Charges that repeat but were never written down.
