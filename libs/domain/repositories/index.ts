@@ -16,3 +16,4 @@ export type {
   RuleRepository,
 } from "./category-dependents";
 export type { SettingsRepository } from "./settings-repository";
+export type { ImportRepository, ImportOutcome } from "./import-repository";

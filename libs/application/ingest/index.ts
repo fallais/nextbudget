@@ -1,6 +1,6 @@
 import "server-only";
-import { getDataSource } from "@infrastructure/persistence/client";
-import { ImportEntity, TransactionEntity, AccountEntity } from "@infrastructure/persistence/schemas";
+import { accounts, imports, transactions } from "@infrastructure/persistence/repositories";
+import type { ImportRepository, TransactionRepository } from "@domain/repositories";
 import type { NewTransaction } from "@domain/entities";
 import { isUniqueViolation } from "@infrastructure/persistence/errors";
 import { detectParser, previewParser, runParser, type ParserId } from "@infrastructure/ingest/parsers/registry";
@@ -82,21 +82,18 @@ export async function previewUploads(
  * would pile into whichever account happens to be first.
  */
 async function getOrCreateDefaultAccount(): Promise<number> {
-  const ds = await getDataSource();
-  const accRepo = ds.getRepository(AccountEntity);
-  const existing = await accRepo.find({ order: { id: "ASC" }, take: 1 });
-  if (existing.length > 0) return existing[0].id;
-  const created = await accRepo.save(accRepo.create({ name: "Compte courant" }));
-  return created.id;
+  const existing = await accounts.findAll();
+  if (existing.length > 0) return existing[0].toRow().id;
+  const created = await accounts.create({ name: "Compte courant" } as never);
+  return created.toRow().id;
 }
 
 /** Resolve the requested account, falling back to the default. */
 async function resolveAccount(requestedId?: number | null): Promise<number> {
   if (requestedId == null) return getOrCreateDefaultAccount();
-  const ds = await getDataSource();
-  const found = await ds.getRepository(AccountEntity).findOne({ where: { id: requestedId } });
+  const found = await accounts.findById(requestedId);
   if (!found) throw new Error(`Compte introuvable (id ${requestedId})`);
-  return found.id;
+  return found.toRow().id;
 }
 
 /**
@@ -117,36 +114,8 @@ async function existingOccurrences(
   const from = dates.reduce((a, b) => (a < b ? a : b));
   const to = dates.reduce((a, b) => (a > b ? a : b));
 
-  const ds = await getDataSource();
-  const raw = await ds
-    .getRepository(TransactionEntity)
-    .createQueryBuilder("t")
-    .select("t.date", "date")
-    .addSelect("t.amountCents", "amountCents")
-    .addSelect("t.normalizedDescription", "normalizedDescription")
-    .addSelect("COUNT(*)", "count")
-    .where("t.accountId = :accountId", { accountId })
-    .andWhere("t.date BETWEEN :from AND :to", { from, to })
-    .groupBy("t.date")
-    .addGroupBy("t.amountCents")
-    .addGroupBy("t.normalizedDescription")
-    .getRawMany<{
-      date: string;
-      amountCents: string;
-      normalizedDescription: string;
-      count: string;
-    }>();
-
-  return new Map(
-    raw.map((r) => [
-      fingerprintKey({
-        date: r.date,
-        amountCents: Number(r.amountCents),
-        normalizedDescription: r.normalizedDescription,
-      }),
-      Number(r.count),
-    ]),
-  );
+  const raw = await transactions.countFingerprintsInRange(accountId, from, to);
+  return new Map(raw.map((r) => [fingerprintKey(r), r.count]));
 }
 
 async function ingestOne(
@@ -170,26 +139,18 @@ async function ingestOne(
     };
   }
 
-  const ds = await getDataSource();
-  const impRepo = ds.getRepository(ImportEntity);
-  const txRepo = ds.getRepository(TransactionEntity);
-
-  const importRow = await impRepo.save(
-    impRepo.create({ filename, parser: parserId, status: "success" }),
-  );
-  const importId = importRow.id;
+  const importId = await imports.start(filename, parserId);
 
   try {
     const parsed = await runParser(parserId, buffer, mapping);
 
     if (parsed.rows.length === 0 && parsed.errors.length > 0) {
       const message = parsed.errors[0].message;
-      await impRepo.update(importId, {
+      await imports.finish(importId, {
         status: "error",
         rowsTotal: 0,
         rowsError: parsed.errors.length,
         errorMessage: message,
-        finishedAt: new Date(),
       });
       return {
         filename,
@@ -233,29 +194,18 @@ async function ingestOne(
         sourceFile: filename,
         raw: (row.raw ?? null) as Record<string, unknown> | null,
       };
-      try {
-        await txRepo.save(txRepo.create(value));
-        rowsNew++;
-      } catch (err: unknown) {
-        // The plan already accounted for what is on file; this is the net for
-        // a second import running against the same account at the same time.
-        if (isUniqueViolation(err)) {
-          rowsDuplicate++;
-        } else {
-          throw err;
-        }
-      }
+      if (await transactions.insertImported(value)) rowsNew++;
+      else rowsDuplicate++;
     }
 
     const status: "success" | "partial" = rowsError > 0 ? "partial" : "success";
 
-    await impRepo.update(importId, {
+    await imports.finish(importId, {
       status,
       rowsTotal: parsed.rows.length + rowsError,
       rowsNew,
       rowsDuplicate,
       rowsError,
-      finishedAt: new Date(),
       errorMessage: rowsError > 0 ? `${rowsError} ligne(s) en erreur` : null,
     });
 
@@ -270,10 +220,9 @@ async function ingestOne(
     };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await impRepo.update(importId, {
+    await imports.finish(importId, {
       status: "error",
       errorMessage: message,
-      finishedAt: new Date(),
     });
     return {
       filename,

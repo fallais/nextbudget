@@ -18,6 +18,29 @@ export interface TransactionRepository
    */
   findForCategorization(onlyUncategorized: boolean): Promise<TransactionRow[]>;
 
+  /**
+   * How many times each fingerprint already exists in an account, over the
+   * span a statement covers.
+   *
+   * One grouped query rather than a lookup per row: a statement is a month or
+   * a year, so its date range is what bounds the work. Keyed by the same
+   * fingerprint the ingest builds, so the caller can subtract directly.
+   */
+  countFingerprintsInRange(
+    accountId: number,
+    from: string,
+    to: string,
+  ): Promise<{ date: string; amountCents: number; normalizedDescription: string; count: number }[]>;
+
+  /**
+   * Write one imported row, reporting a duplicate rather than throwing.
+   *
+   * `false` means the unique index rejected it, which during an import is an
+   * expected outcome and not an error: a second run over the same statement
+   * should count duplicates, not fail.
+   */
+  insertImported(row: NewTransaction): Promise<boolean>;
+
   /** Re-file one transaction. `null` puts it back to uncategorised. */
   setCategory(transactionId: number, categoryId: number | null): Promise<void>;
 

@@ -34,6 +34,7 @@ import {
   type RuleRow,
   type TransactionRow,
   type UserRow,
+  type ImportRow,
 } from "@domain/entities";
 import {
   AccountEntity,
@@ -45,6 +46,7 @@ import {
   MerchantOverrideEntity,
   PersonEntity,
   RuleEntity,
+  ImportEntity,
   SettingEntity,
   TransactionEntity,
   UserEntity,
@@ -59,8 +61,11 @@ import type {
   RuleRepository,
   SettingsRepository,
   TransactionRepository,
+  ImportRepository,
+  ImportOutcome,
 } from "@domain/repositories";
 import { getDataSource } from "@infrastructure/persistence/client";
+import { isUniqueViolation } from "@infrastructure/persistence/errors";
 import { TypeOrmRepository } from "./typeorm-repository";
 import { TypeOrmAssetRepository } from "./asset-repository";
 import { TypeOrmUserRepository } from "./user-repository";
@@ -190,6 +195,47 @@ class TypeOrmTransactionRepository
     await (await this.repo()).update(transactionId, { categoryId });
   }
 
+  async countFingerprintsInRange(accountId: number, from: string, to: string) {
+    // `date` is ISO text, which orders lexicographically — the same property
+    // the month buckets elsewhere rely on.
+    const raw = await (await this.repo())
+      .createQueryBuilder("t")
+      .select("t.date", "date")
+      .addSelect("t.amountCents", "amountCents")
+      .addSelect("t.normalizedDescription", "normalizedDescription")
+      .addSelect("COUNT(*)", "count")
+      .where("t.accountId = :accountId", { accountId })
+      .andWhere("t.date BETWEEN :from AND :to", { from, to })
+      .groupBy("t.date")
+      .addGroupBy("t.amountCents")
+      .addGroupBy("t.normalizedDescription")
+      .getRawMany<{
+        date: string;
+        amountCents: string;
+        normalizedDescription: string;
+        count: string;
+      }>();
+    return raw.map((r) => ({
+      date: r.date,
+      amountCents: Number(r.amountCents),
+      normalizedDescription: r.normalizedDescription,
+      count: Number(r.count),
+    }));
+  }
+
+  async insertImported(row: NewTransaction): Promise<boolean> {
+    const repo = await this.repo();
+    try {
+      await repo.save(repo.create(row as TransactionRow));
+      return true;
+    } catch (err: unknown) {
+      // The plan already accounted for what is on file; this is the net for a
+      // second import running against the same account at the same time.
+      if (isUniqueViolation(err)) return false;
+      throw err;
+    }
+  }
+
   async countByAccount(accountId: number): Promise<number> {
     return (await this.repo()).countBy({ accountId } as never);
   }
@@ -249,3 +295,27 @@ class TypeOrmSettingsRepository implements SettingsRepository {
 }
 
 export const settings: SettingsRepository = new TypeOrmSettingsRepository();
+
+class TypeOrmImportRepository implements ImportRepository {
+  async start(filename: string, parser: string): Promise<number> {
+    const ds = await getDataSource();
+    const repo = ds.getRepository(ImportEntity);
+    const row = await repo.save(repo.create({ filename, parser, status: "success" }));
+    return row.id;
+  }
+
+  async finish(importId: number, outcome: ImportOutcome): Promise<void> {
+    const ds = await getDataSource();
+    await ds.getRepository(ImportEntity).update(importId, {
+      ...outcome,
+      finishedAt: new Date(),
+    });
+  }
+
+  async listRecent(limit: number): Promise<ImportRow[]> {
+    const ds = await getDataSource();
+    return ds.getRepository(ImportEntity).find({ order: { startedAt: "DESC" }, take: limit });
+  }
+}
+
+export const imports: ImportRepository = new TypeOrmImportRepository();
