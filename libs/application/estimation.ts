@@ -3,6 +3,7 @@ import { assets } from "@infrastructure/persistence/repositories";
 import { geocode } from "@infrastructure/estimation/geocode";
 import { fetchComparables } from "@infrastructure/estimation/dvf";
 import { estimate, fitLandWeight, type Estimate } from "@domain/services/estimation";
+import type { EstimationRow } from "@domain/entities";
 
 /**
  * Estimating a property from the public record of what sold nearby.
@@ -15,6 +16,12 @@ import { estimate, fitLandWeight, type Estimate } from "@domain/services/estimat
  * the machine on this path — the geocoder sees the address, the open-data host
  * sees which commune was asked for — and a local-first app should only do that
  * on a click, never on a page load.
+ *
+ * Which is the reason the answer is kept. Recomputing to see a figure you have
+ * already been given would mean sending the address again for nothing, so an
+ * estimate that succeeds is recorded, and the page reads the last one instead.
+ * The open data itself is still never stored: the CSVs are read, the median is
+ * taken, and they are dropped.
  */
 
 /**
@@ -28,7 +35,7 @@ import { estimate, fitLandWeight, type Estimate } from "@domain/services/estimat
 const RADII_M = [500, 1500, 5000];
 
 export type EstimationOutcome =
-  | { status: "ok"; estimate: Estimate; address: string }
+  | { status: "ok"; estimate: Estimate; address: string; saved: EstimationRow }
   | { status: "not_found" }
   /** Which of the three inputs an estimate needs are still missing. */
   | { status: "incomplete"; missing: ("address" | "surfaceM2" | "propertyKind")[] }
@@ -72,7 +79,38 @@ export async function estimateAsset(
   };
   for (const radius of RADII_M) {
     const result = estimate(subject, market.comparables, radius, land);
-    if (result) return { status: "ok", estimate: result, address: located.label };
+    if (!result) continue;
+    const saved = await assets.addEstimation({
+      assetId,
+      valueCents: result.valueCents,
+      pricePerM2Cents: result.pricePerM2Cents,
+      lowCents: result.lowCents,
+      highCents: result.highCents,
+      marketCents: result.marketCents,
+      landAdjustmentCents: result.landAdjustmentCents,
+      conditionAdjustmentCents: result.conditionAdjustmentCents,
+      comparableLandM2: result.comparableLandM2,
+      creditedLandM2: result.creditedLandM2,
+      sampleSize: result.sampleSize,
+      radiusM: result.radiusM,
+      oldestDate: result.oldestDate,
+      newestDate: result.newestDate,
+      address: located.label,
+      surfaceM2: subject.surfaceM2,
+      landM2: subject.landM2,
+      condition: subject.condition,
+    });
+    return { status: "ok", estimate: result, address: located.label, saved: saved.toRow() };
   }
   return { status: "too_few_sales" };
+}
+
+/** Every estimate recorded for a property, newest first. */
+export async function listEstimations(assetId: number): Promise<EstimationRow[]> {
+  return assets.listEstimations(assetId);
+}
+
+/** Resolves `false` when that property has no estimate with that id. */
+export async function deleteEstimation(assetId: number, estimationId: number): Promise<boolean> {
+  return assets.deleteEstimation(assetId, estimationId);
 }

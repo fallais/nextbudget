@@ -1,6 +1,7 @@
 import type { Asset, AssetRow, NewAsset } from "@domain/entities";
 import type { OwnerShareRow } from "@domain/value-objects/share";
 import type { Prepayment, PrepaymentRow, NewPrepayment } from "@domain/entities";
+import type { Estimation, EstimationRow, NewEstimation } from "@domain/entities";
 import type { Repository } from "./repository";
 
 /**
@@ -47,6 +48,12 @@ export interface AssetRepository extends Repository<Asset, AssetRow, NewAsset> {
   addPrepayment(input: NewPrepayment): Promise<Prepayment>;
   /** Resolves `false` when no prepayment has that id on that loan. */
   deletePrepayment(assetId: number, prepaymentId: number): Promise<boolean>;
+
+  /** Recorded estimates for a property, newest first. */
+  listEstimations(assetId: number): Promise<EstimationRow[]>;
+  addEstimation(input: NewEstimation): Promise<Estimation>;
+  /** Resolves `false` when no estimate has that id on that property. */
+  deleteEstimation(assetId: number, estimationId: number): Promise<boolean>;
 
   /** Append valuation snapshots (the net-worth-over-time series). */
   recordValuations(

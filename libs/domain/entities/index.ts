@@ -26,6 +26,8 @@ export type { BudgetRow, NewBudget } from "./budget";
 
 export { Prepayment } from "./prepayment";
 export type { PrepaymentRow, NewPrepayment } from "./prepayment";
+export { Estimation } from "./estimation";
+export type { EstimationRow, NewEstimation } from "./estimation";
 
 export { Category } from "./category";
 export type { CategoryRow, NewCategory } from "./category";

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { effectiveOwners, listAssetOwners, listAssets } from "@application/assets";
+import { listEstimations } from "@application/estimation";
 import { listAllAccounts } from "@application/queries";
 import { getPersonForUser, listMembers } from "@application/household";
 import { getCurrentUser } from "@application/auth";
@@ -25,6 +26,8 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   if (!asset) notFound();
 
   const mePerson = me ? await getPersonForUser(me.id) : null;
+  // Read, never computed: rendering this page must not reach for the geocoder.
+  const estimations = await listEstimations(assetId);
   const explicit = await listAssetOwners([assetId]);
   const personByUserId = new Map(members.filter((m) => m.user).map((m) => [m.user!.id, m.person]));
 
@@ -56,6 +59,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
           .filter((a) => a.id === asset.linkedAssetId)
           .map((a) => ({ id: a.id, name: a.name, valueCents: a.valueCents }))[0] ?? null
       }
+      estimations={estimations}
       mePersonId={mePerson?.id ?? null}
     />
   );

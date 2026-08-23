@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { AssetForm, type FormPerson } from "./asset-form";
 import { AmortizationDetail } from "./amortization-detail";
 import { EstimationCard } from "./estimation-card";
-import type { AssetRow } from "@domain/entities";
+import type { EstimationRow, AssetRow } from "@domain/entities";
 import type { AssetOwnerInput } from "@domain/repositories";
 import type { OwnerShareRow } from "@domain/value-objects/share";
 
@@ -42,6 +42,7 @@ export function AssetDetail({
   linkedCredit,
   financedAsset,
   mePersonId,
+  estimations,
 }: {
   asset: AssetRow;
   shares: OwnerShareRow[];
@@ -54,6 +55,7 @@ export function AssetDetail({
   /** The asset this item finances, when it is itself a loan. */
   financedAsset: Pick<AssetRow, "id" | "name" | "valueCents"> | null;
   mePersonId: number | null;
+  estimations: EstimationRow[];
 }) {
   const router = useRouter();
   const { message } = App.useApp();
@@ -159,7 +161,7 @@ export function AssetDetail({
       </Card>
 
       {asset.kind === "asset" && asset.type === "real_estate" && (
-        <EstimationCard asset={asset} />
+        <EstimationCard asset={asset} estimations={estimations} />
       )}
 
       {/* A property with a mortgage against it: what is left once the debt is

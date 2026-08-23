@@ -14,6 +14,10 @@ const MISSING_LABELS = {
 /**
  * POST, not GET: this reaches out to the geocoder and the open-data host, so
  * it happens when someone asks for it and never because a page rendered.
+ *
+ * It posts to the collection because that is what it does — an estimate that
+ * succeeds is recorded, and the detail page renders the newest one without
+ * asking anybody anything.
  */
 export async function POST(_request: Request, context: { params: Promise<{ id: string }> }) {
   const assetId = parseId((await context.params).id);

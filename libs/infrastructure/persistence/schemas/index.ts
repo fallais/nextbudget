@@ -20,6 +20,7 @@ import { ImportEntity } from "./import";
 import { MerchantOverrideEntity } from "./merchant-override";
 import { PersonEntity } from "./person";
 import { PrepaymentEntity } from "./prepayment";
+import { EstimationEntity } from "./estimation";
 import { RuleEntity } from "./rule";
 import { SessionEntity } from "./session";
 import { SettingEntity } from "./setting";
@@ -38,6 +39,7 @@ export { ImportEntity } from "./import";
 export { MerchantOverrideEntity } from "./merchant-override";
 export { PersonEntity } from "./person";
 export { PrepaymentEntity } from "./prepayment";
+export { EstimationEntity } from "./estimation";
 export { RuleEntity } from "./rule";
 export { SessionEntity } from "./session";
 export { SettingEntity } from "./setting";
@@ -61,5 +63,6 @@ export const ALL_ENTITIES = [
   AssetOwnerEntity,
   AssetValuationEntity,
   PrepaymentEntity,
+  EstimationEntity,
   ImportEntity,
 ];

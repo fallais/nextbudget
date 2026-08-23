@@ -2,9 +2,12 @@ import "server-only";
 import { In, type EntityManager } from "typeorm";
 import {
   Asset,
+  Estimation,
   Prepayment,
   type AssetRow,
+  type EstimationRow,
   type NewAsset,
+  type NewEstimation,
   type NewPrepayment,
   type PrepaymentRow,
 } from "@domain/entities";
@@ -15,6 +18,7 @@ import {
   AssetEntity,
   AssetOwnerEntity,
   AssetValuationEntity,
+  EstimationEntity,
   PrepaymentEntity,
   FixedExpenseEntity,
   PersonEntity,
@@ -83,6 +87,7 @@ export class TypeOrmAssetRepository
 
       await manager.getRepository(AssetValuationEntity).delete({ assetId: id });
       await manager.getRepository(PrepaymentEntity).delete({ assetId: id });
+      await manager.getRepository(EstimationEntity).delete({ assetId: id });
       await manager.getRepository(AssetOwnerEntity).delete({ assetId: id });
       await manager
         .getRepository(FixedExpenseEntity)
@@ -119,6 +124,28 @@ export class TypeOrmAssetRepository
     const res = await ds
       .getRepository(PrepaymentEntity)
       .delete({ id: prepaymentId, assetId });
+    return (res.affected ?? 0) > 0;
+  }
+
+  async listEstimations(assetId: number): Promise<EstimationRow[]> {
+    const ds = await getDataSource();
+    return ds.getRepository(EstimationEntity).find({
+      where: { assetId },
+      // Newest first: the page reads the head of this list and nothing else.
+      order: { createdAt: "DESC", id: "DESC" },
+    });
+  }
+
+  async addEstimation(input: NewEstimation): Promise<Estimation> {
+    const ds = await getDataSource();
+    const entity = Estimation.create(input);
+    const saved = await ds.getRepository(EstimationEntity).save(entity.toRow());
+    return Estimation.reconstitute(saved);
+  }
+
+  async deleteEstimation(assetId: number, estimationId: number): Promise<boolean> {
+    const ds = await getDataSource();
+    const res = await ds.getRepository(EstimationEntity).delete({ id: estimationId, assetId });
     return (res.affected ?? 0) > 0;
   }
 
